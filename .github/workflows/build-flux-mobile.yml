@@ -14,9 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      FLUX_CORE_URL: ${{ secrets.FLUX_CORE_URL }}
-      FLUX_MOBILE_TOKEN: ${{ secrets.FLUX_MOBILE_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,23 +33,24 @@ jobs:
       - name: Verify no credentials are stored in source
         run: test ! -e apps/android/flux.mobile.token
 
-      - name: Compile release APK
+      - name: Compile setup APK without credentials
         working-directory: apps/android
+        env:
+          FLUX_CORE_URL: ""
+          FLUX_MOBILE_TOKEN: ""
         run: ./gradlew :app:assembleRelease --stacktrace
 
-      - name: Prepare configured APK
-        if: ${{ env.FLUX_CORE_URL != '' && env.FLUX_MOBILE_TOKEN != '' }}
-        run: cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.2.4-link.apk
+      - name: Prepare APK and checksum
+        run: |
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.2.4-link.apk
+          sha256sum FLUX-Mobile-1.2.4-link.apk > FLUX-Mobile-1.2.4-link.sha256
 
-      - name: Upload configured APK
-        if: ${{ env.FLUX_CORE_URL != '' && env.FLUX_MOBILE_TOKEN != '' }}
+      - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
           name: FLUX-Mobile-1.2.4-link
-          path: FLUX-Mobile-1.2.4-link.apk
+          path: |
+            FLUX-Mobile-1.2.4-link.apk
+            FLUX-Mobile-1.2.4-link.sha256
           if-no-files-found: error
           retention-days: 7
-
-      - name: Explain missing production configuration
-        if: ${{ env.FLUX_CORE_URL == '' || env.FLUX_MOBILE_TOKEN == '' }}
-        run: echo "Compilation passed, but the installable artifact was not published because production secrets are not configured."
