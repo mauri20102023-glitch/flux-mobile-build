@@ -6,6 +6,9 @@
   "observability": {
     "enabled": true
   },
+  "ai": {
+    "binding": "AI"
+  },
   "durable_objects": {
     "bindings": [
       {
@@ -27,6 +30,8 @@
     "AI_STANDARD_MODEL": "gpt-5.6-terra",
     "AI_DEEP_MODEL": "gpt-5.6-sol",
     "ELEVENLABS_VOICE_ID": "0UODmc3E7WJdP8dVJWTB",
-    "ELEVENLABS_MODEL_ID": "eleven_flash_v2_5"
+    "ELEVENLABS_MODEL_ID": "eleven_flash_v2_5",
+    "WORKERS_AI_TEXT_MODEL": "@cf/openai/gpt-oss-20b",
+    "WORKERS_AI_TTS_MODEL": "@cf/myshell-ai/melotts"
   }
 }

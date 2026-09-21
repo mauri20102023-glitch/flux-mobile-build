@@ -46,8 +46,13 @@ interface DurableObjectNamespace {
   getByName(name: string): DurableObjectStub;
 }
 
+interface WorkersAi {
+  run(model: string, input: Record<string, unknown>): Promise<unknown>;
+}
+
 export interface Env {
   FLUX_STATE: DurableObjectNamespace;
+  AI?: WorkersAi;
   FLUX_AUTH_TOKEN?: string;
   FLUX_PAIRING_PUBLIC_KEY?: string;
   OPENAI_API_KEY?: string;
@@ -58,6 +63,8 @@ export interface Env {
   AI_DEEP_MODEL?: string;
   ELEVENLABS_VOICE_ID?: string;
   ELEVENLABS_MODEL_ID?: string;
+  WORKERS_AI_TEXT_MODEL?: string;
+  WORKERS_AI_TTS_MODEL?: string;
   FLUX_SYSTEM_PROMPT?: string;
 }
 
@@ -130,7 +137,7 @@ const worker = {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     if (url.pathname === "/health") {
-      return json({ status: "ok", service: "flux-core-edge", version: "1.3.0-online" }, 200, corsHeaders());
+      return json({ status: "ok", service: "flux-core-edge", version: "1.3.1-online" }, 200, corsHeaders());
     }
     try {
       const stub = env.FLUX_STATE.getByName("primary-owner");
@@ -231,8 +238,8 @@ export class FluxState {
   }
 
   private diagnostics(): Response {
-    const aiReady = Boolean(this.env.OPENAI_API_KEY);
-    const voiceReady = Boolean(this.env.ELEVENLABS_API_KEY);
+    const aiReady = Boolean(this.env.OPENAI_API_KEY || this.env.AI);
+    const voiceReady = Boolean(this.env.ELEVENLABS_API_KEY || this.env.AI);
     return json({
       diagnostics: {
         core: "OK",
@@ -244,11 +251,11 @@ export class FluxState {
         realtime: "LIMITED",
         memory: "OK",
         authentication: "DEVICE_PAIRED",
-        version: "1.3.0-online",
+        version: "1.3.1-online",
         checkedAt: new Date().toISOString(),
       },
       aiProfile: {
-        provider: "openai",
+        provider: this.env.OPENAI_API_KEY ? "openai" : this.env.AI ? "cloudflare-workers-ai" : "unavailable",
         ready: aiReady,
         endpoint: "secure-cloud",
         usageBased: true,
@@ -259,8 +266,10 @@ export class FluxState {
         },
       },
       voiceProfile: {
-        provider: voiceReady ? "elevenlabs" : "unavailable",
-        official: voiceReady,
+        provider: this.env.ELEVENLABS_API_KEY
+          ? "elevenlabs-with-workers-ai-fallback"
+          : this.env.AI ? "cloudflare-workers-ai" : "unavailable",
+        official: Boolean(this.env.ELEVENLABS_API_KEY),
         name: voiceReady ? "FLUX_VOICE_01" : "unavailable",
       },
     });
@@ -281,7 +290,9 @@ export class FluxState {
   }
 
   private async chat(request: Request): Promise<Response> {
-    if (!this.env.OPENAI_API_KEY) throw new FluxHttpError(503, "A inteligência do FLUX ainda não foi ativada.");
+    if (!this.env.OPENAI_API_KEY && !this.env.AI) {
+      throw new FluxHttpError(503, "A inteligência do FLUX ainda não foi ativada.");
+    }
     const raw = await this.readObject(request);
     const input: ChatRequest = {
       requestId: this.requiredString(raw.requestId, "requestId", 80),
@@ -319,48 +330,51 @@ export class FluxState {
   }
 
   private async synthesize(request: Request): Promise<Response> {
-    if (!this.env.ELEVENLABS_API_KEY) throw new FluxHttpError(503, "A FLUX Voice 01 ainda não foi ativada.");
     const body = await this.readObject(request);
     const text = this.requiredString(body.text, "text", 5_000);
-    const voiceId = this.env.ELEVENLABS_VOICE_ID ?? "0UODmc3E7WJdP8dVJWTB";
-    const modelId = this.env.ELEVENLABS_MODEL_ID ?? "eleven_flash_v2_5";
-    const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream?output_format=mp3_44100_128`;
     let lastStatus = 502;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "xi-api-key": this.env.ELEVENLABS_API_KEY,
-          "content-type": "application/json",
-          accept: "audio/mpeg",
-        },
-        body: JSON.stringify({
-          text,
-          model_id: modelId,
-          language_code: "pt",
-          voice_settings: {
-            stability: 0.55,
-            similarity_boost: 0.8,
-            style: 0.25,
-            use_speaker_boost: true,
-          },
-        }),
-      });
-      if (response.ok && response.body) {
-        return new Response(response.body, {
-          status: 200,
+    if (this.env.ELEVENLABS_API_KEY) {
+      const voiceId = this.env.ELEVENLABS_VOICE_ID ?? "0UODmc3E7WJdP8dVJWTB";
+      const modelId = this.env.ELEVENLABS_MODEL_ID ?? "eleven_flash_v2_5";
+      const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream?output_format=mp3_44100_128`;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const response = await fetch(url, {
+          method: "POST",
           headers: {
-            "content-type": response.headers.get("content-type") ?? "audio/mpeg",
-            "cache-control": "no-store",
-            "x-flux-voice": "FLUX_VOICE_01",
+            "xi-api-key": this.env.ELEVENLABS_API_KEY,
+            "content-type": "application/json",
+            accept: "audio/mpeg",
           },
+          body: JSON.stringify({
+            text,
+            model_id: modelId,
+            language_code: "pt",
+            voice_settings: {
+              stability: 0.55,
+              similarity_boost: 0.8,
+              style: 0.25,
+              use_speaker_boost: true,
+            },
+          }),
         });
+        if (response.ok && response.body) {
+          return new Response(response.body, {
+            status: 200,
+            headers: {
+              "content-type": response.headers.get("content-type") ?? "audio/mpeg",
+              "cache-control": "no-store",
+              "x-flux-voice": "FLUX_VOICE_01",
+              "x-flux-voice-provider": "elevenlabs",
+            },
+          });
+        }
+        lastStatus = response.status;
+        const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+        if (!retryable || attempt === 2) break;
+        await this.pause(300 * (2 ** attempt));
       }
-      lastStatus = response.status;
-      const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
-      if (!retryable || attempt === 2) break;
-      await this.pause(300 * (2 ** attempt));
     }
+    if (this.env.AI) return await this.synthesizeWithWorkersAi(text);
     throw new FluxHttpError(503, `A FLUX Voice está temporariamente indisponível (${lastStatus}).`);
   }
 
@@ -370,6 +384,9 @@ export class FluxState {
     message: string,
     requestId: string,
   ): Promise<string> {
+    if (!this.env.OPENAI_API_KEY && this.env.AI) {
+      return await this.generateWithWorkersAi(mode, history, message);
+    }
     const apiUrl = `${(this.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "")}/responses`;
     const body = JSON.stringify({
       model: this.model(mode),
@@ -420,6 +437,68 @@ export class FluxState {
       }
     }
     throw new FluxHttpError(503, `A inteligência do FLUX está temporariamente indisponível (${lastError}).`);
+  }
+
+  private async generateWithWorkersAi(
+    mode: FluxMode,
+    history: StoredMessage[],
+    message: string,
+  ): Promise<string> {
+    const model = this.env.WORKERS_AI_TEXT_MODEL ?? "@cf/openai/gpt-oss-20b";
+    const messages = [
+      { role: "system", content: this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS },
+      ...history.map(({ role, content }) => ({ role, content })),
+      { role: "user", content: message },
+    ];
+    let lastError = "falha temporária";
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const raw = await this.env.AI!.run(model, {
+          messages,
+          max_tokens: mode === "FAST" ? 700 : mode === "STANDARD" ? 1_800 : 3_500,
+          temperature: mode === "FAST" ? 0.25 : 0.45,
+        }) as { response?: string; result?: { response?: string } };
+        const content = (raw?.response ?? raw?.result?.response ?? "").trim();
+        if (content) return content;
+        lastError = "resposta vazia";
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : "falha de rede";
+      }
+      if (attempt < 2) await this.pause(this.backoffMs(attempt));
+    }
+    throw new FluxHttpError(503, `A inteligência do FLUX está temporariamente indisponível (${lastError}).`);
+  }
+
+  private async synthesizeWithWorkersAi(text: string): Promise<Response> {
+    try {
+      const audio = await this.env.AI!.run(
+        this.env.WORKERS_AI_TTS_MODEL ?? "@cf/myshell-ai/melotts",
+        { prompt: text, lang: "pt" },
+      );
+      const body = this.workersAiAudioBody(audio);
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "audio/mpeg",
+          "cache-control": "no-store",
+          "x-flux-voice": "FLUX_VOICE_01",
+          "x-flux-voice-provider": "cloudflare-workers-ai",
+        },
+      });
+    } catch {
+      throw new FluxHttpError(503, "A FLUX Voice está temporariamente indisponível.");
+    }
+  }
+
+  private workersAiAudioBody(audio: unknown): BodyInit {
+    if (audio instanceof ReadableStream || audio instanceof ArrayBuffer) return audio;
+    if (ArrayBuffer.isView(audio)) return audio as ArrayBufferView;
+    if (typeof audio === "string") return this.decodeBase64(audio);
+    if (audio && typeof audio === "object" && "audio" in audio) {
+      const encoded = (audio as { audio?: unknown }).audio;
+      if (typeof encoded === "string") return this.decodeBase64(encoded);
+    }
+    throw new Error("Formato de áudio inesperado.");
   }
 
   private selectMode(message: string): FluxMode {
