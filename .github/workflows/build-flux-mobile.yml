@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.2.4
+name: Build FLUX Mobile 1.3.0
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract sanitized Android source
-        run: unzip -q source/FLUX-Mobile-Android-1.2.4.zip
+        run: unzip -q source/FLUX-Mobile-Android-1.3.0.zip
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -30,27 +30,42 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify no credentials are stored in source
-        run: test ! -e apps/android/flux.mobile.token
+      - name: Verify no private pairing key is stored in source
+        run: test ! -e apps/android/flux.mobile.pairing
 
-      - name: Compile setup APK without credentials
+      - name: Check private APK configuration
+        id: pairing
+        env:
+          FLUX_MOBILE_PAIRING_PRIVATE_KEY: "${{ secrets.FLUX_MOBILE_PAIRING_PRIVATE_KEY }}"
+        run: |
+          if [ -n "$FLUX_MOBILE_PAIRING_PRIVATE_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Private APK build skipped: repository secret is not configured."
+          fi
+
+      - name: Compile setup APK
+        if: steps.pairing.outputs.enabled == 'true'
         working-directory: apps/android
         env:
-          FLUX_CORE_URL: ""
-          FLUX_MOBILE_TOKEN: ""
+          FLUX_CORE_URL: "https://flux-mobile-build2.mauri20102023.workers.dev"
+          FLUX_MOBILE_PAIRING_PRIVATE_KEY: "${{ secrets.FLUX_MOBILE_PAIRING_PRIVATE_KEY }}"
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Prepare APK and checksum
+        if: steps.pairing.outputs.enabled == 'true'
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.2.4-link.apk
-          sha256sum FLUX-Mobile-1.2.4-link.apk > FLUX-Mobile-1.2.4-link.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.3.0.apk
+          sha256sum FLUX-Mobile-1.3.0.apk > FLUX-Mobile-1.3.0.sha256
 
       - name: Upload setup APK
+        if: steps.pairing.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.2.4-link
+          name: FLUX-Mobile-1.3.0
           path: |
-            FLUX-Mobile-1.2.4-link.apk
-            FLUX-Mobile-1.2.4-link.sha256
+            FLUX-Mobile-1.3.0.apk
+            FLUX-Mobile-1.3.0.sha256
           if-no-files-found: error
           retention-days: 7

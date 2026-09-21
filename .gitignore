@@ -2,3 +2,15 @@ node_modules/
 .wrangler/
 .dev.vars
 *.log
+work/
+*.apk
+*.aab
+local.properties
+flux.mobile.bootstrap
+flux.mobile.pairing
+flux.mobile.token
+.gradle/
+build/
+**/build/
+apt-cache/
+toolchain/

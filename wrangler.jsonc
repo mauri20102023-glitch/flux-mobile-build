@@ -22,6 +22,7 @@
   ],
   "vars": {
     "OPENAI_BASE_URL": "https://api.openai.com/v1",
+    "FLUX_PAIRING_PUBLIC_KEY": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0p/kmI/0x+2Tm8J48oRVLTDR+xrYbqZ7IuT5ub2kbN60o7ebxvIWr7h7/W9L2l9oS6d8Gx1yOZsPmIHst+ZN1RhyydjhYl5ZsdQckp0R0qyZ4INBLNbKnOo9DdgAXR8YoIX1cAEKGcoWwMq/DC1KkJaD8SiVRmTI1mgUtZZrfoOTlz85XppkgWxk4L6zGFFGtqkr/Lz/P2pAv/ulJDqToui8P1yfLgPdS6ZplUj4f6uopLSIEd8ycBbCiOkXgK3tKBVsIu3nLC0Y2A0L5A9co5xuhWkcwdcpv7eHFZQGNIhbY8BRgNUdLqLNa+VdAoGQl3mqtSghTjPflUbbfRtZCwIDAQAB",
     "AI_FAST_MODEL": "gpt-5.6-luna",
     "AI_STANDARD_MODEL": "gpt-5.6-terra",
     "AI_DEEP_MODEL": "gpt-5.6-sol",

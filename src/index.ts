@@ -21,6 +21,14 @@ interface ChatResponse {
   outputDeviceId: string;
 }
 
+interface PairRequest {
+  deviceId: string;
+  deviceName?: string;
+  timestamp: number;
+  nonce: string;
+  signature: string;
+}
+
 interface DurableObjectStorage {
   get<T>(key: string): Promise<T | undefined>;
   put<T>(key: string, value: T): Promise<void>;
@@ -41,6 +49,7 @@ interface DurableObjectNamespace {
 export interface Env {
   FLUX_STATE: DurableObjectNamespace;
   FLUX_AUTH_TOKEN?: string;
+  FLUX_PAIRING_PUBLIC_KEY?: string;
   OPENAI_API_KEY?: string;
   ELEVENLABS_API_KEY?: string;
   OPENAI_BASE_URL?: string;
@@ -121,10 +130,7 @@ const worker = {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     if (url.pathname === "/health") {
-      return json({ status: "ok", service: "flux-core-edge", version: "1.2.4-online" }, 200, corsHeaders());
-    }
-    if (!isAuthorized(request, env)) {
-      return json({ error: "UNAUTHORIZED" }, 401, corsHeaders());
+      return json({ status: "ok", service: "flux-core-edge", version: "1.3.0-online" }, 200, corsHeaders());
     }
     try {
       const stub = env.FLUX_STATE.getByName("primary-owner");
@@ -146,6 +152,8 @@ export class FluxState {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     try {
+      if (request.method === "POST" && url.pathname === "/v1/pair") return await this.pair(request);
+      if (!(await this.isAuthorized(request))) return json({ error: "UNAUTHORIZED" }, 401);
       if (request.method === "GET" && url.pathname === "/v1/diagnostics") return this.diagnostics();
       if (request.method === "POST" && url.pathname === "/v1/devices/register") return await this.registerDevice(request);
       if (request.method === "POST" && url.pathname === "/v1/chat") return await this.chat(request);
@@ -154,6 +162,72 @@ export class FluxState {
     } catch (error) {
       return safeError(error);
     }
+  }
+
+  private async pair(request: Request): Promise<Response> {
+    if (!this.env.FLUX_PAIRING_PUBLIC_KEY) {
+      throw new FluxHttpError(503, "O pareamento seguro ainda não foi ativado.");
+    }
+    const raw = await this.readObject(request);
+    const input: PairRequest = {
+      deviceId: this.requiredString(raw.deviceId, "deviceId", 120),
+      ...(typeof raw.deviceName === "string" ? { deviceName: raw.deviceName.slice(0, 120) } : {}),
+      timestamp: typeof raw.timestamp === "number" ? raw.timestamp : Number.NaN,
+      nonce: this.requiredString(raw.nonce, "nonce", 120),
+      signature: this.requiredString(raw.signature, "signature", 800),
+    };
+    if (!Number.isSafeInteger(input.timestamp) || Math.abs(Date.now() - input.timestamp) > 5 * 60 * 1_000) {
+      throw new FluxHttpError(400, "Solicitação de pareamento expirada.");
+    }
+    if (!/^[A-Za-z0-9_-]{24,120}$/.test(input.nonce)) {
+      throw new FluxHttpError(400, "nonce inválido.");
+    }
+    const hour = new Date().toISOString().slice(0, 13);
+    const remote = (request.headers.get("cf-connecting-ip") ?? "unknown").slice(0, 80);
+    const rateKey = `pair-rate:${remote}:${hour}`;
+    const attempts = (await this.state.storage.get<number>(rateKey) ?? 0) + 1;
+    await this.state.storage.put(rateKey, attempts);
+    if (attempts > 12) return json({ error: "PAIRING_RATE_LIMITED" }, 429);
+
+    const nonceKey = `pair-nonce:${input.nonce}`;
+    if (await this.state.storage.get<number>(nonceKey)) {
+      return json({ error: "PAIRING_REPLAY_DENIED" }, 401);
+    }
+    const signedPayload = `flux-pair-v1\n${input.deviceId}\n${input.timestamp}\n${input.nonce}`;
+    if (!(await this.verifyPairingSignature(signedPayload, input.signature))) {
+      return json({ error: "PAIRING_DENIED" }, 401);
+    }
+    await this.state.storage.put(nonceKey, input.timestamp);
+
+    const tokenBytes = new Uint8Array(32);
+    crypto.getRandomValues(tokenBytes);
+    const deviceToken = this.base64Url(tokenBytes);
+    const pairedAt = new Date().toISOString();
+    await Promise.all([
+      this.state.storage.put(`device-auth:${input.deviceId}`, await this.sha256(deviceToken)),
+      this.state.storage.put(`device:${input.deviceId}`, {
+        deviceId: input.deviceId,
+        name: input.deviceName ?? "FLUX Mobile",
+        deviceType: "MOBILE",
+        platform: "Android",
+        online: true,
+        pairedAt,
+        lastSeen: pairedAt,
+        trustLevel: "PAIRED",
+      }),
+    ]);
+    return json({ deviceToken, deviceId: input.deviceId, pairedAt }, 201);
+  }
+
+  private async isAuthorized(request: Request): Promise<boolean> {
+    const authorization = request.headers.get("authorization") ?? "";
+    const token = authorization.replace(/^Bearer\s+/i, "").trim();
+    if (token.length < 32) return false;
+    if (isAuthorized(request, this.env)) return true;
+    const deviceId = (request.headers.get("x-flux-device-id") ?? "").trim();
+    if (!deviceId || deviceId.length > 120) return false;
+    const expected = await this.state.storage.get<string>(`device-auth:${deviceId}`);
+    return Boolean(expected) && this.constantTimeEquals(await this.sha256(token), expected!);
   }
 
   private diagnostics(): Response {
@@ -169,6 +243,8 @@ export class FluxState {
         tv: "NOT_CONFIGURED",
         realtime: "LIMITED",
         memory: "OK",
+        authentication: "DEVICE_PAIRED",
+        version: "1.3.0-online",
         checkedAt: new Date().toISOString(),
       },
       aiProfile: {
@@ -398,5 +474,50 @@ export class FluxState {
 
   private async pause(milliseconds: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+
+  private async sha256(value: string): Promise<string> {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  private async verifyPairingSignature(payload: string, signature: string): Promise<boolean> {
+    try {
+      const publicKey = await crypto.subtle.importKey(
+        "spki",
+        this.decodeBase64(this.env.FLUX_PAIRING_PUBLIC_KEY!),
+        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+        false,
+        ["verify"],
+      );
+      return await crypto.subtle.verify(
+        "RSASSA-PKCS1-v1_5",
+        publicKey,
+        this.decodeBase64(signature),
+        new TextEncoder().encode(payload),
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private decodeBase64(value: string): Uint8Array {
+    const binary = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  }
+
+  private constantTimeEquals(left: string, right: string): boolean {
+    if (left.length !== right.length) return false;
+    let difference = 0;
+    for (let index = 0; index < left.length; index += 1) {
+      difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+    }
+    return difference === 0;
+  }
+
+  private base64Url(value: Uint8Array): string {
+    let binary = "";
+    for (const byte of value) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 }
