@@ -1,4 +1,4 @@
-# FLUX Mobile 1.3.1
+# FLUX Mobile 1.3.2
 
 Cliente Android do ecossistema FLUX.
 

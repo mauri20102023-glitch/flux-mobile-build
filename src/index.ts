@@ -47,7 +47,11 @@ interface DurableObjectNamespace {
 }
 
 interface WorkersAi {
-  run(model: string, input: Record<string, unknown>): Promise<unknown>;
+  run(
+    model: string,
+    input: Record<string, unknown>,
+    options?: { returnRawResponse?: boolean },
+  ): Promise<unknown>;
 }
 
 export interface Env {
@@ -137,7 +141,7 @@ const worker = {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     if (url.pathname === "/health") {
-      return json({ status: "ok", service: "flux-core-edge", version: "1.3.1-online" }, 200, corsHeaders());
+      return json({ status: "ok", service: "flux-core-edge", version: "1.3.2-online" }, 200, corsHeaders());
     }
     try {
       const stub = env.FLUX_STATE.getByName("primary-owner");
@@ -251,7 +255,7 @@ export class FluxState {
         realtime: "LIMITED",
         memory: "OK",
         authentication: "DEVICE_PAIRED",
-        version: "1.3.1-online",
+        version: "1.3.2-online",
         checkedAt: new Date().toISOString(),
       },
       aiProfile: {
@@ -457,8 +461,24 @@ export class FluxState {
           messages,
           max_tokens: mode === "FAST" ? 700 : mode === "STANDARD" ? 1_800 : 3_500,
           temperature: mode === "FAST" ? 0.25 : 0.45,
-        }) as { response?: string; result?: { response?: string } };
-        const content = (raw?.response ?? raw?.result?.response ?? "").trim();
+        }) as {
+          response?: string;
+          output_text?: string;
+          result?: { response?: string };
+          choices?: Array<{ message?: { content?: string } }>;
+          output?: Array<{ content?: Array<{ text?: string; refusal?: string }> }>;
+        };
+        const content = (
+          raw?.response
+          ?? raw?.output_text
+          ?? raw?.result?.response
+          ?? raw?.choices?.[0]?.message?.content
+          ?? raw?.output
+            ?.flatMap((item) => item.content ?? [])
+            .map((part) => part.text ?? part.refusal ?? "")
+            .join("")
+          ?? ""
+        ).trim();
         if (content) return content;
         lastError = "resposta vazia";
       } catch (error) {
@@ -470,24 +490,40 @@ export class FluxState {
   }
 
   private async synthesizeWithWorkersAi(text: string): Promise<Response> {
-    try {
-      const audio = await this.env.AI!.run(
-        this.env.WORKERS_AI_TTS_MODEL ?? "@cf/myshell-ai/melotts",
-        { prompt: text, lang: "pt" },
-      );
-      const body = this.workersAiAudioBody(audio);
-      return new Response(body, {
-        status: 200,
-        headers: {
-          "content-type": "audio/mpeg",
-          "cache-control": "no-store",
-          "x-flux-voice": "FLUX_VOICE_01",
-          "x-flux-voice-provider": "cloudflare-workers-ai",
-        },
-      });
-    } catch {
-      throw new FluxHttpError(503, "A FLUX Voice está temporariamente indisponível.");
+    for (const lang of ["pt", "es"]) {
+      try {
+        const audio = await this.env.AI!.run(
+          this.env.WORKERS_AI_TTS_MODEL ?? "@cf/myshell-ai/melotts",
+          { prompt: text, lang },
+          { returnRawResponse: true },
+        );
+        if (audio instanceof Response) {
+          if (!audio.ok || !audio.body) continue;
+          return new Response(audio.body, {
+            status: 200,
+            headers: {
+              "content-type": audio.headers.get("content-type") ?? "audio/mpeg",
+              "cache-control": "no-store",
+              "x-flux-voice": "FLUX_VOICE_01",
+              "x-flux-voice-provider": "cloudflare-workers-ai",
+            },
+          });
+        }
+        const body = this.workersAiAudioBody(audio);
+        return new Response(body, {
+          status: 200,
+          headers: {
+            "content-type": "audio/mpeg",
+            "cache-control": "no-store",
+            "x-flux-voice": "FLUX_VOICE_01",
+            "x-flux-voice-provider": "cloudflare-workers-ai",
+          },
+        });
+      } catch {
+        // Tenta o idioma compatível seguinte. O Android ainda possui TTS pt-BR local.
+      }
     }
+    throw new FluxHttpError(503, "A FLUX Voice está temporariamente indisponível.");
   }
 
   private workersAiAudioBody(audio: unknown): BodyInit {
