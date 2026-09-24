@@ -10,6 +10,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  signing-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare Android signing tools
+        run: |
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          mkdir -p flux-signing-tools/lib
+          cp "$BUILD_TOOLS/apksigner" flux-signing-tools/
+          cp "$BUILD_TOOLS/lib/apksigner.jar" flux-signing-tools/lib/
+          cp "$BUILD_TOOLS/zipalign" flux-signing-tools/
+
+      - name: Upload Android signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: flux-signing-tools
+          path: flux-signing-tools
+          if-no-files-found: error
+          retention-days: 1
+
   android:
     runs-on: ubuntu-latest
     permissions:
