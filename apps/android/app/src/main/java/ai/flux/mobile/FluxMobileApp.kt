@@ -702,8 +702,8 @@ private fun ControlScreen(
         Spacer(Modifier.height(8.dp))
         ToggleCard(
             Icons.Default.RecordVoiceOver,
-            "Ativar por “Flux”",
-            "Escuta local com notificação visível; diga “Flux, veja minha tela”",
+            "Ativação mãos-livres por “Flux”",
+            "Modo principal: diga “Flux” ou “Flux, veja minha tela” sem tocar",
             state.wakeWordEnabled,
             onWakeWord,
         )

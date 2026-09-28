@@ -64,7 +64,9 @@ class FluxLocalWorkspace(context: Context) {
 
     fun memoryEnabled(): Boolean = preferences.getBoolean("memory_enabled", true)
     fun moderateProactivity(): Boolean = preferences.getBoolean("moderate_proactivity", true)
-    fun wakeWordEnabled(): Boolean = preferences.getBoolean("wake_word_enabled", false)
+    // Hands-free is the primary FLUX experience. The first launch asks for the
+    // Android microphone/notification permissions; the user can disable it.
+    fun wakeWordEnabled(): Boolean = preferences.getBoolean("wake_word_enabled", true)
     fun accentKey(): String = preferences.getString("accent_key", "red") ?: "red"
 
     fun setMemoryEnabled(value: Boolean) = preferences.edit().putBoolean("memory_enabled", value).apply()

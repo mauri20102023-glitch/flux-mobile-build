@@ -163,10 +163,14 @@ class MainActivity : ComponentActivity() {
         if (::viewModel.isInitialized) {
             updateAssistantRoleState()
             viewModel.reconnect(showFailure = false)
-            if (viewModel.state.value.wakeWordEnabled &&
-                hasPermission(Manifest.permission.RECORD_AUDIO) && hasNotificationPermission()
-            ) {
-                startWakeWordService()
+            if (viewModel.state.value.wakeWordEnabled) {
+                if (hasPermission(Manifest.permission.RECORD_AUDIO) && hasNotificationPermission()) {
+                    startWakeWordService()
+                } else if (permissionAction == null) {
+                    // FLUX is hands-free by default. Android still keeps the user
+                    // in control through its native runtime permission dialog.
+                    setWakeWordEnabled(true)
+                }
             }
         }
     }
