@@ -31,6 +31,24 @@ npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put FLUX_AUTH_TOKEN
 ```
 
+## Publicar o Core
+
+O APK 1.7.3 aponta para `flux-mobile-build2.mauri20102023.workers.dev`, enquanto
+o Worker deste repositório se chama `flux-core-12`. Compilar o APK não publica
+o Worker. Confirme a URL real da implantação antes de gerar outro APK.
+
+Para publicar pelo GitHub Actions, configure os segredos do repositório
+`CLOUDFLARE_API_TOKEN` (token restrito à edição dos Workers desta conta) e
+`CLOUDFLARE_ACCOUNT_ID`. Execute manualmente o fluxo **Deploy FLUX Core**.
+Ele testa o bundle, publica o Worker e valida a resposta de `/health` na URL
+retornada pela Cloudflare. O resultado indica separadamente se chat e Gemini
+Live estão configurados. As chaves de IA continuam como segredos do Worker.
+
+O APK atual não contém credencial de pareamento. Mesmo com o Core publicado,
+ele só usa chat e voz diretamente com a chave Gemini pessoal até existir um
+fluxo seguro de autorização do aparelho. Não inclua a chave privada de
+pareamento no APK.
+
 ## Desenvolvimento
 
 ```sh
