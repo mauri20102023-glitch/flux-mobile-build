@@ -41,19 +41,20 @@ class FluxTextController(
         scope.launch {
             sendMutex.withLock {
                 runCatching {
-                    if (application.connectionSettings.geminiApiKeyConfigured()) {
-                        personalChat()
-                    } else {
-                        check(application.connectionSettings.authTokenConfigured() ||
-                            application.connectionSettings.pairingPrivateKey().isNotBlank()) {
-                            "Ative a chave do Gemini pessoal nos ajustes para conversar com o FLUX."
-                        }
-                        api.chat(
+                    if (application.connectionSettings.authTokenConfigured()) {
+                        runCatching { api.chat(
                             requestId = UUID.randomUUID().toString(),
                             conversationId = conversationId,
                             message = clean,
                             voice = false,
-                        ).content
+                        ).content }.getOrElse { failure ->
+                            if (application.connectionSettings.geminiApiKeyConfigured()) personalChat()
+                            else throw failure
+                        }
+                    } else if (application.connectionSettings.geminiApiKeyConfigured()) {
+                        personalChat()
+                    } else {
+                        error("Pareie o aparelho com o FLUX Core ou ative a chave Gemini pessoal.")
                     }
                 }.onSuccess(onResponse)
                     .onFailure { onError(it.message ?: "Não foi possível conversar com o FLUX.") }

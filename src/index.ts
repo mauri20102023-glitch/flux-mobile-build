@@ -32,6 +32,8 @@ interface PairRequest {
 interface DurableObjectStorage {
   get<T>(key: string): Promise<T | undefined>;
   put<T>(key: string, value: T): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  transaction<T>(callback: (storage: DurableObjectStorage) => Promise<T>): Promise<T>;
 }
 
 interface DurableObjectState {
@@ -183,6 +185,11 @@ export class FluxState {
     const url = new URL(request.url);
     try {
       if (request.method === "POST" && url.pathname === "/v1/pair") return await this.pair(request);
+      if (request.method === "POST" && url.pathname === "/v1/pair/redeem") return await this.redeemInvite(request);
+      if (request.method === "POST" && url.pathname === "/v1/pair/invite") {
+        if (!isAuthorized(request, this.env)) return json({ error: "UNAUTHORIZED" }, 401);
+        return await this.createInvite();
+      }
       if (!(await this.isAuthorized(request))) return json({ error: "UNAUTHORIZED" }, 401);
       if (request.method === "GET" && url.pathname === "/v1/diagnostics") return this.diagnostics();
       if (request.method === "POST" && url.pathname === "/v1/devices/register") return await this.registerDevice(request);
@@ -232,15 +239,53 @@ export class FluxState {
     }
     await this.state.storage.put(nonceKey, input.timestamp);
 
+    return this.issueDeviceToken(input.deviceId, input.deviceName);
+  }
+
+  private async createInvite(): Promise<Response> {
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const code = this.base64Url(bytes);
+    const expiresAt = Date.now() + 15 * 60 * 1_000;
+    await this.state.storage.put(`pair-invite:${await this.sha256(code)}`, expiresAt);
+    return json({ code, expiresAt: new Date(expiresAt).toISOString() }, 201);
+  }
+
+  private async redeemInvite(request: Request): Promise<Response> {
+    const raw = await this.readObject(request);
+    const deviceId = this.requiredString(raw.deviceId, "deviceId", 120);
+    const deviceName = typeof raw.deviceName === "string" ? raw.deviceName.slice(0, 120) : undefined;
+    const code = this.requiredString(raw.code, "code", 80);
+    if (!/^[A-Za-z0-9_-]{32}$/.test(code)) return json({ error: "PAIRING_DENIED" }, 401);
+
+    const hour = new Date().toISOString().slice(0, 13);
+    const remote = (request.headers.get("cf-connecting-ip") ?? "unknown").slice(0, 80);
+    const rateKey = `pair-invite-rate:${remote}:${hour}`;
+    const attempts = (await this.state.storage.get<number>(rateKey) ?? 0) + 1;
+    await this.state.storage.put(rateKey, attempts);
+    if (attempts > 12) return json({ error: "PAIRING_RATE_LIMITED" }, 429);
+
+    const inviteKey = `pair-invite:${await this.sha256(code)}`;
+    const valid = await this.state.storage.transaction(async storage => {
+      const expiresAt = await storage.get<number>(inviteKey);
+      if (!expiresAt || expiresAt < Date.now()) return false;
+      await storage.delete(inviteKey);
+      return true;
+    });
+    if (!valid) return json({ error: "PAIRING_DENIED" }, 401);
+    return this.issueDeviceToken(deviceId, deviceName);
+  }
+
+  private async issueDeviceToken(deviceId: string, deviceName?: string): Promise<Response> {
     const tokenBytes = new Uint8Array(32);
     crypto.getRandomValues(tokenBytes);
     const deviceToken = this.base64Url(tokenBytes);
     const pairedAt = new Date().toISOString();
     await Promise.all([
-      this.state.storage.put(`device-auth:${input.deviceId}`, await this.sha256(deviceToken)),
-      this.state.storage.put(`device:${input.deviceId}`, {
-        deviceId: input.deviceId,
-        name: input.deviceName ?? "FLUX Mobile",
+      this.state.storage.put(`device-auth:${deviceId}`, await this.sha256(deviceToken)),
+      this.state.storage.put(`device:${deviceId}`, {
+        deviceId,
+        name: deviceName ?? "FLUX Mobile",
         deviceType: "MOBILE",
         platform: "Android",
         online: true,
@@ -249,7 +294,7 @@ export class FluxState {
         trustLevel: "PAIRED",
       }),
     ]);
-    return json({ deviceToken, deviceId: input.deviceId, pairedAt }, 201);
+    return json({ deviceToken, deviceId, pairedAt }, 201);
   }
 
   private async isAuthorized(request: Request): Promise<boolean> {

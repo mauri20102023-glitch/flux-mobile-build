@@ -125,6 +125,7 @@ fun FluxMobileApp(
     onOpenVision: () -> Unit,
     onCoreUrlChange: (String) -> Unit,
     onCoreTest: () -> Unit,
+    onPairCode: (String) -> Unit,
     onGeminiKeyChange: (String) -> Unit,
     onGeminiKeyClear: () -> Unit,
     onAddTask: (String) -> Unit,
@@ -160,7 +161,7 @@ fun FluxMobileApp(
                 )
                 FluxTab.LAB -> LabScreen(state, onGenerateImage)
                 FluxTab.CONTROL -> ControlScreen(
-                    state, onCoreUrlChange, onCoreTest, onTestVoice,
+                    state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
                     onProactivityEnabled, onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
                     onGeminiKeyChange, onGeminiKeyClear,
@@ -631,6 +632,7 @@ private fun ControlScreen(
     state: FluxUiState,
     onCoreUrlChange: (String) -> Unit,
     onReconnect: () -> Unit,
+    onPairCode: (String) -> Unit,
     onTestVoice: () -> Unit,
     onAssistant: () -> Unit,
     onAppSettings: () -> Unit,
@@ -645,6 +647,7 @@ private fun ControlScreen(
     onGeminiKeyClear: () -> Unit,
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
+    var pairCode by remember { mutableStateOf("") }
     var geminiKey by rememberSaveable { mutableStateOf("") }
     var showGeminiKey by rememberSaveable { mutableStateOf(false) }
 
@@ -660,7 +663,7 @@ private fun ControlScreen(
             state.coreOnline,
             when {
                 state.coreOnline -> "Conexão persistente ativa"
-                !state.corePairingAvailable && !state.coreAuthConfigured -> "Pareamento ausente neste APK"
+                !state.coreAuthConfigured -> "Aguardando código de pareamento"
                 state.isConnecting -> "Tentando reconectar"
                 else -> "Servidor ainda não alcançado"
             },
@@ -676,31 +679,39 @@ private fun ControlScreen(
             if (state.voiceConfigured) state.voiceProvider else "Precisa de ativação",
         )
         Spacer(Modifier.height(12.dp))
-        if (state.corePairingAvailable || state.coreAuthConfigured) {
+        if (state.coreAuthConfigured) {
             OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
             Spacer(Modifier.height(8.dp))
         }
         OutlinedAction("TESTAR GEMINI LIVE", Icons.Default.VolumeUp, onTestVoice)
 
-        if (state.corePairingAvailable || state.coreAuthConfigured) {
-            Spacer(Modifier.height(22.dp))
-            SectionLabel("FLUX LINK")
-            Text("O servidor e a credencial do aparelho são configurados automaticamente.",
-                color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
-            Spacer(Modifier.height(10.dp))
-            PulseField(
-                value = coreUrl,
-                onValueChange = { coreUrl = it },
-                placeholder = "https://seu-core.workers.dev",
+        Spacer(Modifier.height(22.dp))
+        SectionLabel("FLUX LINK")
+        Text("Servidor do FLUX Core. Para conectar este aparelho, use um código temporário de pareamento.",
+            color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+        Spacer(Modifier.height(10.dp))
+        PulseField(
+            value = coreUrl,
+            onValueChange = { coreUrl = it },
+            placeholder = "https://seu-core.workers.dev",
+        )
+        Spacer(Modifier.height(10.dp))
+        SystemStatus("Pareamento seguro", state.coreAuthConfigured,
+            if (state.coreAuthConfigured) "Credencial protegida pelo Android" else "Aguardando código temporário")
+        Spacer(Modifier.height(10.dp))
+        PrimaryButton("SALVAR ENDEREÇO", Icons.Default.Link) { onCoreUrlChange(coreUrl) }
+        if (!state.coreAuthConfigured) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = pairCode,
+                onValueChange = { pairCode = it.trim() },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Cole o código temporário", color = Muted) },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
             )
             Spacer(Modifier.height(10.dp))
-            SystemStatus("Pareamento seguro", state.coreAuthConfigured,
-                if (state.coreAuthConfigured) "Credencial protegida pelo Android" else "Configurando automaticamente")
-            Spacer(Modifier.height(10.dp))
-            PrimaryButton("SALVAR E RECONECTAR", Icons.Default.Link) {
-                onCoreUrlChange(coreUrl)
-                onReconnect()
-            }
+            PrimaryButton("PAREAR APARELHO", Icons.Default.Link) { onPairCode(pairCode) }
         }
 
         Spacer(Modifier.height(22.dp))

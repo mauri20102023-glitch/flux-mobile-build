@@ -38,7 +38,6 @@ class FluxViewModel(
         messages = cache.loadMessages(),
         coreUrl = connectionSettings.coreUrl(),
         coreAuthConfigured = connectionSettings.authTokenConfigured(),
-        corePairingAvailable = connectionSettings.pairingPrivateKey().isNotBlank(),
         geminiKeyConfigured = connectionSettings.geminiApiKeyConfigured(),
         voiceConfigured = connectionSettings.geminiApiKeyConfigured(),
         voiceProvider = if (connectionSettings.geminiApiKeyConfigured()) "Gemini Live • protegido no aparelho" else "unavailable",
@@ -114,13 +113,13 @@ class FluxViewModel(
 
     private suspend fun connectOnce(showFailure: Boolean): Boolean = connectionMutex.withLock {
         if (!networkAvailable || state.value.coreUrl.isBlank()) return@withLock false
-        if (!connectionSettings.authTokenConfigured() && connectionSettings.pairingPrivateKey().isBlank()) {
+        if (!connectionSettings.authTokenConfigured()) {
             _state.update {
                 it.copy(
                     coreOnline = false,
                     isConnecting = false,
                     error = if (showFailure) {
-                        "O FLUX Core não foi pareado neste APK. Ative o Gemini pessoal abaixo para usar voz e chat."
+                        "Pareie este aparelho com o FLUX Core ou ative o Gemini pessoal para voz e chat."
                     } else it.error,
                 )
             }
@@ -128,7 +127,7 @@ class FluxViewModel(
         }
         _state.update { it.copy(isConnecting = true) }
         runCatching {
-            val diagnostics = diagnoseWithAutomaticPairing()
+            val diagnostics = api.diagnostics()
             runCatching { api.registerMobile() }
             diagnostics
         }.fold(
@@ -165,24 +164,27 @@ class FluxViewModel(
         )
     }
 
-    private suspend fun diagnoseWithAutomaticPairing() = try {
-        if (!connectionSettings.authTokenConfigured()) pairDevice()
-        api.diagnostics()
-    } catch (failure: FluxApiException) {
-        if (failure.statusCode != 401 || connectionSettings.pairingPrivateKey().isBlank()) throw failure
-        connectionSettings.clearAuthToken()
-        pairDevice()
-        api.diagnostics()
-    }
-
-    private suspend fun pairDevice() {
-        val privateKey = connectionSettings.pairingPrivateKey()
-        if (privateKey.isBlank()) {
-            throw FluxApiException(401, false, "O pareamento automático não está disponível nesta instalação.")
+    fun pairWithCode(value: String) {
+        val code = value.trim()
+        if (!Regex("^[A-Za-z0-9_-]{32}$").matches(code)) {
+            reportError("O código de pareamento tem 32 caracteres. Confira e tente novamente.")
+            return
         }
-        val paired = api.pair(privateKey)
-        connectionSettings.updateAuthToken(paired.deviceToken)
-        _state.update { it.copy(coreAuthConfigured = true) }
+        viewModelScope.launch {
+            _state.update { it.copy(isConnecting = true, error = null) }
+            runCatching {
+                val paired = api.redeemPairingCode(code)
+                connectionSettings.updateAuthToken(paired.deviceToken)
+            }.onSuccess {
+                _state.update { it.copy(coreAuthConfigured = true, isConnecting = false) }
+                reconnect(showFailure = true)
+            }.onFailure { failure ->
+                _state.update {
+                    it.copy(isConnecting = false,
+                        error = failure.message ?: "Não foi possível parear o aparelho com o FLUX Core.")
+                }
+            }
+        }
     }
 
     fun updateCoreUrl(value: String) {

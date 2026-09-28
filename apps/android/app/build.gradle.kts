@@ -25,16 +25,6 @@ android {
     }
     val fluxCoreUrl = System.getenv("FLUX_CORE_URL").orEmpty()
         .ifBlank { localBuildProperties.getProperty("flux.core.url").orEmpty() }
-    val privatePairingKeyFile = rootProject.file("flux.mobile.pairing")
-    val fluxPairingPrivateKey = System.getenv("FLUX_MOBILE_PAIRING_PRIVATE_KEY").orEmpty()
-        .ifBlank { localBuildProperties.getProperty("flux.mobile.pairing.privateKey").orEmpty() }
-        .ifBlank {
-            if (privatePairingKeyFile.exists()) {
-                privatePairingKeyFile.readText().trim()
-            } else {
-                ""
-            }
-        }
     fun buildConfigString(value: String): String =
         "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
@@ -42,11 +32,10 @@ android {
         applicationId = "ai.flux.mobile"
         minSdk = 28
         targetSdk = 35
-        versionCode = 30
-        versionName = "1.7.3"
+        versionCode = 31
+        versionName = "1.7.4"
 
         buildConfigField("String", "FLUX_CORE_URL", buildConfigString(fluxCoreUrl))
-        buildConfigField("String", "FLUX_PAIRING_PRIVATE_KEY", buildConfigString(fluxPairingPrivateKey))
     }
 
     buildFeatures {
