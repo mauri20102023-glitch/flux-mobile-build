@@ -187,7 +187,6 @@ class MainActivity : ComponentActivity() {
     private fun requestVoice() {
         val required = buildList {
             add(Manifest.permission.RECORD_AUDIO)
-            if (Build.VERSION.SDK_INT >= 31) add(Manifest.permission.BLUETOOTH_CONNECT)
         }.filterNot(::hasPermission)
 
         if (required.isEmpty()) startListening()

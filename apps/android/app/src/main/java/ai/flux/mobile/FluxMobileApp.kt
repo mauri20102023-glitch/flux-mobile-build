@@ -264,7 +264,7 @@ private fun PulseHeader(state: FluxUiState) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Olá, Maurício", fontSize = 21.sp, fontWeight = FontWeight.Black)
-            Text("FLUX CHAT • MOBILE 1.7.2", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
+            Text("FLUX CHAT • MOBILE 1.7.3", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
         }
         StatusPill(
             label = when {
@@ -272,11 +272,12 @@ private fun PulseHeader(state: FluxUiState) {
                 state.isConnecting -> "CONECTANDO"
                 state.coreOnline && state.aiReady -> "ONLINE"
                 state.coreOnline -> "CORE ONLINE"
+                state.geminiKeyConfigured -> "GEMINI PESSOAL"
                 else -> "CONFIGURAR"
             },
             color = when {
                 state.coreOnline && state.aiReady -> Green
-                state.coreOnline || !state.networkAvailable -> Amber
+                state.coreOnline || state.geminiKeyConfigured || !state.networkAvailable -> Amber
                 else -> PulseRed
             },
         )
@@ -663,7 +664,11 @@ private fun ControlScreen(
                 else -> "Servidor ainda não alcançado"
             },
         )
-        SystemStatus("Inteligência", state.aiReady, if (state.aiReady) "IA pronta para responder" else "Precisa de ativação")
+        SystemStatus("Inteligência", state.aiReady || state.geminiKeyConfigured, when {
+            state.aiReady -> "IA pronta para responder"
+            state.geminiKeyConfigured -> "Gemini pessoal configurado • teste o chat"
+            else -> "Precisa de ativação"
+        })
         SystemStatus(
             "FLUX LIVE",
             state.voiceConfigured && state.voiceOfficial,
@@ -672,12 +677,16 @@ private fun ControlScreen(
         Spacer(Modifier.height(12.dp))
         OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
         Spacer(Modifier.height(8.dp))
-        OutlinedAction("TESTAR VOZ CRIADA", Icons.Default.VolumeUp, onTestVoice)
+        OutlinedAction("TESTAR GEMINI LIVE", Icons.Default.VolumeUp, onTestVoice)
 
         Spacer(Modifier.height(22.dp))
         SectionLabel("FLUX LINK")
         Text(
-            "O servidor e a credencial do aparelho são configurados automaticamente.",
+            if (state.corePairingAvailable || state.coreAuthConfigured) {
+                "O servidor e a credencial do aparelho são configurados automaticamente."
+            } else {
+                "Este APK não recebeu a credencial do FLUX Core. O Gemini pessoal abaixo funciona para voz e chat sem esse pareamento."
+            },
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,
@@ -692,7 +701,11 @@ private fun ControlScreen(
         SystemStatus(
             "Pareamento seguro",
             state.coreAuthConfigured,
-            if (state.coreAuthConfigured) "Credencial protegida pelo Android" else "Configurando automaticamente",
+            when {
+                state.coreAuthConfigured -> "Credencial protegida pelo Android"
+                state.corePairingAvailable -> "Configurando automaticamente"
+                else -> "Indisponível nesta instalação"
+            },
         )
         Spacer(Modifier.height(10.dp))
         PrimaryButton("SALVAR E RECONECTAR", Icons.Default.Link) {

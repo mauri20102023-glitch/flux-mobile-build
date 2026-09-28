@@ -38,7 +38,11 @@ class FluxViewModel(
         messages = cache.loadMessages(),
         coreUrl = connectionSettings.coreUrl(),
         coreAuthConfigured = connectionSettings.authTokenConfigured(),
+        corePairingAvailable = connectionSettings.pairingPrivateKey().isNotBlank(),
         geminiKeyConfigured = connectionSettings.geminiApiKeyConfigured(),
+        voiceConfigured = connectionSettings.geminiApiKeyConfigured(),
+        voiceProvider = if (connectionSettings.geminiApiKeyConfigured()) "Gemini Live • protegido no aparelho" else "unavailable",
+        voiceOfficial = connectionSettings.geminiApiKeyConfigured(),
         tasks = workspace.loadTasks(),
         projects = workspace.loadProjects(),
         memoryEnabled = workspace.memoryEnabled(),
@@ -110,6 +114,18 @@ class FluxViewModel(
 
     private suspend fun connectOnce(showFailure: Boolean): Boolean = connectionMutex.withLock {
         if (!networkAvailable || state.value.coreUrl.isBlank()) return@withLock false
+        if (!connectionSettings.authTokenConfigured() && connectionSettings.pairingPrivateKey().isBlank()) {
+            _state.update {
+                it.copy(
+                    coreOnline = false,
+                    isConnecting = false,
+                    error = if (showFailure) {
+                        "O FLUX Core não foi pareado neste APK. Ative o Gemini pessoal abaixo para usar voz e chat."
+                    } else it.error,
+                )
+            }
+            return@withLock false
+        }
         _state.update { it.copy(isConnecting = true) }
         runCatching {
             val diagnostics = diagnoseWithAutomaticPairing()
@@ -191,6 +207,7 @@ class FluxViewModel(
                 _state.update {
                     it.copy(
                         geminiKeyConfigured = configured,
+                        aiReady = if (configured && !it.coreOnline) false else it.aiReady,
                         voiceConfigured = configured || it.voiceConfigured,
                         voiceProvider = if (configured) "Gemini Live • protegido no aparelho" else it.voiceProvider,
                         voiceOfficial = configured || it.voiceOfficial,
@@ -314,11 +331,14 @@ class FluxViewModel(
         if (clean.isEmpty()) return
         val messages = state.value.messages + UiMessage(role = Role.FLUX, content = clean, mode = "FLUX LIVE")
         cache.saveMessages(messages)
-        _state.update { it.copy(messages = messages, isResponding = false, error = null) }
+        _state.update { it.copy(messages = messages, isResponding = false,
+            aiReady = if (it.geminiKeyConfigured) true else it.aiReady, error = null) }
     }
 
     fun failDirectMessage(message: String) {
-        _state.update { it.copy(isResponding = false, error = message) }
+        _state.update { it.copy(isResponding = false,
+            aiReady = if (it.geminiKeyConfigured && !it.coreOnline) false else it.aiReady,
+            error = message) }
     }
 
     fun generateImage(prompt: String) {

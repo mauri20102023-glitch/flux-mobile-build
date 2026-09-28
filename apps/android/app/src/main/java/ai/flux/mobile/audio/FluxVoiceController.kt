@@ -101,6 +101,10 @@ class FluxVoiceController(
                 authParameter = "key",
             )
         }
+        check(application.connectionSettings.authTokenConfigured() ||
+            application.connectionSettings.pairingPrivateKey().isNotBlank()) {
+            "Ative a chave do Gemini pessoal nos ajustes para conversar por voz."
+        }
         return application.api.voiceSession()
     }
 
