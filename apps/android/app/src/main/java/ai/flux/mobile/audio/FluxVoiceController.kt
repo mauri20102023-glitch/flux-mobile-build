@@ -16,8 +16,10 @@ import ai.flux.mobile.FluxApplication
 import ai.flux.mobile.data.VoiceSessionResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -59,6 +61,8 @@ class FluxVoiceController(
     private var wanted = false
     private var setupComplete = false
     private var reconnectAttempts = 0
+    private var reconnectJob: Job? = null
+    private var lastSetupAt = 0L
     private var resumptionHandle: String? = null
     private var userTranscript = ""
     private var agentTranscript = ""
@@ -71,6 +75,8 @@ class FluxVoiceController(
         }
         wanted = true
         starting = true
+        reconnectAttempts = 0
+        resumptionHandle = null
         onSessionChanged(true)
         scope.launch {
             runCatching { createSession() }
@@ -109,13 +115,19 @@ class FluxVoiceController(
 
     private fun listener(session: VoiceSessionResult) = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            socket = webSocket
-            starting = false
-            webSocket.send(setupMessage(session).toString())
+            scope.launch {
+                if (!wanted || socket !== webSocket) {
+                    webSocket.close(1000, "session-finished")
+                    return@launch
+                }
+                starting = false
+                webSocket.send(setupMessage(session).toString())
+            }
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
             scope.launch {
+                if (!wanted || socket !== webSocket) return@launch
                 runCatching { handleMessage(JSONObject(text)) }
                     .onFailure { onError("O FLUX recebeu uma resposta de voz inválida.") }
             }
@@ -126,47 +138,74 @@ class FluxVoiceController(
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            if (socket === webSocket) socket = null
-            setupComplete = false
-            stopAudio()
-            recoverOrStop()
+            scope.launch { handleDisconnect(webSocket, code, null) }
         }
 
         override fun onFailure(webSocket: WebSocket, throwable: Throwable, response: Response?) {
-            if (socket === webSocket) socket = null
-            setupComplete = false
-            stopAudio()
-            if (wanted && resumptionHandle != null && reconnectAttempts < 2) recoverOrStop()
-            else fail(throwable.message?.takeIf(String::isNotBlank) ?: "Não foi possível conectar ao FLUX Live.")
+            scope.launch { handleDisconnect(webSocket, null, response?.code) }
+        }
+    }
+
+    private fun handleDisconnect(webSocket: WebSocket, closeCode: Int?, httpCode: Int?) {
+        // Callbacks from an old socket must not end a newer connection.
+        if (socket !== webSocket) return
+        socket = null
+        if (setupComplete && android.os.SystemClock.elapsedRealtime() - lastSetupAt >= 30_000L) {
+            reconnectAttempts = 0
+        }
+        setupComplete = false
+        stopAudio()
+        if (!wanted) return
+        when {
+            httpCode == 401 || httpCode == 403 -> fail("O Google recusou a chave de voz. Confira a chave Gemini nos Ajustes.")
+            httpCode == 429 -> fail("O limite de uso do Gemini Live foi atingido. Tente novamente mais tarde.")
+            httpCode == 400 || closeCode == 1008 -> {
+                if (resumptionHandle != null) {
+                    resumptionHandle = null
+                    recoverOrStop()
+                } else fail("O Gemini recusou a sessão de voz. Confira a chave e a configuração nos Ajustes.")
+            }
+            else -> recoverOrStop()
         }
     }
 
     private fun recoverOrStop() {
-        if (wanted && resumptionHandle != null && reconnectAttempts < 2) {
-            reconnectAttempts += 1
-            scope.launch {
-                kotlinx.coroutines.delay(500L * reconnectAttempts)
-                runCatching { createSession() }
-                    .onSuccess { freshSession ->
-                        liveSession = freshSession
-                        connect(freshSession)
+        if (!wanted) return
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            fail("A voz não conseguiu reconectar automaticamente. Verifique a internet e teste a chave Gemini nos Ajustes.")
+            return
+        }
+        reconnectAttempts += 1
+        starting = true
+        reconnectJob?.cancel()
+        reconnectJob = scope.launch {
+            delay(500L shl (reconnectAttempts - 1))
+            if (!wanted) return@launch
+            runCatching { createSession() }
+                .onSuccess { session ->
+                    if (wanted) {
+                        liveSession = session
+                        connect(session)
                     }
-                    .onFailure { fail("Não foi possível retomar a conversa FLUX Live.") }
-            }
-        } else if (wanted) {
-            fail("A conversa foi interrompida. Toque no microfone para reconectar.")
-        } else {
-            scope.launch { onSessionChanged(false) }
+                }
+                .onFailure { failure ->
+                    if (!wanted) return@onFailure
+                    if (failure.message?.contains("não está ativo", ignoreCase = true) == true) {
+                        fail(failure.message ?: "A voz ainda não está configurada.")
+                    } else recoverOrStop()
+                }
         }
     }
 
     private fun setupMessage(session: VoiceSessionResult): JSONObject = JSONObject().apply {
         put("setup", JSONObject().apply {
             put("model", "models/${session.model}")
-            put("responseModalities", JSONArray().put("AUDIO"))
-            put("speechConfig", JSONObject().apply {
-                put("voiceConfig", JSONObject().apply {
-                    put("prebuiltVoiceConfig", JSONObject().put("voiceName", session.voice))
+            put("generationConfig", JSONObject().apply {
+                put("responseModalities", JSONArray().put("AUDIO"))
+                put("speechConfig", JSONObject().apply {
+                    put("voiceConfig", JSONObject().apply {
+                        put("prebuiltVoiceConfig", JSONObject().put("voiceName", session.voice))
+                    })
                 })
             })
             put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", session.systemInstruction))))
@@ -184,13 +223,15 @@ class FluxVoiceController(
                 put("turnCoverage", "TURN_INCLUDES_ONLY_ACTIVITY")
             })
             put("sessionResumption", JSONObject().apply { resumptionHandle?.let { put("handle", it) } })
+            put("contextWindowCompression", JSONObject().put("slidingWindow", JSONObject()))
         })
     }
 
     private fun handleMessage(message: JSONObject) {
         if (message.has("setupComplete")) {
             setupComplete = true
-            reconnectAttempts = 0
+            lastSetupAt = android.os.SystemClock.elapsedRealtime()
+            onSessionChanged(true)
             startRecording()
             pendingContext?.takeIf(String::isNotBlank)?.let(::sendContextNow)
             pendingContext = null
@@ -198,8 +239,11 @@ class FluxVoiceController(
             while (pendingMessages.isNotEmpty()) sendTextNow(pendingMessages.removeFirst(), true)
             return
         }
-        message.optJSONObject("sessionResumptionUpdate")?.optString("newHandle")
-            ?.takeIf(String::isNotBlank)?.let { resumptionHandle = it }
+        message.optJSONObject("sessionResumptionUpdate")?.let { update ->
+            if (update.optBoolean("resumable")) {
+                update.optString("newHandle").takeIf(String::isNotBlank)?.let { resumptionHandle = it }
+            } else resumptionHandle = null
+        }
         val server = message.optJSONObject("serverContent")
         server?.optJSONObject("modelTurn")?.optJSONArray("parts")?.let { parts ->
             for (index in 0 until parts.length()) {
@@ -222,7 +266,8 @@ class FluxVoiceController(
                 if (agent.isNotEmpty()) onAgentResponse(agent)
             }
         }
-        if (message.has("goAway") && wanted) socket?.close(1000, "session-resume")
+        // GoAway warns that the connection will end soon. Keep the current
+        // turn alive; the disconnect handler resumes it after the server closes.
     }
 
     private fun mergeTranscript(current: String, incoming: String): String = when {
@@ -374,8 +419,11 @@ class FluxVoiceController(
 
     override fun endSession() {
         wanted = false
+        reconnectJob?.cancel()
+        reconnectJob = null
         starting = false
         setupComplete = false
+        resumptionHandle = null
         pendingMessages.clear()
         pendingContext = null
         pendingFrame = null
@@ -407,8 +455,12 @@ class FluxVoiceController(
 
     private fun fail(message: String) {
         wanted = false
+        reconnectJob?.cancel()
+        reconnectJob = null
         starting = false
         setupComplete = false
+        socket?.cancel()
+        socket = null
         stopAudio()
         scope.launch {
             onSessionChanged(false)
@@ -418,6 +470,7 @@ class FluxVoiceController(
 
     override fun destroy() {
         wanted = false
+        reconnectJob?.cancel()
         socket?.cancel()
         socket = null
         stopAudio()
@@ -439,5 +492,6 @@ class FluxVoiceController(
         const val INPUT_RATE = 16_000
         const val OUTPUT_RATE = 24_000
         const val INPUT_CHUNK_BYTES = 1_280
+        const val MAX_RECONNECT_ATTEMPTS = 4
     }
 }
