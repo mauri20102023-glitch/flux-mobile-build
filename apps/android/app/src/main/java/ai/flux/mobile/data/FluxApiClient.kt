@@ -29,6 +29,7 @@ data class VoiceSessionResult(
     val model: String,
     val voice: String,
     val systemInstruction: String,
+    val authParameter: String = "access_token",
 )
 data class DiagnosticsResult(
     val coreOk: Boolean,

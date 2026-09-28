@@ -10,13 +10,18 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Keeps the Core access token encrypted by a non-exportable Android Keystore key. */
-class FluxSecureTokenStore(context: Context) {
+/** Keeps a secret encrypted by a non-exportable Android Keystore key. */
+class FluxSecureTokenStore(
+    context: Context,
+    private val keyAlias: String = DEFAULT_KEY_ALIAS,
+    private val ivPreference: String = DEFAULT_KEY_IV,
+    private val valuePreference: String = DEFAULT_KEY_VALUE,
+) {
     private val preferences = context.getSharedPreferences("flux_secure_connection", Context.MODE_PRIVATE)
 
     fun read(): String {
-        val encrypted = preferences.getString(KEY_VALUE, null) ?: return ""
-        val iv = preferences.getString(KEY_IV, null) ?: return ""
+        val encrypted = preferences.getString(valuePreference, null) ?: return ""
+        val iv = preferences.getString(ivPreference, null) ?: return ""
         return runCatching {
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(
@@ -41,22 +46,22 @@ class FluxSecureTokenStore(context: Context) {
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         val encrypted = cipher.doFinal(clean.toByteArray(Charsets.UTF_8))
         preferences.edit()
-            .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .putString(KEY_VALUE, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+            .putString(ivPreference, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            .putString(valuePreference, Base64.encodeToString(encrypted, Base64.NO_WRAP))
             .apply()
     }
 
     private fun clear() {
-        preferences.edit().remove(KEY_IV).remove(KEY_VALUE).apply()
+        preferences.edit().remove(ivPreference).remove(valuePreference).apply()
     }
 
     private fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
             init(
                 KeyGenParameterSpec.Builder(
-                    KEY_ALIAS,
+                    keyAlias,
                     KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
                 )
                     .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -69,9 +74,9 @@ class FluxSecureTokenStore(context: Context) {
     }
 
     private companion object {
-        const val KEY_ALIAS = "flux_core_access_token_v1"
-        const val KEY_IV = "core_token_iv"
-        const val KEY_VALUE = "core_token_value"
+        const val DEFAULT_KEY_ALIAS = "flux_core_access_token_v1"
+        const val DEFAULT_KEY_IV = "core_token_iv"
+        const val DEFAULT_KEY_VALUE = "core_token_value"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
     }
 }

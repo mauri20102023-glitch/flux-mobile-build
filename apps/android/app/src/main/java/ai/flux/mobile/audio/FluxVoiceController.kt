@@ -29,8 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 
 /**
- * Native Gemini Live bridge. The permanent Gemini key never reaches Android:
- * the authenticated FLUX Core issues a one-use, short-lived Live credential.
+ * Native Gemini Live bridge. It prefers the server-issued short-lived credential.
+ * Personal mode keeps Maurício's key encrypted with Android Keystore and reads
+ * it only while opening the protected Gemini WebSocket.
  */
 class FluxVoiceController(
     private val context: Context,
@@ -67,7 +68,7 @@ class FluxVoiceController(
         starting = true
         onSessionChanged(true)
         scope.launch {
-            runCatching { application.api.voiceSession() }
+            runCatching { createSession() }
                 .onSuccess { session ->
                     liveSession = session
                     reconnectAttempts = 0
@@ -78,8 +79,24 @@ class FluxVoiceController(
     }
 
     private fun connect(session: VoiceSessionResult) {
-        val url = session.endpoint + "?access_token=" + java.net.URLEncoder.encode(session.token, "UTF-8")
+        val url = session.endpoint + "?" + session.authParameter + "=" +
+            java.net.URLEncoder.encode(session.token, "UTF-8")
         socket = application.httpClient.newWebSocket(Request.Builder().url(url).build(), listener(session))
+    }
+
+    private suspend fun createSession(): VoiceSessionResult {
+        val personalKey = application.connectionSettings.geminiApiKey()
+        if (personalKey.isNotBlank()) {
+            return VoiceSessionResult(
+                token = personalKey,
+                endpoint = DIRECT_LIVE_ENDPOINT,
+                model = "gemini-3.8-live",
+                voice = "Orus",
+                systemInstruction = PERSONAL_SYSTEM_INSTRUCTION,
+                authParameter = "key",
+            )
+        }
+        return application.api.voiceSession()
     }
 
     private fun listener(session: VoiceSessionResult) = object : WebSocketListener() {
@@ -119,7 +136,7 @@ class FluxVoiceController(
             reconnectAttempts += 1
             scope.launch {
                 kotlinx.coroutines.delay(500L * reconnectAttempts)
-                runCatching { application.api.voiceSession() }
+                runCatching { createSession() }
                     .onSuccess { freshSession ->
                         liveSession = freshSession
                         connect(freshSession)
@@ -136,13 +153,10 @@ class FluxVoiceController(
     private fun setupMessage(session: VoiceSessionResult): JSONObject = JSONObject().apply {
         put("setup", JSONObject().apply {
             put("model", "models/${session.model}")
-            put("generationConfig", JSONObject().apply {
-                put("responseModalities", JSONArray().put("AUDIO"))
-                put("temperature", 0.7)
-                put("speechConfig", JSONObject().apply {
-                    put("voiceConfig", JSONObject().apply {
-                        put("prebuiltVoiceConfig", JSONObject().put("voiceName", session.voice))
-                    })
+            put("responseModalities", JSONArray().put("AUDIO"))
+            put("speechConfig", JSONObject().apply {
+                put("voiceConfig", JSONObject().apply {
+                    put("prebuiltVoiceConfig", JSONObject().put("voiceName", session.voice))
                 })
             })
             put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", session.systemInstruction))))
@@ -356,6 +370,16 @@ class FluxVoiceController(
     }
 
     private companion object {
+        const val DIRECT_LIVE_ENDPOINT =
+            "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+        val PERSONAL_SYSTEM_INSTRUCTION = """
+            Você é o FLUX, assistente pessoal de Maurício. Responda naturalmente em português do Brasil.
+            Chame o usuário de Maurício quando isso soar natural. Dê o resultado primeiro, seja breve no simples
+            e detalhado quando a tarefa exigir. Responda sobre qualquer assunto permitido, não apenas comandos
+            objetivos. Entenda fala ditada, interrupções e autocorreções pela intenção. Use humor sutil quando
+            combinar. Nunca finja ter executado uma ação externa; peça confirmação antes de enviar, comprar,
+            publicar, apagar ou controlar dispositivos. Nunca peça senhas ou chaves durante uma conversa.
+        """.trimIndent()
         const val INPUT_RATE = 16_000
         const val OUTPUT_RATE = 24_000
         const val INPUT_CHUNK_BYTES = 1_280

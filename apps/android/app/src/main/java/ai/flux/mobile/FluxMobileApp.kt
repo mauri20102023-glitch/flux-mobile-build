@@ -34,6 +34,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -123,6 +125,8 @@ fun FluxMobileApp(
     onOpenVision: () -> Unit,
     onCoreUrlChange: (String) -> Unit,
     onCoreTest: () -> Unit,
+    onGeminiKeyChange: (String) -> Unit,
+    onGeminiKeyClear: () -> Unit,
     onAddTask: (String) -> Unit,
     onToggleTask: (String) -> Unit,
     onDeleteTask: (String) -> Unit,
@@ -159,6 +163,7 @@ fun FluxMobileApp(
                     state, onCoreUrlChange, onCoreTest, onTestVoice,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
                     onProactivityEnabled, onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
+                    onGeminiKeyChange, onGeminiKeyClear,
                 )
             }
             AnimatedVisibility(
@@ -635,8 +640,12 @@ private fun ControlScreen(
     onWakeWord: (Boolean) -> Unit,
     onAccent: (String) -> Unit,
     onVision: () -> Unit,
+    onGeminiKeyChange: (String) -> Unit,
+    onGeminiKeyClear: () -> Unit,
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
+    var geminiKey by rememberSaveable { mutableStateOf("") }
+    var showGeminiKey by rememberSaveable { mutableStateOf(false) }
 
     ScreenScroll("SISTEMA", "Conexão, inteligência, voz e privacidade.") {
         SectionLabel("STATUS AO VIVO")
@@ -689,6 +698,60 @@ private fun ControlScreen(
         PrimaryButton("SALVAR E RECONECTAR", Icons.Default.Link) {
             onCoreUrlChange(coreUrl)
             onReconnect()
+        }
+
+        Spacer(Modifier.height(22.dp))
+        SectionLabel("GEMINI LIVE PESSOAL")
+        Text(
+            "Cole a chave uma única vez. Ela fica criptografada pelo Android Keystore e não entra no APK, no GitHub ou no histórico do FLUX.",
+            color = Muted,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+        )
+        Spacer(Modifier.height(10.dp))
+        SystemStatus(
+            "Chave do Gemini",
+            state.geminiKeyConfigured,
+            if (state.geminiKeyConfigured) "Protegida neste aparelho" else "Ainda não configurada",
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = geminiKey,
+            onValueChange = { geminiKey = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    if (state.geminiKeyConfigured) "Digite uma nova chave para substituir" else "Cole sua chave do Gemini",
+                    color = Muted,
+                )
+            },
+            singleLine = true,
+            visualTransformation = if (showGeminiKey) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { showGeminiKey = !showGeminiKey }) {
+                    Icon(if (showGeminiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility, "Mostrar ou ocultar chave")
+                }
+            },
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = PulseRed,
+                unfocusedBorderColor = Line,
+                focusedContainerColor = Panel,
+                unfocusedContainerColor = Panel,
+            ),
+        )
+        Spacer(Modifier.height(10.dp))
+        PrimaryButton(
+            if (state.geminiKeyConfigured) "SUBSTITUIR CHAVE PROTEGIDA" else "PROTEGER E ATIVAR GEMINI",
+            Icons.Default.Key,
+        ) {
+            onGeminiKeyChange(geminiKey)
+            geminiKey = ""
+            showGeminiKey = false
+        }
+        if (state.geminiKeyConfigured) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedAction("REMOVER CHAVE DESTE APARELHO", Icons.Default.DeleteOutline, onGeminiKeyClear, danger = true)
         }
         Spacer(Modifier.height(22.dp))
         SectionLabel("ASSISTENTE")

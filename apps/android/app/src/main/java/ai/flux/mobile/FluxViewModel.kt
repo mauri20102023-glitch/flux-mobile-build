@@ -38,6 +38,7 @@ class FluxViewModel(
         messages = cache.loadMessages(),
         coreUrl = connectionSettings.coreUrl(),
         coreAuthConfigured = connectionSettings.authTokenConfigured(),
+        geminiKeyConfigured = connectionSettings.geminiApiKeyConfigured(),
         tasks = workspace.loadTasks(),
         projects = workspace.loadProjects(),
         memoryEnabled = workspace.memoryEnabled(),
@@ -124,9 +125,9 @@ class FluxViewModel(
                         aiReady = diagnostics.aiReady,
                         activationRequired = diagnostics.activationRequired,
                         isConnecting = false,
-                        voiceConfigured = diagnostics.voiceConfigured,
-                        voiceProvider = diagnostics.voiceProvider,
-                        voiceOfficial = diagnostics.voiceOfficial,
+                        voiceConfigured = diagnostics.voiceConfigured || connectionSettings.geminiApiKeyConfigured(),
+                        voiceProvider = if (connectionSettings.geminiApiKeyConfigured()) "Gemini Live • protegido no aparelho" else diagnostics.voiceProvider,
+                        voiceOfficial = diagnostics.voiceOfficial || connectionSettings.geminiApiKeyConfigured(),
                         error = null,
                     )
                 }
@@ -181,6 +182,37 @@ class FluxViewModel(
         runCatching { connectionSettings.updateAuthToken(value) }
             .onSuccess { _state.update { it.copy(coreAuthConfigured = connectionSettings.authTokenConfigured(), error = null) } }
             .onFailure { reportError("Não foi possível proteger o token neste aparelho.") }
+    }
+
+    fun updateGeminiApiKey(value: String) {
+        runCatching { connectionSettings.updateGeminiApiKey(value) }
+            .onSuccess {
+                val configured = connectionSettings.geminiApiKeyConfigured()
+                _state.update {
+                    it.copy(
+                        geminiKeyConfigured = configured,
+                        voiceConfigured = configured || it.voiceConfigured,
+                        voiceProvider = if (configured) "Gemini Live • protegido no aparelho" else it.voiceProvider,
+                        voiceOfficial = configured || it.voiceOfficial,
+                        error = null,
+                    )
+                }
+            }
+            .onFailure { reportError(it.message ?: "Não foi possível proteger a chave neste aparelho.") }
+    }
+
+    fun clearGeminiApiKey() {
+        connectionSettings.clearGeminiApiKey()
+        _state.update {
+            it.copy(
+                geminiKeyConfigured = false,
+                voiceConfigured = false,
+                voiceProvider = "unavailable",
+                voiceOfficial = false,
+                error = null,
+            )
+        }
+        reconnect(showFailure = false)
     }
 
     fun setListening(value: Boolean) = _state.update { it.copy(isListening = value) }

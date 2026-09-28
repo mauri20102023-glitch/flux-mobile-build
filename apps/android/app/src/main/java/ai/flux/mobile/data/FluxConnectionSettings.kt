@@ -8,6 +8,12 @@ import java.util.UUID
 class FluxConnectionSettings(context: Context) {
     private val preferences = context.getSharedPreferences("flux_connection", Context.MODE_PRIVATE)
     private val secureTokenStore = FluxSecureTokenStore(context)
+    private val secureGeminiKeyStore = FluxSecureTokenStore(
+        context = context,
+        keyAlias = "flux_gemini_api_key_v1",
+        ivPreference = "gemini_api_key_iv",
+        valuePreference = "gemini_api_key_value",
+    )
 
     fun coreUrl(): String = BuildConfig.FLUX_CORE_URL.trimEnd('/').ifBlank {
         preferences.getString("core_url", "").orEmpty().trimEnd('/')
@@ -44,6 +50,22 @@ class FluxConnectionSettings(context: Context) {
     fun clearAuthToken() = secureTokenStore.write("")
 
     fun pairingPrivateKey(): String = BuildConfig.FLUX_PAIRING_PRIVATE_KEY.trim()
+
+    fun geminiApiKey(): String = secureGeminiKeyStore.read()
+
+    fun geminiApiKeyConfigured(): Boolean = geminiApiKey().isNotBlank()
+
+    fun updateGeminiApiKey(value: String) {
+        val clean = value.trim()
+        if (clean.isNotEmpty()) {
+            require(clean.length >= 30 && !clean.any(Char::isWhitespace)) {
+                "A chave do Gemini parece incompleta."
+            }
+        }
+        secureGeminiKeyStore.write(clean)
+    }
+
+    fun clearGeminiApiKey() = secureGeminiKeyStore.write("")
 
     fun deviceId(): String {
         preferences.getString("device_id", null)?.takeIf(String::isNotBlank)?.let { return it }
