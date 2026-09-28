@@ -1,0 +1,54 @@
+name: Deploy FLUX Core
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo 'Configure CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID nos segredos do repositório.' >&2
+            exit 1
+          fi
+
+      - name: Check Worker bundle
+        run: |
+          npm ci
+          npm run check
+
+      - name: Deploy Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify live Core
+        env:
+          CORE_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          if [ -z "$CORE_URL" ]; then
+            echo 'Wrangler não retornou a URL da implantação.' >&2
+            exit 1
+          fi
+          curl --fail --show-error --silent --retry 3 --retry-delay 2 "${CORE_URL%/}/health" \
+            | node -e '
+                let raw = "";
+                process.stdin.on("data", chunk => raw += chunk);
+                process.stdin.on("end", () => {
+                  const health = JSON.parse(raw);
+                  if (health.status !== "ok" || health.service !== "flux-core-edge") process.exit(1);
+                  console.log(`FLUX Core ativo: chat=${Boolean(health.features?.chat)}, live=${Boolean(health.features?.live)}`);
+                });
+              '
