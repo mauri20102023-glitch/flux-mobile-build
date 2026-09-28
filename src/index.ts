@@ -148,7 +148,16 @@ const worker = {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     if (url.pathname === "/health") {
-      return json({ status: "ok", service: "flux-core-edge", version: "1.7.0-gemini-live" }, 200, corsHeaders());
+      return json({
+        status: "ok",
+        service: "flux-core-edge",
+        version: "1.7.0-gemini-live",
+        features: {
+          chat: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.AI),
+          live: Boolean(env.GEMINI_API_KEY),
+          images: Boolean(env.AI),
+        },
+      }, 200, corsHeaders());
     }
     if (!url.pathname.startsWith("/v1/")) {
       return env.ASSETS?.fetch(request) ?? new Response("FLUX", { status: 200 });

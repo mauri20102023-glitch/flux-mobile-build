@@ -140,7 +140,7 @@ function renderDevices() {
 
 async function healthCheck(show = false) {
   const badge=$("#coreStatus"); badge.className="status-pill"; badge.querySelector("b").textContent="VERIFICANDO";
-  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); badge.classList.add("online"); badge.querySelector("b").textContent="ONLINE"; if(show) toast(`FLUX Core ${body.version || "online"}.`,"ok"); return body; }
+  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); if(body.features?.live===false){badge.querySelector("b").textContent="ATIVAR VOZ";}else{badge.classList.add("online");badge.querySelector("b").textContent="ONLINE";} if(show) toast(`FLUX Core ${body.version || "online"}${body.features?.live===false ? " — Gemini Live precisa da chave do servidor" : ""}.`,body.features?.live===false?"":"ok"); return body; }
   catch(error){ badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
 }
 async function diagnostics() { requireConnection(); const response=await fetch(core("/v1/diagnostics"),{headers:headers()}); return readResponse(response); }
