@@ -2,6 +2,8 @@ name: Build FLUX Mobile 1.7.4
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
@@ -47,14 +49,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify no private key is stored in source
-        run: test ! -e apps/android/flux.mobile.pairing
-
       - name: Compile FLUX Gemini Live APK
         working-directory: apps/android
         env:
           FLUX_CORE_URL: "https://flux-core-12.mauri20102023.workers.dev"
-          FLUX_MOBILE_PAIRING_PRIVATE_KEY: "${{ secrets.FLUX_MOBILE_PAIRING_PRIVATE_KEY }}"
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Prepare APK and checksum

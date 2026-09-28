@@ -22,7 +22,7 @@ O FLUX Core roda em Cloudflare Workers. Quando o Core está pareado, texto e voz
 
 ## Segurança
 
-O repositório não armazena chaves de API, tokens ou dados pessoais. Quando a credencial de pareamento está configurada no build, o Android faz pareamento por assinatura RSA e guarda o token do aparelho no Android Keystore. Sem ela, os recursos do Core ficam indisponíveis; a chave Gemini pessoal permite chat e voz diretamente. Ações externas, como enviar mensagens ou controlar dispositivos, sempre exigem confirmação no aplicativo oficial correspondente.
+O repositório não armazena chaves de API, tokens ou dados pessoais. O Android usa um convite temporário emitido pelo Core para parear um aparelho e guarda o token do aparelho no Android Keystore. Nenhuma chave mestra de pareamento é incluída no APK. Sem pareamento, a chave Gemini pessoal permite chat e voz diretamente. Ações externas, como enviar mensagens ou controlar dispositivos, sempre exigem confirmação no aplicativo oficial correspondente.
 
 Configure os segredos no Cloudflare, nunca no `wrangler.jsonc`:
 
@@ -30,6 +30,12 @@ Configure os segredos no Cloudflare, nunca no `wrangler.jsonc`:
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put FLUX_AUTH_TOKEN
 ```
+
+Para parear um Android, o administrador autenticado cria um convite com
+`POST /v1/pair/invite` e `Authorization: Bearer <FLUX_AUTH_TOKEN>`. O código
+expira em 15 minutos e só pode ser usado uma vez em **Sistema → FLUX Link →
+Parear aparelho**. O Core guarda apenas o hash do código e entrega ao Android
+um token exclusivo do aparelho.
 
 ## Desenvolvimento
 

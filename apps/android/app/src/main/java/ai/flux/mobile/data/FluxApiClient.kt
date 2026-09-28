@@ -1,6 +1,5 @@
 package ai.flux.mobile.data
 
-import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -13,10 +12,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
-import java.security.KeyFactory
-import java.security.SecureRandom
-import java.security.Signature
-import java.security.spec.PKCS8EncodedKeySpec
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -64,43 +59,6 @@ class FluxApiClient(
             .post(json(body))
             .build()
         executeWithRetry(request, maxAttempts = 1).use {
-            val raw = it.body?.string().orEmpty()
-            if (!it.isSuccessful) throw apiFailure(it.code, raw)
-            val result = JSONObject(raw)
-            PairResult(result.getString("deviceToken"), result.getString("deviceId"))
-        }
-    }
-
-    suspend fun pair(pairingPrivateKey: String): PairResult = withContext(Dispatchers.IO) {
-        val id = deviceId()
-        val timestamp = System.currentTimeMillis()
-        val nonceBytes = ByteArray(24).also(SecureRandom()::nextBytes)
-        val nonce = Base64.encodeToString(
-            nonceBytes,
-            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
-        )
-        val payload = "flux-pair-v1\n$id\n$timestamp\n$nonce"
-        val privateKey = KeyFactory.getInstance("RSA").generatePrivate(
-            PKCS8EncodedKeySpec(Base64.decode(pairingPrivateKey, Base64.DEFAULT)),
-        )
-        val signature = Signature.getInstance("SHA256withRSA").run {
-            initSign(privateKey)
-            update(payload.toByteArray(Charsets.UTF_8))
-            Base64.encodeToString(sign(), Base64.NO_WRAP)
-        }
-        val body = JSONObject().apply {
-            put("deviceId", id)
-            put("deviceName", "FLUX Mobile de Maurício")
-            put("timestamp", timestamp)
-            put("nonce", nonce)
-            put("signature", signature)
-        }
-        val request = Request.Builder()
-            .url(baseUrl().trimEnd('/') + "/v1/pair")
-            .header("X-Flux-Device-Id", id)
-            .post(json(body))
-            .build()
-        executeWithRetry(request).use {
             val raw = it.body?.string().orEmpty()
             if (!it.isSuccessful) throw apiFailure(it.code, raw)
             val result = JSONObject(raw)

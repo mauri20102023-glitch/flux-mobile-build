@@ -44,8 +44,6 @@ class FluxConnectionSettings(context: Context) {
 
     fun clearAuthToken() = secureTokenStore.write("")
 
-    fun pairingPrivateKey(): String = BuildConfig.FLUX_PAIRING_PRIVATE_KEY.trim()
-
     fun geminiApiKey(): String = secureGeminiKeyStore.read()
 
     fun geminiApiKeyConfigured(): Boolean = geminiApiKey().isNotBlank()

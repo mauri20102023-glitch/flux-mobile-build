@@ -647,7 +647,7 @@ private fun ControlScreen(
     onGeminiKeyClear: () -> Unit,
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
-    var pairCode by rememberSaveable { mutableStateOf("") }
+    var pairCode by remember { mutableStateOf("") }
     var geminiKey by rememberSaveable { mutableStateOf("") }
     var showGeminiKey by rememberSaveable { mutableStateOf(false) }
 
@@ -663,7 +663,7 @@ private fun ControlScreen(
             state.coreOnline,
             when {
                 state.coreOnline -> "Conexão persistente ativa"
-                !state.corePairingAvailable && !state.coreAuthConfigured -> "Aguardando código de pareamento"
+                !state.coreAuthConfigured -> "Aguardando código de pareamento"
                 state.isConnecting -> "Tentando reconectar"
                 else -> "Servidor ainda não alcançado"
             },
@@ -679,7 +679,7 @@ private fun ControlScreen(
             if (state.voiceConfigured) state.voiceProvider else "Precisa de ativação",
         )
         Spacer(Modifier.height(12.dp))
-        if (state.corePairingAvailable || state.coreAuthConfigured) {
+        if (state.coreAuthConfigured) {
             OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
             Spacer(Modifier.height(8.dp))
         }
