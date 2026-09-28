@@ -2,6 +2,15 @@ name: Deploy FLUX Core
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "web/flux-ath/**"
+      - "wrangler.jsonc"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-flux-core.yml"
 
 permissions:
   contents: read
@@ -52,3 +61,4 @@ jobs:
                   console.log(`FLUX Core ativo: chat=${Boolean(health.features?.chat)}, live=${Boolean(health.features?.live)}`);
                 });
               '
+          echo "Core publicado: ${CORE_URL%/}" >> "$GITHUB_STEP_SUMMARY"
