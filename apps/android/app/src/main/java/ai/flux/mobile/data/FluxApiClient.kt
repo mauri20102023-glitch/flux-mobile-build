@@ -52,6 +52,25 @@ class FluxApiClient(
     private val authToken: () -> String,
     private val deviceId: () -> String,
 ) {
+    suspend fun redeemPairingCode(code: String): PairResult = withContext(Dispatchers.IO) {
+        val id = deviceId()
+        val body = JSONObject().apply {
+            put("deviceId", id)
+            put("deviceName", "FLUX Mobile de Maurício")
+            put("code", code.trim())
+        }
+        val request = Request.Builder()
+            .url(baseUrl().trimEnd('/') + "/v1/pair/redeem")
+            .post(json(body))
+            .build()
+        executeWithRetry(request, maxAttempts = 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            val result = JSONObject(raw)
+            PairResult(result.getString("deviceToken"), result.getString("deviceId"))
+        }
+    }
+
     suspend fun pair(pairingPrivateKey: String): PairResult = withContext(Dispatchers.IO) {
         val id = deviceId()
         val timestamp = System.currentTimeMillis()

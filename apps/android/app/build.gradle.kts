@@ -42,8 +42,8 @@ android {
         applicationId = "ai.flux.mobile"
         minSdk = 28
         targetSdk = 35
-        versionCode = 30
-        versionName = "1.7.3"
+        versionCode = 31
+        versionName = "1.7.4"
 
         buildConfigField("String", "FLUX_CORE_URL", buildConfigString(fluxCoreUrl))
         buildConfigField("String", "FLUX_PAIRING_PRIVATE_KEY", buildConfigString(fluxPairingPrivateKey))

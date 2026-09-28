@@ -185,6 +185,29 @@ class FluxViewModel(
         _state.update { it.copy(coreAuthConfigured = true) }
     }
 
+    fun pairWithCode(value: String) {
+        val code = value.trim()
+        if (!Regex("^[A-Za-z0-9_-]{32}$").matches(code)) {
+            reportError("O código de pareamento tem 32 caracteres. Confira e tente novamente.")
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(isConnecting = true, error = null) }
+            runCatching {
+                val paired = api.redeemPairingCode(code)
+                connectionSettings.updateAuthToken(paired.deviceToken)
+            }.onSuccess {
+                _state.update { it.copy(coreAuthConfigured = true, isConnecting = false) }
+                reconnect(showFailure = true)
+            }.onFailure { failure ->
+                _state.update {
+                    it.copy(isConnecting = false,
+                        error = failure.message ?: "Não foi possível parear o aparelho com o FLUX Core.")
+                }
+            }
+        }
+    }
+
     fun updateCoreUrl(value: String) {
         runCatching { connectionSettings.updateCoreUrl(value) }
             .onSuccess {

@@ -126,6 +126,7 @@ class MainActivity : ComponentActivity() {
                     onOpenVision = ::openVision,
                     onCoreUrlChange = viewModel::updateCoreUrl,
                     onCoreTest = { viewModel.reconnect(showFailure = true) },
+                    onPairCode = viewModel::pairWithCode,
                     onGeminiKeyChange = viewModel::updateGeminiApiKey,
                     onGeminiKeyClear = viewModel::clearGeminiApiKey,
                     onAddTask = viewModel::addTask,

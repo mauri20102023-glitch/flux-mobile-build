@@ -15,15 +15,10 @@ class FluxConnectionSettings(context: Context) {
         valuePreference = "gemini_api_key_value",
     )
 
-    fun coreUrl(): String = BuildConfig.FLUX_CORE_URL.trimEnd('/').ifBlank {
-        preferences.getString("core_url", "").orEmpty().trimEnd('/')
-    }
+    fun coreUrl(): String = preferences.getString("core_url", "").orEmpty().trimEnd('/')
+        .ifBlank { BuildConfig.FLUX_CORE_URL.trimEnd('/') }
 
     fun updateCoreUrl(value: String) {
-        if (BuildConfig.FLUX_CORE_URL.isNotBlank()) {
-            preferences.edit().remove("core_url").apply()
-            return
-        }
         val normalized = value.trim().trimEnd('/')
         require(normalized.startsWith("https://") || isPrivateLocalHttp(normalized)) {
             "Use HTTPS ou um endereço local privado do Flux Core"

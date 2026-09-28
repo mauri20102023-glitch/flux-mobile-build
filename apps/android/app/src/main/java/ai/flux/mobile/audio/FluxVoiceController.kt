@@ -90,6 +90,9 @@ class FluxVoiceController(
     }
 
     private suspend fun createSession(): VoiceSessionResult {
+        if (application.connectionSettings.authTokenConfigured()) {
+            runCatching { application.api.voiceSession() }.onSuccess { return it }
+        }
         val personalKey = application.connectionSettings.geminiApiKey()
         if (personalKey.isNotBlank()) {
             return VoiceSessionResult(
@@ -101,11 +104,7 @@ class FluxVoiceController(
                 authParameter = "key",
             )
         }
-        check(application.connectionSettings.authTokenConfigured() ||
-            application.connectionSettings.pairingPrivateKey().isNotBlank()) {
-            "Ative a chave do Gemini pessoal nos ajustes para conversar por voz."
-        }
-        return application.api.voiceSession()
+        error("O Gemini Live não está ativo no Core. Ative uma chave Gemini pessoal nos ajustes.")
     }
 
     private fun listener(session: VoiceSessionResult) = object : WebSocketListener() {

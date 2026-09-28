@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.7.3
+name: Build FLUX Mobile 1.7.4
 
 on:
   workflow_dispatch:
@@ -53,21 +53,21 @@ jobs:
       - name: Compile FLUX Gemini Live APK
         working-directory: apps/android
         env:
-          FLUX_CORE_URL: "https://flux-mobile-build2.mauri20102023.workers.dev"
+          FLUX_CORE_URL: "https://flux-core-12.mauri20102023.workers.dev"
           FLUX_MOBILE_PAIRING_PRIVATE_KEY: "${{ secrets.FLUX_MOBILE_PAIRING_PRIVATE_KEY }}"
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.3.apk
-          sha256sum FLUX-Mobile-1.7.3.apk > FLUX-Mobile-1.7.3.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.4.apk
+          sha256sum FLUX-Mobile-1.7.4.apk > FLUX-Mobile-1.7.4.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.7.3
+          name: FLUX-Mobile-1.7.4
           path: |
-            FLUX-Mobile-1.7.3.apk
-            FLUX-Mobile-1.7.3.sha256
+            FLUX-Mobile-1.7.4.apk
+            FLUX-Mobile-1.7.4.sha256
           if-no-files-found: error
           retention-days: 7
