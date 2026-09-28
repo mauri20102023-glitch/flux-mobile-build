@@ -264,7 +264,7 @@ private fun PulseHeader(state: FluxUiState) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Olá, Maurício", fontSize = 21.sp, fontWeight = FontWeight.Black)
-            Text("FLUX CHAT • MOBILE 1.7.2", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
+            Text("FLUX CHAT • MOBILE 1.7.3", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
         }
         StatusPill(
             label = when {
@@ -272,11 +272,12 @@ private fun PulseHeader(state: FluxUiState) {
                 state.isConnecting -> "CONECTANDO"
                 state.coreOnline && state.aiReady -> "ONLINE"
                 state.coreOnline -> "CORE ONLINE"
+                state.geminiKeyConfigured -> "GEMINI PESSOAL"
                 else -> "CONFIGURAR"
             },
             color = when {
                 state.coreOnline && state.aiReady -> Green
-                state.coreOnline || !state.networkAvailable -> Amber
+                state.coreOnline || state.geminiKeyConfigured || !state.networkAvailable -> Amber
                 else -> PulseRed
             },
         )
@@ -659,45 +660,47 @@ private fun ControlScreen(
             state.coreOnline,
             when {
                 state.coreOnline -> "Conexão persistente ativa"
+                !state.corePairingAvailable && !state.coreAuthConfigured -> "Pareamento ausente neste APK"
                 state.isConnecting -> "Tentando reconectar"
                 else -> "Servidor ainda não alcançado"
             },
         )
-        SystemStatus("Inteligência", state.aiReady, if (state.aiReady) "IA pronta para responder" else "Precisa de ativação")
+        SystemStatus("Inteligência", state.aiReady || state.geminiKeyConfigured, when {
+            state.aiReady -> "IA pronta para responder"
+            state.geminiKeyConfigured -> "Gemini pessoal configurado • teste o chat"
+            else -> "Precisa de ativação"
+        })
         SystemStatus(
             "FLUX LIVE",
             state.voiceConfigured && state.voiceOfficial,
             if (state.voiceConfigured) state.voiceProvider else "Precisa de ativação",
         )
         Spacer(Modifier.height(12.dp))
-        OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
-        Spacer(Modifier.height(8.dp))
-        OutlinedAction("TESTAR VOZ CRIADA", Icons.Default.VolumeUp, onTestVoice)
+        if (state.corePairingAvailable || state.coreAuthConfigured) {
+            OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
+            Spacer(Modifier.height(8.dp))
+        }
+        OutlinedAction("TESTAR GEMINI LIVE", Icons.Default.VolumeUp, onTestVoice)
 
-        Spacer(Modifier.height(22.dp))
-        SectionLabel("FLUX LINK")
-        Text(
-            "O servidor e a credencial do aparelho são configurados automaticamente.",
-            color = Muted,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-        )
-        Spacer(Modifier.height(10.dp))
-        PulseField(
-            value = coreUrl,
-            onValueChange = { coreUrl = it },
-            placeholder = "https://seu-core.workers.dev",
-        )
-        Spacer(Modifier.height(10.dp))
-        SystemStatus(
-            "Pareamento seguro",
-            state.coreAuthConfigured,
-            if (state.coreAuthConfigured) "Credencial protegida pelo Android" else "Configurando automaticamente",
-        )
-        Spacer(Modifier.height(10.dp))
-        PrimaryButton("SALVAR E RECONECTAR", Icons.Default.Link) {
-            onCoreUrlChange(coreUrl)
-            onReconnect()
+        if (state.corePairingAvailable || state.coreAuthConfigured) {
+            Spacer(Modifier.height(22.dp))
+            SectionLabel("FLUX LINK")
+            Text("O servidor e a credencial do aparelho são configurados automaticamente.",
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+            Spacer(Modifier.height(10.dp))
+            PulseField(
+                value = coreUrl,
+                onValueChange = { coreUrl = it },
+                placeholder = "https://seu-core.workers.dev",
+            )
+            Spacer(Modifier.height(10.dp))
+            SystemStatus("Pareamento seguro", state.coreAuthConfigured,
+                if (state.coreAuthConfigured) "Credencial protegida pelo Android" else "Configurando automaticamente")
+            Spacer(Modifier.height(10.dp))
+            PrimaryButton("SALVAR E RECONECTAR", Icons.Default.Link) {
+                onCoreUrlChange(coreUrl)
+                onReconnect()
+            }
         }
 
         Spacer(Modifier.height(22.dp))

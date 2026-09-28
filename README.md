@@ -5,7 +5,7 @@ Assistente pessoal de Maurício em duas experiências sincronizadas:
 - **FLUX Web/PWA**: central responsiva instalável no celular e no computador.
 - **FLUX Mobile**: aplicativo Android nativo com assistente do sistema, ativação por voz e painel FLUX Vision.
 
-O FLUX Core roda em Cloudflare Workers. Texto e voz usam Gemini; a chave permanente fica somente no servidor. Para voz, o Core cria uma credencial efêmera de uso único e o cliente abre a sessão Gemini Live diretamente. Nenhuma chave de IA é incluída no site ou no APK.
+O FLUX Core roda em Cloudflare Workers. Quando o Core está pareado, texto e voz usam Gemini com a chave permanente no servidor; para voz, o Core cria uma credencial efêmera. O Android também permite que Maurício configure sua própria chave Gemini no aparelho, protegida pelo Android Keystore, para voz e chat sem pareamento com o Core. Nenhuma chave de IA é incluída no site ou no APK.
 
 ## Recursos
 
@@ -22,7 +22,7 @@ O FLUX Core roda em Cloudflare Workers. Texto e voz usam Gemini; a chave permane
 
 ## Segurança
 
-O repositório não armazena chaves de API, tokens ou dados pessoais. O Android faz pareamento por assinatura RSA e guarda a credencial do aparelho no Android Keystore. Ações externas, como enviar mensagens ou controlar dispositivos, sempre exigem confirmação no aplicativo oficial correspondente.
+O repositório não armazena chaves de API, tokens ou dados pessoais. Quando a credencial de pareamento está configurada no build, o Android faz pareamento por assinatura RSA e guarda o token do aparelho no Android Keystore. Sem ela, os recursos do Core ficam indisponíveis; a chave Gemini pessoal permite chat e voz diretamente. Ações externas, como enviar mensagens ou controlar dispositivos, sempre exigem confirmação no aplicativo oficial correspondente.
 
 Configure os segredos no Cloudflare, nunca no `wrangler.jsonc`:
 

@@ -45,6 +45,7 @@ data class FluxUiState(
     val glassesName: String? = null,
     val coreUrl: String = "",
     val coreAuthConfigured: Boolean = false,
+    val corePairingAvailable: Boolean = false,
     val geminiKeyConfigured: Boolean = false,
     val tasks: List<LocalTask> = emptyList(),
     val projects: List<LocalProject> = emptyList(),
