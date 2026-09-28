@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.service.voice.VoiceInteractionSession
 import android.view.Gravity
 import android.view.View
@@ -35,6 +37,7 @@ class FluxVoiceInteractionSession(
     private var visibleText = ""
     private var screenshotReceived = false
     private var visionSummaryRequested = false
+    private var shown = false
     private val visionRequested: Boolean
         get() = launchArgs?.getBoolean(FluxVoiceInteractionService.ARG_VISION, false) == true
 
@@ -45,6 +48,7 @@ class FluxVoiceInteractionSession(
 
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
+        shown = true
         FluxWakeWordService.pauseForConversation()
         status.text = if (visionRequested) "Lendo a tela…" else "Conectando ao FLUX Live…"
         voice().startSession()
@@ -61,6 +65,16 @@ class FluxVoiceInteractionSession(
         }
         if (contextText.length > 40) voice().sendContextualUpdate(contextText)
         updateVisionState()
+        // O Android pode entregar o texto antes da captura. Aguarde um instante
+        // para priorizar a imagem e use o texto quando ela não estiver disponível.
+        if (visionRequested && visibleText.isNotBlank()) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (shown && !screenshotReceived && !visionSummaryRequested) {
+                    visionSummaryRequested = true
+                    voice().sendUserMessage("Descreva brevemente o texto visível desta tela e espere minha pergunta.")
+                }
+            }, 1_200L)
+        }
     }
 
     override fun onHandleScreenshot(screenshot: Bitmap?) {
@@ -69,11 +83,19 @@ class FluxVoiceInteractionSession(
         if (screenshot != null) {
             screenshotView.setImageBitmap(screenshot)
             screenshotView.visibility = View.VISIBLE
+            if (visionRequested) {
+                visionSummaryRequested = true
+                voice().sendScreenFrame(
+                    screenshot,
+                    "Observe a captura da tela que enviei. Descreva em uma frase o que aparece e espere minha pergunta.",
+                )
+            }
         }
         updateVisionState()
     }
 
     override fun onHide() {
+        shown = false
         controller?.endSession()
         FluxWakeWordService.resumeAfterConversation()
         super.onHide()
@@ -112,13 +134,9 @@ class FluxVoiceInteractionSession(
     private fun updateVisionState() {
         if (!visionRequested) return
         status.text = when {
-            visibleText.isNotBlank() -> "Tela compreendida • pode perguntar"
             screenshotReceived -> "Imagem capturada • contexto visual disponível"
+            visibleText.isNotBlank() -> "Texto da tela recebido • pode perguntar"
             else -> "Aguardando conteúdo da tela…"
-        }
-        if (!visionSummaryRequested && visibleText.isNotBlank()) {
-            visionSummaryRequested = true
-            voice().sendUserMessage("Observe o contexto da tela que enviei. Diga em uma frase curta o que está visível e espere minha pergunta.")
         }
     }
 
@@ -210,12 +228,13 @@ class FluxVoiceInteractionSession(
             context.getSystemService(InputMethodManager::class.java)
                 .showSoftInput(prompt, InputMethodManager.SHOW_IMPLICIT)
         }, weighted())
-        actions.addView(action("Áudio") {
-            transcript.text = "O reconhecimento de música será conectado na etapa de mídia."
+        actions.addView(action("Resumir") {
+            if (!screenshotReceived && visibleText.isBlank()) transcript.text = "Esta tela não forneceu conteúdo ao Android."
+            else voice().sendUserMessage("Resuma a tela atual em até três frases.")
         }, weighted())
         actions.addView(action("Traduzir") {
-            if (visibleText.isBlank()) transcript.text = "Esta tela não forneceu texto legível ao Android."
-            else voice().sendUserMessage("Traduza para português brasileiro o texto visível desta tela: $visibleText")
+            if (!screenshotReceived && visibleText.isBlank()) transcript.text = "Esta tela não forneceu texto legível ao Android."
+            else voice().sendUserMessage("Traduza para português brasileiro o texto visível nesta tela.")
         }, weighted())
         panel.addView(actions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(10) })
         return root

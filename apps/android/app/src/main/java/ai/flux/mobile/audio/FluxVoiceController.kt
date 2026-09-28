@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioRecord
@@ -18,12 +19,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
@@ -46,6 +49,8 @@ class FluxVoiceController(
     private val recording = AtomicBoolean(false)
     private val pendingMessages = ArrayDeque<String>()
     private var pendingContext: String? = null
+    private var pendingFrame: ByteArray? = null
+    private var pendingScreenPrompt: String? = null
     private var socket: WebSocket? = null
     private var liveSession: VoiceSessionResult? = null
     private var audioRecord: AudioRecord? = null
@@ -107,8 +112,10 @@ class FluxVoiceController(
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
-            runCatching { handleMessage(JSONObject(text)) }
-                .onFailure { scope.launch { onError("O FLUX recebeu uma resposta de voz inválida.") } }
+            scope.launch {
+                runCatching { handleMessage(JSONObject(text)) }
+                    .onFailure { onError("O FLUX recebeu uma resposta de voz inválida.") }
+            }
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
@@ -184,6 +191,7 @@ class FluxVoiceController(
             startRecording()
             pendingContext?.takeIf(String::isNotBlank)?.let(::sendContextNow)
             pendingContext = null
+            sendPendingScreen()
             while (pendingMessages.isNotEmpty()) sendTextNow(pendingMessages.removeFirst(), true)
             return
         }
@@ -318,12 +326,57 @@ class FluxVoiceController(
 
     private fun sendContextNow(value: String) = sendTextNow("Contexto atual da tela: $value", false)
 
+    override fun sendScreenFrame(frame: Bitmap, prompt: String) {
+        // A captura é recebida apenas após o pedido explícito do assistente.
+        // Reduzir o tamanho evita travar a interface ou enfileirar uma imagem enorme.
+        scope.launch(Dispatchers.Default) {
+            val bytes = runCatching {
+                val scale = minOf(1f, 1024f / max(frame.width, frame.height))
+                val scaled = if (scale < 1f) Bitmap.createScaledBitmap(
+                    frame, max(1, (frame.width * scale).toInt()),
+                    max(1, (frame.height * scale).toInt()), true,
+                ) else frame
+                try {
+                    ByteArrayOutputStream().use { output ->
+                        check(scaled.compress(Bitmap.CompressFormat.JPEG, 75, output))
+                        output.toByteArray()
+                    }
+                } finally {
+                    if (scaled !== frame) scaled.recycle()
+                }
+            }.getOrElse {
+                withContext(Dispatchers.Main.immediate) { onError("Não foi possível preparar a captura da tela.") }
+                return@launch
+            }
+            withContext(Dispatchers.Main.immediate) {
+                if (!wanted) return@withContext
+                pendingFrame = bytes
+                pendingScreenPrompt = prompt
+                if (setupComplete) sendPendingScreen()
+            }
+        }
+    }
+
+    private fun sendPendingScreen() {
+        val frame = pendingFrame ?: return
+        val payload = JSONObject().put("realtimeInput", JSONObject().put("video", JSONObject()
+            .put("data", Base64.encodeToString(frame, Base64.NO_WRAP))
+            .put("mimeType", "image/jpeg")))
+        if (socket?.send(payload.toString()) == true) {
+            pendingFrame = null
+            pendingScreenPrompt?.let { sendTextNow(it, true) }
+            pendingScreenPrompt = null
+        }
+    }
+
     override fun endSession() {
         wanted = false
         starting = false
         setupComplete = false
         pendingMessages.clear()
         pendingContext = null
+        pendingFrame = null
+        pendingScreenPrompt = null
         socket?.close(1000, "user-finished")
         socket = null
         stopAudio()

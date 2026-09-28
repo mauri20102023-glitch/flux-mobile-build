@@ -1,5 +1,7 @@
 package ai.flux.mobile.audio
 
+import android.graphics.Bitmap
+
 /**
  * Contrato sem dependências externas usado pela tela principal.
  *
@@ -10,6 +12,7 @@ interface FluxVoiceBridge {
     fun startSession()
     fun sendUserMessage(message: String)
     fun sendContextualUpdate(context: String)
+    fun sendScreenFrame(frame: Bitmap, prompt: String)
     fun endSession()
     fun destroy()
 }
