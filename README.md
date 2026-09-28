@@ -39,7 +39,8 @@ o Worker. Confirme a URL real da implantação antes de gerar outro APK.
 
 Para publicar pelo GitHub Actions, configure os segredos do repositório
 `CLOUDFLARE_API_TOKEN` (token restrito à edição dos Workers desta conta) e
-`CLOUDFLARE_ACCOUNT_ID`. Execute manualmente o fluxo **Deploy FLUX Core**.
+`CLOUDFLARE_ACCOUNT_ID`. Após integrar o PR, o fluxo **Deploy FLUX Core**
+executa automaticamente; ele também pode ser iniciado manualmente.
 Ele testa o bundle, publica o Worker e valida a resposta de `/health` na URL
 retornada pela Cloudflare. O resultado indica separadamente se chat e Gemini
 Live estão configurados. As chaves de IA continuam como segredos do Worker.
