@@ -427,7 +427,7 @@ private fun PulseHeader(state: FluxUiState) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Olá, Maurício", fontSize = 21.sp, fontWeight = FontWeight.Black)
-            Text("FLUX CHAT • MOBILE 1.7.5", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
+            Text("FLUX CHAT • MOBILE 1.7.6", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
         }
         StatusPill(
             label = when {

@@ -113,7 +113,9 @@ class FluxVoiceInteractionSession(
         onSessionChanged = { connected ->
             context.mainExecutor.execute {
                 orb.setActive(connected)
-                status.text = if (connected) "FLUX ouvindo" else "FLUX pausado"
+                if (connected) FluxWakeWordService.pauseForConversation()
+                else FluxWakeWordService.resumeAfterConversation()
+                status.text = if (connected) "FLUX ouvindo" else "Diga ‘Flux’ para tentar de novo"
             }
         },
         onUserTranscript = { text -> context.mainExecutor.execute { transcript.text = "Você: $text" } },

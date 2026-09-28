@@ -309,7 +309,11 @@ class MainActivity : ComponentActivity() {
         )
         return constructor.newInstance(
             this,
-            viewModel::setListening,
+            { connected: Boolean ->
+                viewModel.setListening(connected)
+                if (connected) FluxWakeWordService.pauseForConversation()
+                else FluxWakeWordService.resumeAfterConversation()
+            },
             viewModel::appendVoiceUser,
             viewModel::appendVoiceAgent,
             viewModel::reportError,
