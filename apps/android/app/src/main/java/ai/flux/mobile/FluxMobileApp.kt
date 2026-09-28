@@ -218,7 +218,7 @@ private fun PulseNavigation(selected: FluxTab, onVoice: () -> Unit, onSelect: (F
 }
 
 @Composable
-private fun PulseNavItem(selected: FluxTab, tab: FluxTab, onSelect: (FluxTab) -> Unit) {
+private fun RowScope.PulseNavItem(selected: FluxTab, tab: FluxTab, onSelect: (FluxTab) -> Unit) {
     NavigationBarItem(
         selected = selected == tab,
         onClick = { onSelect(tab) },
