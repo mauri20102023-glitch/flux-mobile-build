@@ -46,6 +46,10 @@ interface DurableObjectNamespace {
   getByName(name: string): DurableObjectStub;
 }
 
+interface AssetsBinding {
+  fetch(request: Request): Promise<Response>;
+}
+
 interface WorkersAi {
   run(
     model: string,
@@ -56,12 +60,17 @@ interface WorkersAi {
 
 export interface Env {
   FLUX_STATE: DurableObjectNamespace;
+  ASSETS?: AssetsBinding;
   AI?: WorkersAi;
   FLUX_AUTH_TOKEN?: string;
   FLUX_PAIRING_PUBLIC_KEY?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_LIVE_MODEL?: string;
+  GEMINI_LIVE_VOICE?: string;
+  GEMINI_FAST_MODEL?: string;
+  GEMINI_STANDARD_MODEL?: string;
+  GEMINI_DEEP_MODEL?: string;
   OPENAI_API_KEY?: string;
-  ELEVENLABS_API_KEY?: string;
-  ELEVENLABS_AGENT_ID?: string;
   OPENAI_BASE_URL?: string;
   AI_FAST_MODEL?: string;
   AI_STANDARD_MODEL?: string;
@@ -86,7 +95,7 @@ Comportamento:
 - Tenha autonomia conservadora: peça confirmação antes de enviar, comprar, publicar, apagar, ligar dispositivos ou realizar outra ação externa.
 - Nunca finja que pesquisou, abriu um aplicativo, controlou um dispositivo ou verificou informação atual quando isso não aconteceu.
 - Diferencie conhecimento geral de informação atual. Preços, taxas, estoque, regras, notícias e disponibilidade precisam de verificação atual.
-- Não diga que funciona offline: a inteligência principal e a FLUX Voice dependem da conexão com o FLUX Core.
+- Não diga que funciona offline: a inteligência principal e o FLUX Live dependem da conexão com o FLUX Core.
 - Use apenas memórias e preferências fornecidas de forma segura pelo sistema. Nunca peça senhas ou credenciais em conversa.
 
 Qualidade:
@@ -139,7 +148,10 @@ const worker = {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     if (url.pathname === "/health") {
-      return json({ status: "ok", service: "flux-core-edge", version: "1.4.0-agent" }, 200, corsHeaders());
+      return json({ status: "ok", service: "flux-core-edge", version: "1.7.0-gemini-live" }, 200, corsHeaders());
+    }
+    if (!url.pathname.startsWith("/v1/")) {
+      return env.ASSETS?.fetch(request) ?? new Response("FLUX", { status: 200 });
     }
     try {
       const stub = env.FLUX_STATE.getByName("primary-owner");
@@ -166,7 +178,10 @@ export class FluxState {
       if (request.method === "GET" && url.pathname === "/v1/diagnostics") return this.diagnostics();
       if (request.method === "POST" && url.pathname === "/v1/devices/register") return await this.registerDevice(request);
       if (request.method === "POST" && url.pathname === "/v1/chat") return await this.chat(request);
-      if (request.method === "POST" && url.pathname === "/v1/voice/session") return await this.voiceSession();
+      if (request.method === "POST" && url.pathname === "/v1/images") return await this.generateImage(request);
+      if (request.method === "POST" && (url.pathname === "/v1/live/session" || url.pathname === "/v1/voice/session")) {
+        return await this.liveSession();
+      }
       return json({ error: "NOT_FOUND" }, 404);
     } catch (error) {
       return safeError(error);
@@ -240,8 +255,8 @@ export class FluxState {
   }
 
   private diagnostics(): Response {
-    const aiReady = Boolean(this.env.OPENAI_API_KEY || this.env.AI);
-    const voiceReady = Boolean(this.env.ELEVENLABS_API_KEY && this.env.ELEVENLABS_AGENT_ID);
+    const aiReady = Boolean(this.env.GEMINI_API_KEY || this.env.OPENAI_API_KEY || this.env.AI);
+    const voiceReady = Boolean(this.env.GEMINI_API_KEY);
     return json({
       diagnostics: {
         core: "OK",
@@ -250,14 +265,20 @@ export class FluxState {
         glasses: "NOT_CONFIGURED",
         desktop: "NOT_CONFIGURED",
         tv: "NOT_CONFIGURED",
-        realtime: "LIMITED",
+        realtime: voiceReady ? "OK" : "NOT_CONFIGURED",
         memory: "OK",
         authentication: "DEVICE_PAIRED",
-        version: "1.4.0-agent",
+        version: "1.7.0-gemini-live",
         checkedAt: new Date().toISOString(),
       },
       aiProfile: {
-        provider: this.env.OPENAI_API_KEY ? "openai" : this.env.AI ? "cloudflare-workers-ai" : "unavailable",
+        provider: this.env.GEMINI_API_KEY
+          ? "google-gemini"
+          : this.env.OPENAI_API_KEY
+            ? "openai"
+            : this.env.AI
+              ? "cloudflare-workers-ai"
+              : "unavailable",
         ready: aiReady,
         endpoint: "secure-cloud",
         usageBased: true,
@@ -268,9 +289,11 @@ export class FluxState {
         },
       },
       voiceProfile: {
-        provider: voiceReady ? "elevenlabs-agent" : "unavailable",
+        provider: voiceReady ? "gemini-live" : "unavailable",
         official: voiceReady,
-        name: voiceReady ? "FLUX ATH" : "unavailable",
+        name: voiceReady ? "FLUX Live" : "unavailable",
+        model: voiceReady ? this.liveModel() : "unavailable",
+        voice: voiceReady ? this.liveVoice() : "unavailable",
       },
     });
   }
@@ -290,7 +313,7 @@ export class FluxState {
   }
 
   private async chat(request: Request): Promise<Response> {
-    if (!this.env.OPENAI_API_KEY && !this.env.AI) {
+    if (!this.env.GEMINI_API_KEY && !this.env.OPENAI_API_KEY && !this.env.AI) {
       throw new FluxHttpError(503, "A inteligência do FLUX ainda não foi ativada.");
     }
     const raw = await this.readObject(request);
@@ -329,34 +352,59 @@ export class FluxState {
     return json(response);
   }
 
-  private async voiceSession(): Promise<Response> {
-    const agentId = this.env.ELEVENLABS_AGENT_ID?.trim();
-    const apiKey = this.env.ELEVENLABS_API_KEY?.trim();
-    if (!agentId || !apiKey) {
-      throw new FluxHttpError(503, "O agente de voz FLUX ATH ainda não foi ativado.");
+  private async generateImage(request: Request): Promise<Response> {
+    if (!this.env.AI) {
+      throw new FluxHttpError(503, "O gerador de imagens do FLUX Studio ainda não está disponível.");
     }
-    const endpoint = new URL("https://api.elevenlabs.io/v1/convai/conversation/token");
-    endpoint.searchParams.set("agent_id", agentId);
-    endpoint.searchParams.set("participant_name", "mauricio");
-    const response = await fetch(endpoint, {
-      method: "GET",
-      headers: { "xi-api-key": apiKey, accept: "application/json" },
+    const raw = await this.readObject(request);
+    const prompt = this.requiredString(raw.prompt, "prompt", 2_048);
+    const result = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
+      prompt,
+      steps: 8,
+      seed: Math.floor(Math.random() * 2_147_483_647),
+    }) as { image?: string };
+    if (!result.image) throw new FluxHttpError(503, "O modelo de imagem não retornou uma criação válida.");
+    return json({
+      image: result.image,
+      mediaType: "image/jpeg",
+      model: "@cf/black-forest-labs/flux-1-schnell",
+    });
+  }
+
+  private async liveSession(): Promise<Response> {
+    const apiKey = this.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) throw new FluxHttpError(503, "O Gemini Live ainda não foi ativado no FLUX Core.");
+    const now = Date.now();
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/auth_tokens", {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        uses: 1,
+        expireTime: new Date(now + 30 * 60_000).toISOString(),
+        newSessionExpireTime: new Date(now + 60_000).toISOString(),
+      }),
     });
     if (!response.ok) {
       const reason = response.status === 401
-        ? "A chave da ElevenLabs foi recusada."
+        ? "A chave do Gemini foi recusada."
         : response.status === 429
-          ? "O limite de uso da ElevenLabs foi atingido."
-          : `A ElevenLabs respondeu com erro ${response.status}.`;
+          ? "O limite de uso do Gemini Live foi atingido."
+          : `O Gemini respondeu com erro ${response.status}.`;
       throw new FluxHttpError(503, reason);
     }
-    const payload = await response.json() as { token?: string; conversation_id?: string };
-    if (!payload.token) throw new FluxHttpError(503, "A ElevenLabs não forneceu um token de conversa.");
+    const payload = await response.json() as { name?: string; expireTime?: string; newSessionExpireTime?: string };
+    if (!payload.name) throw new FluxHttpError(503, "O Gemini não forneceu uma credencial temporária.");
     return json({
-      token: payload.token,
-      conversationId: payload.conversation_id ?? "",
-      agentId,
-      expiresInSeconds: 600,
+      token: payload.name,
+      endpoint: "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained",
+      model: this.liveModel(),
+      voice: this.liveVoice(),
+      systemInstruction: this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS,
+      expiresAt: payload.expireTime ?? new Date(now + 30 * 60_000).toISOString(),
+      newSessionExpiresAt: payload.newSessionExpireTime ?? new Date(now + 60_000).toISOString(),
     });
   }
 
@@ -366,6 +414,9 @@ export class FluxState {
     message: string,
     requestId: string,
   ): Promise<string> {
+    if (this.env.GEMINI_API_KEY) {
+      return await this.generateWithGemini(mode, history, message);
+    }
     if (!this.env.OPENAI_API_KEY && this.env.AI) {
       return await this.generateWithWorkersAi(mode, history, message);
     }
@@ -419,6 +470,62 @@ export class FluxState {
       }
     }
     throw new FluxHttpError(503, `A inteligência do FLUX está temporariamente indisponível (${lastError}).`);
+  }
+
+  private async generateWithGemini(
+    mode: FluxMode,
+    history: StoredMessage[],
+    message: string,
+  ): Promise<string> {
+    const model = this.geminiModel(mode);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    const body = JSON.stringify({
+      systemInstruction: { parts: [{ text: this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS }] },
+      contents: [
+        ...history.map(({ role, content }) => ({
+          role: role === "assistant" ? "model" : "user",
+          parts: [{ text: content }],
+        })),
+        { role: "user", parts: [{ text: message }] },
+      ],
+      generationConfig: {
+        temperature: mode === "FAST" ? 0.35 : mode === "STANDARD" ? 0.55 : 0.65,
+        maxOutputTokens: mode === "FAST" ? 1_200 : mode === "STANDARD" ? 3_500 : 8_000,
+      },
+    });
+    let lastError = "falha temporária";
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "x-goog-api-key": this.env.GEMINI_API_KEY!,
+            "content-type": "application/json",
+          },
+          body,
+        });
+        if (response.ok) {
+          const payload = await response.json() as {
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          };
+          const content = payload.candidates?.[0]?.content?.parts
+            ?.map((part) => part.text ?? "")
+            .join("")
+            .trim();
+          if (!content) throw new Error("resposta vazia");
+          return content;
+        }
+        lastError = `HTTP ${response.status}`;
+        const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
+        if (!retryable || attempt === 3) break;
+        await this.pause(this.retryAfterMs(response.headers.get("retry-after")) ?? this.backoffMs(attempt));
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : "falha de rede";
+        if (attempt === 3) break;
+        await this.pause(this.backoffMs(attempt));
+      }
+    }
+    throw new FluxHttpError(503, `O Gemini está temporariamente indisponível (${lastError}).`);
   }
 
   private async generateWithWorkersAi(
@@ -483,6 +590,20 @@ export class FluxState {
     if (mode === "FAST") return this.env.AI_FAST_MODEL ?? "gpt-5.6-luna";
     if (mode === "STANDARD") return this.env.AI_STANDARD_MODEL ?? "gpt-5.6-terra";
     return this.env.AI_DEEP_MODEL ?? "gpt-5.6-sol";
+  }
+
+  private geminiModel(mode: FluxMode): string {
+    if (mode === "FAST") return this.env.GEMINI_FAST_MODEL ?? "gemini-3.5-flash-lite";
+    if (mode === "STANDARD") return this.env.GEMINI_STANDARD_MODEL ?? "gemini-3.5-flash";
+    return this.env.GEMINI_DEEP_MODEL ?? "gemini-3.5-flash";
+  }
+
+  private liveModel(): string {
+    return this.env.GEMINI_LIVE_MODEL?.trim() || "gemini-3.8-live";
+  }
+
+  private liveVoice(): string {
+    return this.env.GEMINI_LIVE_VOICE?.trim() || "Orus";
   }
 
   private async readObject(request: Request): Promise<Record<string, unknown>> {

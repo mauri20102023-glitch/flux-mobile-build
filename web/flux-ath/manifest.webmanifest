@@ -1,0 +1,16 @@
+{
+  "name": "FLUX — Inteligência Pessoal",
+  "short_name": "FLUX",
+  "description": "Converse, crie, organize e conecte seus dispositivos com o FLUX.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#090a0e",
+  "theme_color": "#090a0e",
+  "orientation": "any",
+  "icons": [{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "shortcuts": [
+    {"name":"FLUX Chat","short_name":"Chat","url":"/?view=chat","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"FLUX Studio","short_name":"Studio","url":"/?view=studio","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml"}]}
+  ]
+}

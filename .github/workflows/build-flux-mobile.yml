@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.5.0
+name: Build FLUX Mobile 1.7.0
 
 on:
   workflow_dispatch:
@@ -38,9 +38,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract FLUX ATH Android source
-        run: unzip -q source/FLUX-Mobile-Android-1.5.0.zip
-
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -50,21 +47,27 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Compile FLUX ATH APK
+      - name: Verify no private key is stored in source
+        run: test ! -e apps/android/flux.mobile.pairing
+
+      - name: Compile FLUX Gemini Live APK
         working-directory: apps/android
+        env:
+          FLUX_CORE_URL: "https://flux-mobile-build2.mauri20102023.workers.dev"
+          FLUX_MOBILE_PAIRING_PRIVATE_KEY: "${{ secrets.FLUX_MOBILE_PAIRING_PRIVATE_KEY }}"
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.5.0.apk
-          sha256sum FLUX-Mobile-1.5.0.apk > FLUX-Mobile-1.5.0.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.0.apk
+          sha256sum FLUX-Mobile-1.7.0.apk > FLUX-Mobile-1.7.0.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.5.0
+          name: FLUX-Mobile-1.7.0
           path: |
-            FLUX-Mobile-1.5.0.apk
-            FLUX-Mobile-1.5.0.sha256
+            FLUX-Mobile-1.7.0.apk
+            FLUX-Mobile-1.7.0.sha256
           if-no-files-found: error
           retention-days: 7

@@ -6,6 +6,12 @@
   "observability": {
     "enabled": true
   },
+  "assets": {
+    "directory": "./web/flux-ath",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/v1/*", "/health"]
+  },
   "ai": {
     "binding": "AI"
   },
@@ -29,7 +35,11 @@
     "AI_FAST_MODEL": "gpt-5.6-luna",
     "AI_STANDARD_MODEL": "gpt-5.6-terra",
     "AI_DEEP_MODEL": "gpt-5.6-sol",
-    "ELEVENLABS_AGENT_ID": "agent_5701m38je3dweertjnjsk2fegsbk",
+    "GEMINI_FAST_MODEL": "gemini-3.5-flash-lite",
+    "GEMINI_STANDARD_MODEL": "gemini-3.5-flash",
+    "GEMINI_DEEP_MODEL": "gemini-3.5-flash",
+    "GEMINI_LIVE_MODEL": "gemini-3.8-live",
+    "GEMINI_LIVE_VOICE": "Orus",
     "WORKERS_AI_TEXT_MODEL": "@cf/openai/gpt-oss-20b"
   }
 }
