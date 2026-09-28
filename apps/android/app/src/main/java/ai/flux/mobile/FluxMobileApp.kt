@@ -43,6 +43,10 @@ import androidx.compose.ui.unit.sp
 import ai.flux.mobile.model.FluxUiState
 import ai.flux.mobile.model.Role
 import ai.flux.mobile.model.UiMessage
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlinx.coroutines.delay
 
 private val PulseRed: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
@@ -58,11 +62,12 @@ private val Green = Color(0xFF52D27F)
 private val Amber = Color(0xFFFFBC52)
 
 private enum class FluxTab(val label: String, val icon: ImageVector) {
-    CHAT("FLUX Chat", Icons.Default.AutoAwesome),
-    AGENDA("Projetos", Icons.Default.CalendarMonth),
+    HOME("Início", Icons.Default.Home),
+    CHAT("Chat", Icons.Default.ChatBubbleOutline),
+    AGENDA("Planos", Icons.Default.CheckCircleOutline),
     DEVICES("Dispositivos", Icons.Default.Devices),
     LAB("Laboratório", Icons.Default.Build),
-    CONTROL("Sistema", Icons.Default.Settings),
+    CONTROL("Ajustes", Icons.Default.Settings),
 }
 
 @Composable
@@ -137,12 +142,12 @@ fun FluxMobileApp(
     onClearConversation: () -> Unit,
     onClearError: () -> Unit,
 ) {
-    var selectedName by rememberSaveable { mutableStateOf(FluxTab.CHAT.name) }
+    var selectedName by rememberSaveable { mutableStateOf(FluxTab.HOME.name) }
     val selected = FluxTab.valueOf(selectedName)
 
     Scaffold(
         containerColor = Color.Transparent,
-        bottomBar = { PulseNavigation(selected) { selectedName = it.name } },
+        bottomBar = { PulseNavigation(selected, onVoice) { selectedName = it.name } },
     ) { padding ->
         Box(
             Modifier.fillMaxSize()
@@ -150,6 +155,15 @@ fun FluxMobileApp(
                 .padding(padding),
         ) {
             when (selected) {
+                FluxTab.HOME -> PulseHome(
+                    state = state,
+                    onVoice = onVoice,
+                    onChat = { selectedName = FluxTab.CHAT.name },
+                    onPlans = { selectedName = FluxTab.AGENDA.name },
+                    onStudio = { selectedName = FluxTab.LAB.name },
+                    onDevices = { selectedName = FluxTab.DEVICES.name },
+                    onSettings = { selectedName = FluxTab.CONTROL.name },
+                )
                 FluxTab.CHAT -> PulseChat(state, onSend, onVoice, onStop) {
                     selectedName = FluxTab.CONTROL.name
                 }
@@ -182,22 +196,170 @@ fun FluxMobileApp(
 }
 
 @Composable
-private fun PulseNavigation(selected: FluxTab, onSelect: (FluxTab) -> Unit) {
+private fun PulseNavigation(selected: FluxTab, onVoice: () -> Unit, onSelect: (FluxTab) -> Unit) {
     NavigationBar(containerColor = Color(0xF20A0A0D), tonalElevation = 0.dp) {
-        FluxTab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = selected == tab,
-                onClick = { onSelect(tab) },
-                icon = { Icon(tab.icon, tab.label, Modifier.size(22.dp)) },
-                label = { Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color.White,
-                    selectedTextColor = Color.White,
-                    indicatorColor = PulseRedDark,
-                    unselectedIconColor = Muted,
-                    unselectedTextColor = Muted,
-                ),
-            )
+        listOf(FluxTab.HOME, FluxTab.CHAT).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
+        NavigationBarItem(
+            selected = false,
+            onClick = onVoice,
+            icon = {
+                Box(
+                    Modifier.size(50.dp).background(
+                        Brush.radialGradient(listOf(Color(0xFFFF8092), PulseRed, Color(0xFF460B19))), CircleShape,
+                    ).border(1.dp, Color(0xFF54DCFF).copy(alpha = 0.65f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.Black) }
+            },
+            label = { Text("Voz", fontSize = 10.sp) },
+            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent, unselectedTextColor = Muted),
+        )
+        listOf(FluxTab.AGENDA, FluxTab.CONTROL).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
+    }
+}
+
+@Composable
+private fun RowScope.PulseNavItem(selected: FluxTab, tab: FluxTab, onSelect: (FluxTab) -> Unit) {
+    NavigationBarItem(
+        selected = selected == tab,
+        onClick = { onSelect(tab) },
+        icon = { Icon(tab.icon, tab.label, Modifier.size(23.dp)) },
+        label = { Text(tab.label, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = White, selectedTextColor = White, indicatorColor = PulseRedDark,
+            unselectedIconColor = Muted, unselectedTextColor = Muted,
+        ),
+    )
+}
+
+@Composable
+private fun PulseHome(
+    state: FluxUiState,
+    onVoice: () -> Unit,
+    onChat: () -> Unit,
+    onPlans: () -> Unit,
+    onStudio: () -> Unit,
+    onDevices: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) { while (true) { delay(30_000); now = LocalDateTime.now() } }
+    val online = state.coreOnline && state.coreAuthConfigured
+    val greeting = when (now.hour) { in 0..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
+    val lastReply = state.messages.lastOrNull { it.role == Role.FLUX }?.content ?: "Pronto quando você estiver."
+    Column(
+        Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(43.dp).clip(RoundedCornerShape(13.dp))
+                    .background(Brush.linearGradient(listOf(PulseRed, PulseRedDark))),
+                contentAlignment = Alignment.Center,
+            ) { Text("F", fontSize = 24.sp, fontWeight = FontWeight.Black, color = White) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("SISTEMA PESSOAL", color = PulseRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.7.sp)
+                Text("Olá, Maurício", fontSize = 22.sp, fontWeight = FontWeight.Black)
+            }
+            Box(Modifier.clickable(onClick = onSettings)) {
+                StatusPill(if (online) "ONLINE" else "CONECTAR", if (online) Green else Amber)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Surface(
+            color = Panel,
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.dp, Line),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                Modifier.background(Brush.linearGradient(listOf(Color(0xFF21151C), Panel, Color(0xFF101821))))
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(if (state.voiceConfigured) "●  FLUX LIVE" else "●  FLUX CORE",
+                    color = if (state.voiceConfigured) Green else PulseRed,
+                    fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
+                Spacer(Modifier.height(16.dp))
+                Text("$greeting, Maurício.", color = White, fontSize = 37.sp,
+                    lineHeight = 39.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    when {
+                        state.voiceConfigured && state.wakeWordEnabled -> "Diga ‘Flux’ ou toque no núcleo para conversar."
+                        state.voiceConfigured -> "Toque no núcleo para conversar por voz."
+                        else -> "O chat já está disponível. Ative a voz em Ajustes."
+                    },
+                    color = Muted, textAlign = TextAlign.Center, lineHeight = 20.sp,
+                )
+                Spacer(Modifier.height(24.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(160.dp).border(1.dp, Color(0xFF54DCFF).copy(alpha = 0.4f), CircleShape))
+                    Box(Modifier.size(143.dp).border(1.dp, PulseRed.copy(alpha = 0.6f), CircleShape))
+                    Box(
+                        Modifier.size(118.dp).background(
+                            Brush.radialGradient(listOf(White, PulseRed, Color(0xFF4A0717), Ink)), CircleShape,
+                        ).clickable(onClick = onVoice),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("F", color = White, fontSize = 42.sp, fontWeight = FontWeight.Black) }
+                }
+                Spacer(Modifier.height(15.dp))
+                Text(if (state.isListening) "OUVINDO" else "TOQUE PARA FALAR", color = Muted,
+                    fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
+                Spacer(Modifier.height(22.dp))
+                OutlinedAction("ABRIR CHAT", Icons.Default.ChatBubbleOutline, onChat)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        HomePanel("AGORA", "Seu centro de comando") {
+            Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), fontSize = 39.sp, fontWeight = FontWeight.Light)
+            Text(now.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale("pt", "BR"))), color = Muted)
+            Text("${state.tasks.count { !it.completed }} tarefa(s) em aberto", color = Muted, fontSize = 12.sp)
+            Spacer(Modifier.height(12.dp))
+            HomeAction(Icons.Default.CheckCircleOutline, "Planos", "Organize suas tarefas", onPlans)
+        }
+        Spacer(Modifier.height(12.dp))
+        HomePanel("CONVERSA", "Último contato") {
+            Text("“${lastReply.take(160)}${if (lastReply.length > 160) "…" else ""}”",
+                fontSize = 18.sp, lineHeight = 25.sp)
+            Spacer(Modifier.height(12.dp))
+            HomeAction(Icons.Default.ChatBubbleOutline, "Ver chat", "Continue a conversa", onChat)
+        }
+        Spacer(Modifier.height(12.dp))
+        HomePanel("ECOSSISTEMA", "Presença FLUX") {
+            HomeAction(Icons.Default.PhoneAndroid, "Este dispositivo", if (online) "Conectado ao Core" else "Configure a conexão", onDevices)
+            Spacer(Modifier.height(8.dp))
+            HomeAction(Icons.Default.Image, "FLUX Studio", "Criar imagens e testar funções", onStudio)
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun HomePanel(label: String, title: String, content: @Composable ColumnScope.() -> Unit) {
+    Surface(color = Panel, shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Line)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            SectionLabel(label)
+            Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(14.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun HomeAction(icon: ImageVector, title: String, detail: String, onClick: () -> Unit) {
+    Surface(
+        color = PanelRaised, shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, Line),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    ) {
+        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = PulseRed)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(detail, color = Muted, fontSize = 11.sp)
+            }
         }
     }
 }
@@ -261,11 +423,11 @@ private fun PulseHeader(state: FluxUiState) {
             Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
                 .background(Brush.linearGradient(listOf(PulseRed, PulseRedDark))),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Default.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(23.dp)) }
+        ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.Black) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Olá, Maurício", fontSize = 21.sp, fontWeight = FontWeight.Black)
-            Text("FLUX CHAT • MOBILE 1.7.3", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
+            Text("FLUX CHAT • MOBILE 1.7.5", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
         }
         StatusPill(
             label = when {
