@@ -660,6 +660,7 @@ private fun ControlScreen(
             state.coreOnline,
             when {
                 state.coreOnline -> "Conexão persistente ativa"
+                !state.corePairingAvailable && !state.coreAuthConfigured -> "Pareamento ausente neste APK"
                 state.isConnecting -> "Tentando reconectar"
                 else -> "Servidor ainda não alcançado"
             },
@@ -675,42 +676,31 @@ private fun ControlScreen(
             if (state.voiceConfigured) state.voiceProvider else "Precisa de ativação",
         )
         Spacer(Modifier.height(12.dp))
-        OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
-        Spacer(Modifier.height(8.dp))
+        if (state.corePairingAvailable || state.coreAuthConfigured) {
+            OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
+            Spacer(Modifier.height(8.dp))
+        }
         OutlinedAction("TESTAR GEMINI LIVE", Icons.Default.VolumeUp, onTestVoice)
 
-        Spacer(Modifier.height(22.dp))
-        SectionLabel("FLUX LINK")
-        Text(
-            if (state.corePairingAvailable || state.coreAuthConfigured) {
-                "O servidor e a credencial do aparelho são configurados automaticamente."
-            } else {
-                "Este APK não recebeu a credencial do FLUX Core. O Gemini pessoal abaixo funciona para voz e chat sem esse pareamento."
-            },
-            color = Muted,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-        )
-        Spacer(Modifier.height(10.dp))
-        PulseField(
-            value = coreUrl,
-            onValueChange = { coreUrl = it },
-            placeholder = "https://seu-core.workers.dev",
-        )
-        Spacer(Modifier.height(10.dp))
-        SystemStatus(
-            "Pareamento seguro",
-            state.coreAuthConfigured,
-            when {
-                state.coreAuthConfigured -> "Credencial protegida pelo Android"
-                state.corePairingAvailable -> "Configurando automaticamente"
-                else -> "Indisponível nesta instalação"
-            },
-        )
-        Spacer(Modifier.height(10.dp))
-        PrimaryButton("SALVAR E RECONECTAR", Icons.Default.Link) {
-            onCoreUrlChange(coreUrl)
-            onReconnect()
+        if (state.corePairingAvailable || state.coreAuthConfigured) {
+            Spacer(Modifier.height(22.dp))
+            SectionLabel("FLUX LINK")
+            Text("O servidor e a credencial do aparelho são configurados automaticamente.",
+                color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+            Spacer(Modifier.height(10.dp))
+            PulseField(
+                value = coreUrl,
+                onValueChange = { coreUrl = it },
+                placeholder = "https://seu-core.workers.dev",
+            )
+            Spacer(Modifier.height(10.dp))
+            SystemStatus("Pareamento seguro", state.coreAuthConfigured,
+                if (state.coreAuthConfigured) "Credencial protegida pelo Android" else "Configurando automaticamente")
+            Spacer(Modifier.height(10.dp))
+            PrimaryButton("SALVAR E RECONECTAR", Icons.Default.Link) {
+                onCoreUrlChange(coreUrl)
+                onReconnect()
+            }
         }
 
         Spacer(Modifier.height(22.dp))
