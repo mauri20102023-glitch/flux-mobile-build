@@ -1,6 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const VERSION = "1.7.0";
+const VERSION = "1.7.6";
 const STORE = "flux-workspace-v1";
 const DEVICE_ID = localStorage.getItem("flux-device-id") || `web-${crypto.randomUUID()}`;
 localStorage.setItem("flux-device-id", DEVICE_ID);
@@ -88,9 +88,9 @@ async function sendChat(message) {
   save(); renderMessages();
 }
 function getConversationId() { let id = localStorage.getItem("flux-conversation-id"); if (!id) { id = crypto.randomUUID(); localStorage.setItem("flux-conversation-id", id); } return id; }
-function requireConnection() { if (!state.token || state.token.length < 20) { const error = new Error("Conecte o token protegido em Configurações."); error.code = "NO_TOKEN"; throw error; } }
+function requireConnection() { if (!state.token || state.token.length < 20) { const error = new Error("Abra Configurações e conecte o FLUX com um código de pareamento."); error.code = "NO_TOKEN"; throw error; } }
 async function readResponse(response) { let body = {}; try { body = await response.json(); } catch {} if (!response.ok) throw new Error(body.message || body.error || `Erro ${response.status}`); return body; }
-function friendlyError(error) { const text = error?.message || "Falha inesperada."; if (/unauthorized/i.test(text)) return "O token do FLUX não foi aceito. Abra Configurações e reconecte o núcleo."; return text; }
+function friendlyError(error) { const text = error?.message || "Falha inesperada."; if (/PAIRING_DENIED/i.test(text)) return "Código inválido, usado ou expirado. Peça um novo código de pareamento."; if (/PAIRING_RATE_LIMITED/i.test(text)) return "Muitas tentativas. Aguarde antes de tentar novamente."; if (/unauthorized/i.test(text)) return "A conexão deste navegador não foi aceita. Abra Configurações e use um novo código."; return text; }
 
 function renderTasks() {
   const list = $("#taskList"); list.innerHTML = ""; $("#taskCount").textContent = state.tasks.filter(item => !item.done).length;
@@ -140,7 +140,7 @@ function renderDevices() {
 
 async function healthCheck(show = false) {
   const badge=$("#coreStatus"); badge.className="status-pill"; badge.querySelector("b").textContent="VERIFICANDO";
-  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); if(body.features?.live===false){badge.querySelector("b").textContent="ATIVAR VOZ";}else{badge.classList.add("online");badge.querySelector("b").textContent="ONLINE";} if(show) toast(`FLUX Core ${body.version || "online"}${body.features?.live===false ? " — Gemini Live precisa da chave do servidor" : ""}.`,body.features?.live===false?"":"ok"); return body; }
+  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); badge.classList.add("online"); badge.querySelector("b").textContent=state.token?"CONECTADO":"PAREAR"; if(show) toast(`FLUX Core ${body.version || "online"}${body.features?.live===false ? " — voz Live ainda indisponível" : ""}.`,"ok"); return body; }
   catch(error){ badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
 }
 async function diagnostics() { requireConnection(); const response=await fetch(core("/v1/diagnostics"),{headers:headers()}); return readResponse(response); }
@@ -205,14 +205,14 @@ function renderImage(){if(state.lastImage)$("#imageCanvas").innerHTML=`<img src=
 async function runLab(name){
   if(name==="builder")return modal({eyebrow:"FLUX BUILDER",title:"Projetar uma função",body:'<label class="modal-field">O QUE O FLUX DEVE FAZER?<textarea id="builderIdea" rows="5" maxlength="800" placeholder="Descreva a função, quando deve ser ativada e o que não pode fazer."></textarea></label>',confirm:"CRIAR PROPOSTA",onConfirm:()=>{const idea=$("#builderIdea").value.trim();if(!idea)return false;state.projects.unshift({id:crypto.randomUUID(),name:"Função em avaliação",note:idea,progress:.08});save();renderProjects();toast("Proposta criada. Nada foi instalado sem testes.","ok");}});
   if(name==="test") { const results=await systemTests(); showReport("FLUX TEST LAB","Resultado dos testes",results); return; }
-  if(name==="security") { const checks=[statusLine("Conexão HTTPS",location.protocol==="https:"),statusLine("Token protegido configurado",state.token.length>=20),statusLine("PIN local configurado",Boolean(state.pinHash)),statusLine("Microfone só sob comando",!live.active),statusLine("Chave Gemini fora do navegador",true)]; showReport("FLUX SECURITY","Auditoria local",checks.join("")); return; }
+  if(name==="security") { const checks=[statusLine("Conexão HTTPS",location.protocol==="https:"),statusLine("Navegador pareado",state.token.length>=20),statusLine("PIN local configurado",Boolean(state.pinHash)),statusLine("Microfone só sob comando",!live.active),statusLine("Chave Gemini fora do navegador",true)]; showReport("FLUX SECURITY","Auditoria local",checks.join("")); return; }
   if(name==="update") { try{const health=await healthCheck();showReport("FLUX UPDATE","Versão do sistema",`<p>Interface <b>${VERSION}</b></p><p>Núcleo <b>${escapeHtml(health.version||"online")}</b></p><p class="helper">Atualizações são publicadas pelo repositório confiável e podem ser revertidas.</p>`);}catch(error){toast(friendlyError(error),"error");} return; }
   if(name==="recovery") { localStorage.setItem("flux-recovery-backup",JSON.stringify(state)); toast("Ponto de recuperação local criado.","ok"); showReport("FLUX RECOVERY","Backup concluído",'<p>Configurações, tarefas, projetos e memórias foram copiadas neste aparelho.</p><button class="secondary-button wide" id="restoreBackup">RESTAURAR ÚLTIMO BACKUP</button>'); setTimeout(()=>$("#restoreBackup").onclick=restoreBackup,0); return; }
   if(name==="developer") { const console=$("#developerConsole");console.hidden=!console.hidden;console.textContent=`FLUX Developer Mode\nversion=${VERSION}\ndevice=${DEVICE_ID}\ncore=${state.coreUrl}\nvoice=${live.active?"active":"idle"}\nscreen=${screenStream?"shared":"private"}\ntasks=${state.tasks.length}\nmemories=${state.memories.length}\nserviceWorker=${"serviceWorker" in navigator}`; }
 }
 function statusLine(name,ok){return `<p><b style="color:${ok?"var(--ok)":"var(--danger)"}">${ok?"✓":"×"}</b> ${escapeHtml(name)}</p>`;}
 function showReport(eyebrow,title,content){modal({eyebrow,title,body:content,confirm:"FECHAR",onConfirm:()=>true});}
-async function systemTests(){const lines=[statusLine("Interface carregada",true),statusLine("Armazenamento local",storageTest()),statusLine("Web Audio disponível",Boolean(window.AudioContext||window.webkitAudioContext)),statusLine("Microfone suportado",Boolean(navigator.mediaDevices?.getUserMedia))];try{await healthCheck();lines.push(statusLine("FLUX Core online",true));}catch{lines.push(statusLine("FLUX Core online",false));}if(state.token){try{const report=await diagnostics();lines.push(statusLine("Gemini texto",report.diagnostics?.ai==="OK"),statusLine("Gemini Live",report.diagnostics?.voice==="OK"));}catch{lines.push(statusLine("Autenticação do núcleo",false));}}else lines.push(statusLine("Token configurado",false));return lines.join("");}
+async function systemTests(){const lines=[statusLine("Interface carregada",true),statusLine("Armazenamento local",storageTest()),statusLine("Web Audio disponível",Boolean(window.AudioContext||window.webkitAudioContext)),statusLine("Microfone suportado",Boolean(navigator.mediaDevices?.getUserMedia))];try{await healthCheck();lines.push(statusLine("FLUX Core online",true));}catch{lines.push(statusLine("FLUX Core online",false));}if(state.token){try{const report=await diagnostics();lines.push(statusLine("IA de texto",report.diagnostics?.ai==="OK"),statusLine("Voz Live",report.diagnostics?.voice==="OK"));}catch{lines.push(statusLine("Autenticação do núcleo",false));}}else lines.push(statusLine("Navegador pareado",false));return lines.join("");}
 function storageTest(){try{localStorage.setItem("flux-test","ok");localStorage.removeItem("flux-test");return true;}catch{return false;}}
 function restoreBackup(){try{const backup=localStorage.getItem("flux-recovery-backup");if(!backup)throw new Error("Nenhum backup encontrado.");state={...initial,...JSON.parse(backup)};save();location.reload();}catch(error){toast(friendlyError(error),"error");}}
 
@@ -227,7 +227,7 @@ function bindEvents(){
   $("#clearChat").onclick=()=>{state.messages=[];localStorage.removeItem("flux-conversation-id");save();renderMessages();toast("Conversa limpa.");};
   $("#taskForm").onsubmit=event=>{event.preventDefault();addTask($("#taskInput").value);$("#taskInput").value="";};
   $("#imageForm").onsubmit=createImage; $$('[data-style]').forEach(button=>button.onclick=()=>{selectedStyle=button.dataset.style;$$('[data-style]').forEach(item=>item.classList.toggle("selected",item===button));});
-  $("#saveConnection").onclick=async()=>{state.coreUrl=$("#coreUrl").value.trim().replace(/\/$/,"")||location.origin;const token=$("#authToken").value.trim();if(token)state.token=token;save();setBusy($("#saveConnection"),true,"TESTANDO…");try{await healthCheck();if(state.token){await diagnostics();toast("FLUX Core autenticado e pronto.","ok");}else toast("Núcleo encontrado. Falta o token protegido.");}catch(error){toast(friendlyError(error),"error");}finally{setBusy($("#saveConnection"),false);}};
+  $("#saveConnection").onclick=async()=>{const code=$("#pairCode").value.trim();if(!/^[A-Za-z0-9_-]{32}$/.test(code))return toast("Cole o código de pareamento de 32 caracteres.","error");const button=$("#saveConnection");setBusy(button,true,"CONECTANDO…");try{const response=await fetch(core("/v1/pair/redeem"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({deviceId:DEVICE_ID,deviceName:"FLUX Web",code})});const paired=await readResponse(response);if(!paired.deviceToken)throw new Error("O Core não retornou a credencial do navegador.");state.token=paired.deviceToken;save();$("#pairCode").value="";await diagnostics();$("#pairStatus").textContent="Este navegador está conectado ao FLUX Core. O chat já pode ser usado.";await healthCheck();toast("FLUX Core conectado neste navegador.","ok");}catch(error){toast(friendlyError(error),"error");}finally{setBusy(button,false);}};
   $("#savePin").onclick=async()=>{const pin=$("#privatePin").value.trim();if(!/^\d{4,8}$/.test(pin))return toast("Use um PIN de 4 a 8 números.","error");state.pinHash=await hashText(pin);sessionPin=pin;save();$("#privatePin").value="";toast("PIN local salvo.","ok");};
   $("#voiceEnabled").onchange=event=>{state.voiceEnabled=event.target.checked;save();if(!state.voiceEnabled)live.stop();};
   $("#wakeEnabled").onchange=event=>{event.target.checked=false;state.wakeEnabled=false;save();toast("A ativação contínua por “Flux” fica no aplicativo Android; navegadores bloqueiam microfone permanente.");};
@@ -241,9 +241,9 @@ function applyTheme(){document.documentElement.dataset.theme=state.theme;$$('[da
 
 async function init(){
   applyTheme(); bindEvents(); renderMessages(); renderTasks(); renderProjects(); renderMemories(); renderIntegrations(); renderDevices(); renderImage();
-  $("#coreUrl").value=state.coreUrl; $("#authToken").value=state.token; $("#voiceEnabled").checked=state.voiceEnabled; $("#wakeEnabled").checked=false;
+  state.coreUrl=location.origin; $("#pairStatus").textContent=state.token?"Conexão salva neste navegador. Verificando o Core…":"Este navegador ainda precisa de um código de pareamento."; $("#voiceEnabled").checked=state.voiceEnabled; $("#wakeEnabled").checked=false;
   updateClock();setInterval(updateClock,30000);const requested=new URLSearchParams(location.search).get("view");go(requested||"home",false);
   if("serviceWorker" in navigator && location.protocol==="https:")navigator.serviceWorker.register("/sw.js").catch(()=>{});
-  setTimeout(()=>$("#boot").classList.add("done"),520);healthCheck().catch(()=>{});
+  setTimeout(()=>$("#boot").classList.add("done"),520);healthCheck().then(async()=>{if(state.token){try{await diagnostics();$("#pairStatus").textContent="Este navegador está conectado ao FLUX Core. O chat já pode ser usado.";}catch{$("#pairStatus").textContent="Conexão anterior não foi aceita. Use um novo código de pareamento.";$("#coreStatus").querySelector("b").textContent="PAREAR";}}}).catch(()=>{$("#pairStatus").textContent="FLUX Core indisponível no momento.";});
 }
 init();

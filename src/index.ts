@@ -286,8 +286,8 @@ export class FluxState {
       this.state.storage.put(`device:${deviceId}`, {
         deviceId,
         name: deviceName ?? "FLUX Mobile",
-        deviceType: "MOBILE",
-        platform: "Android",
+        deviceType: deviceId.startsWith("web-") ? "WEB" : "MOBILE",
+        platform: deviceId.startsWith("web-") ? "Web" : "Android",
         online: true,
         pairedAt,
         lastSeen: pairedAt,
