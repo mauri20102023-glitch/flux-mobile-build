@@ -146,24 +146,39 @@ async function healthCheck(show = false) {
 async function diagnostics() { requireConnection(); const response=await fetch(core("/v1/diagnostics"),{headers:headers()}); return readResponse(response); }
 
 class FluxLive {
-  constructor() { this.socket=null; this.context=null; this.mic=null; this.processor=null; this.source=null; this.nextPlay=0; this.userText=""; this.fluxText=""; this.session=null; }
-  get active(){ return Boolean(this.socket); }
+  constructor() { this.socket=null; this.context=null; this.mic=null; this.processor=null; this.source=null; this.nextPlay=0; this.userText=""; this.fluxText=""; this.session=null; this.running=false; this.ready=false; this.resumeHandle=""; this.reconnectAttempts=0; this.reconnectTimer=null; }
+  get active(){ return this.running; }
   async start(){
     if(this.active) return; requireConnection(); setVoiceState("connecting","CONECTANDO AO FLUX");
-    const sessionResponse=await fetch(core("/v1/live/session"),{method:"POST",headers:headers(),body:"{}"}); this.session=await readResponse(sessionResponse);
+    this.running=true; this.resumeHandle=""; this.reconnectAttempts=0;
     this.context=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}); await this.context.resume();
     this.mic=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-    const ws=new WebSocket(`${this.session.endpoint}?access_token=${encodeURIComponent(this.session.token)}`); this.socket=ws;
-    ws.onopen=()=>ws.send(JSON.stringify({setup:{model:`models/${this.session.model}`,generationConfig:{responseModalities:["AUDIO"],temperature:.7,speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:this.session.voice}}}},systemInstruction:{parts:[{text:this.session.systemInstruction}]},inputAudioTranscription:{},outputAudioTranscription:{},realtimeInputConfig:{automaticActivityDetection:{disabled:false,silenceDurationMs:700,prefixPaddingMs:300,startOfSpeechSensitivity:"START_SENSITIVITY_HIGH",endOfSpeechSensitivity:"END_SENSITIVITY_HIGH"},activityHandling:"START_OF_ACTIVITY_INTERRUPTS",turnCoverage:"TURN_INCLUDES_ONLY_ACTIVITY"}}}));
-    ws.onmessage=event=>this.handle(JSON.parse(event.data)); ws.onerror=()=>this.fail("A conexão de voz foi interrompida."); ws.onclose=()=>{ if(this.socket===ws) this.stop(false); };
+    await this.connect();
+  }
+  async connect(){
+    const sessionResponse=await fetch(core("/v1/live/session"),{method:"POST",headers:headers(),body:"{}"});
+    const session=await readResponse(sessionResponse); if(!this.running)return; this.session=session; this.ready=false;
+    const ws=new WebSocket(`${session.endpoint}?access_token=${encodeURIComponent(session.token)}`); this.socket=ws;
+    ws.onopen=()=>{if(!this.running||this.socket!==ws)return;const setup={model:`models/${session.model}`,generationConfig:{responseModalities:["AUDIO"],temperature:.7,speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.voice}}}},systemInstruction:{parts:[{text:session.systemInstruction}]},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:this.resumeHandle?{handle:this.resumeHandle}:{},contextWindowCompression:{slidingWindow:{}},realtimeInputConfig:{automaticActivityDetection:{disabled:false,silenceDurationMs:700,prefixPaddingMs:300,startOfSpeechSensitivity:"START_SENSITIVITY_HIGH",endOfSpeechSensitivity:"END_SENSITIVITY_HIGH"},activityHandling:"START_OF_ACTIVITY_INTERRUPTS",turnCoverage:"TURN_INCLUDES_ONLY_ACTIVITY"}};ws.send(JSON.stringify({setup}));};
+    ws.onmessage=event=>{if(this.socket===ws)try{this.handle(JSON.parse(event.data));}catch{this.fail("Não foi possível processar a resposta de voz.");}};
+    ws.onerror=()=>{try{ws.close();}catch{}};
+    ws.onclose=()=>{if(this.socket!==ws||!this.running)return;if(!this.ready&&this.resumeHandle)this.resumeHandle="";this.socket=null;this.ready=false;this.reconnect();};
+  }
+  reconnect(){
+    if(!this.running)return;
+    if(this.reconnectAttempts>=3){this.fail("A conexão de voz caiu. Toque para tentar novamente.");return;}
+    const delay=[0,1000,3000][this.reconnectAttempts++]; setVoiceState("connecting","RECONECTANDO A VOZ");
+    this.reconnectTimer=setTimeout(async()=>{this.reconnectTimer=null;if(!this.running)return;try{await this.connect();}catch{this.reconnect();}},delay);
   }
   setupAudio(){
-    if(this.processor) return; this.source=this.context.createMediaStreamSource(this.mic); this.processor=this.context.createScriptProcessor(2048,1,1); const sink=this.context.createGain(); sink.gain.value=0; this.source.connect(this.processor); this.processor.connect(sink); sink.connect(this.context.destination);
-    this.processor.onaudioprocess=event=>{ if(!this.socket||this.socket.readyState!==WebSocket.OPEN)return; const pcm=downsample(event.inputBuffer.getChannelData(0),this.context.sampleRate,16000); this.socket.send(JSON.stringify({realtimeInput:{audio:{data:bytesToBase64(pcm.buffer),mimeType:"audio/pcm;rate=16000"}}})); };
+    if(this.processor){setVoiceState("listening","OUVINDO — PODE FALAR");return;} this.source=this.context.createMediaStreamSource(this.mic); this.processor=this.context.createScriptProcessor(2048,1,1); const sink=this.context.createGain(); sink.gain.value=0; this.source.connect(this.processor); this.processor.connect(sink); sink.connect(this.context.destination);
+    this.processor.onaudioprocess=event=>{ if(!this.ready||!this.socket||this.socket.readyState!==WebSocket.OPEN)return; const pcm=downsample(event.inputBuffer.getChannelData(0),this.context.sampleRate,16000); this.socket.send(JSON.stringify({realtimeInput:{audio:{data:bytesToBase64(pcm.buffer),mimeType:"audio/pcm;rate=16000"}}})); };
     setVoiceState("listening","OUVINDO — PODE FALAR");
   }
   handle(message){
-    if(message.setupComplete){ this.setupAudio(); return; }
+    if(message.sessionResumptionUpdate?.resumable&&message.sessionResumptionUpdate.newHandle)this.resumeHandle=message.sessionResumptionUpdate.newHandle;
+    if(message.goAway){setVoiceState("connecting","PREPARANDO RETOMADA DA VOZ");return;}
+    if(message.setupComplete){ this.ready=true;this.reconnectAttempts=0;this.setupAudio();return; }
     const server=message.serverContent||{}; const parts=server.modelTurn?.parts||[];
     parts.forEach(part=>{ if(part.inlineData?.data){ setVoiceState("speaking","FLUX RESPONDENDO"); this.play(part.inlineData.data); }});
     if(server.inputTranscription?.text) this.userText=mergeTranscript(this.userText,server.inputTranscription.text);
@@ -174,8 +189,8 @@ class FluxLive {
   play(encoded){ const bytes=Uint8Array.from(atob(encoded),char=>char.charCodeAt(0)); const samples=new Float32Array(Math.floor(bytes.length/2)); const view=new DataView(bytes.buffer); for(let i=0;i<samples.length;i++) samples[i]=view.getInt16(i*2,true)/32768; const buffer=this.context.createBuffer(1,samples.length,24000); buffer.copyToChannel(samples,0); const source=this.context.createBufferSource(); source.buffer=buffer; source.connect(this.context.destination); const at=Math.max(this.context.currentTime+.015,this.nextPlay); source.start(at); this.nextPlay=at+buffer.duration; }
   sendText(text, complete=true){ if(this.socket?.readyState!==WebSocket.OPEN) return false; this.socket.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text}]}],turnComplete:complete}})); return true; }
   sendFrame(data){ if(this.socket?.readyState!==WebSocket.OPEN)return; this.socket.send(JSON.stringify({realtimeInput:{video:{data,mimeType:"image/jpeg"}}})); }
-  fail(message){ toast(message,"error"); setVoiceState("error","FALHA NA CONEXÃO"); this.stop(false); }
-  stop(close=true){ const ws=this.socket; this.socket=null; if(close) try{ws?.close(1000,"user-finished");}catch{} this.processor?.disconnect(); this.source?.disconnect(); this.mic?.getTracks().forEach(track=>track.stop()); try{this.context?.close();}catch{} this.processor=null; this.source=null; this.mic=null; this.context=null; this.nextPlay=0; setVoiceState("idle","TOQUE PARA FALAR"); }
+  fail(message){ toast(message,"error"); setVoiceState("error","FALHA NA CONEXÃO"); this.stop(); }
+  stop(close=true){ this.running=false;this.ready=false;clearTimeout(this.reconnectTimer);this.reconnectTimer=null;const ws=this.socket;this.socket=null;if(close)try{ws?.close(1000,"user-finished");}catch{}this.processor?.disconnect();this.source?.disconnect();this.mic?.getTracks().forEach(track=>track.stop());try{this.context?.close();}catch{}this.processor=null;this.source=null;this.mic=null;this.context=null;this.nextPlay=0;this.resumeHandle="";this.reconnectAttempts=0;setVoiceState("idle","TOQUE PARA FALAR"); }
 }
 const live=new FluxLive();
 function mergeTranscript(current,incoming){ if(!current)return incoming; if(incoming.startsWith(current))return incoming; if(current.endsWith(incoming))return current; return current+incoming; }
