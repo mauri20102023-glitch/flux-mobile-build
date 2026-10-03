@@ -77,13 +77,14 @@ class FluxVoiceController(
         starting = true
         reconnectAttempts = 0
         resumptionHandle = null
-        onSessionChanged(true)
         scope.launch {
             runCatching { createSession() }
                 .onSuccess { session ->
-                    liveSession = session
-                    reconnectAttempts = 0
-                    connect(session)
+                    if (wanted) {
+                        liveSession = session
+                        reconnectAttempts = 0
+                        connect(session)
+                    }
                 }
                 .onFailure { failure -> fail(failure.message ?: "Não foi possível iniciar o FLUX Live.") }
         }
@@ -280,26 +281,44 @@ class FluxVoiceController(
     @SuppressLint("MissingPermission")
     private fun startRecording() {
         if (recording.getAndSet(true)) return
-        val minimum = AudioRecord.getMinBufferSize(INPUT_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        val recorder = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
-            INPUT_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            max(minimum, INPUT_CHUNK_BYTES * 4),
-        )
-        if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+        val recorder = runCatching {
+            val minimum = AudioRecord.getMinBufferSize(INPUT_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            check(minimum > 0) { "Formato de microfone indisponível" }
+            AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                INPUT_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                max(minimum, INPUT_CHUNK_BYTES * 4),
+            ).also {
+                if (it.state != AudioRecord.STATE_INITIALIZED) {
+                    it.release()
+                    error("Microfone indisponível")
+                }
+            }
+        }.getOrElse {
             recording.set(false)
-            recorder.release()
             fail("O microfone não pôde ser inicializado neste aparelho.")
             return
         }
         audioRecord = recorder
-        recorder.startRecording()
+        if (runCatching { recorder.startRecording() }.isFailure) {
+            recording.set(false)
+            runCatching { recorder.release() }
+            audioRecord = null
+            fail("O Android não permitiu iniciar o microfone.")
+            return
+        }
         Thread({
             val buffer = ByteArray(INPUT_CHUNK_BYTES)
             while (recording.get()) {
-                val count = recorder.read(buffer, 0, buffer.size)
+                val count = runCatching { recorder.read(buffer, 0, buffer.size) }.getOrDefault(-1)
+                if (count < 0) {
+                    if (recording.get() && setupComplete && wanted) {
+                        scope.launch { fail("O microfone foi interrompido pelo Android.") }
+                    }
+                    break
+                }
                 if (count > 0 && setupComplete) {
                     val encoded = Base64.encodeToString(buffer, 0, count, Base64.NO_WRAP)
                     val payload = JSONObject().put("realtimeInput", JSONObject().put(
@@ -317,7 +336,9 @@ class FluxVoiceController(
         playbackExecutor.execute {
             runCatching {
                 val track = audioTrack ?: createAudioTrack().also { audioTrack = it; it.play() }
-                track.write(bytes, 0, bytes.size, AudioTrack.WRITE_BLOCKING)
+                check(track.write(bytes, 0, bytes.size, AudioTrack.WRITE_BLOCKING) >= 0)
+            }.onFailure {
+                if (wanted) scope.launch { fail("Não consegui reproduzir a resposta de voz neste aparelho.") }
             }
         }
     }
@@ -454,6 +475,7 @@ class FluxVoiceController(
     }
 
     private fun fail(message: String) {
+        if (!wanted) return
         wanted = false
         reconnectJob?.cancel()
         reconnectJob = null

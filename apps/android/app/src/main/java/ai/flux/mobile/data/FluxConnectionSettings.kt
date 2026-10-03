@@ -20,9 +20,13 @@ class FluxConnectionSettings(context: Context) {
 
     fun updateCoreUrl(value: String) {
         val normalized = value.trim().trimEnd('/')
-        require(normalized.startsWith("https://") || isPrivateLocalHttp(normalized)) {
+        val uri = runCatching { URI(normalized) }.getOrNull()
+        require(uri != null && !uri.host.isNullOrBlank() && uri.rawUserInfo == null &&
+            (uri.scheme == "https" || isPrivateLocalHttp(normalized))) {
             "Use HTTPS ou um endereço local privado do Flux Core"
         }
+        // A credential issued by one Core must never be sent to another host.
+        if (normalized != coreUrl()) clearAuthToken()
         preferences.edit().putString("core_url", normalized).apply()
     }
 

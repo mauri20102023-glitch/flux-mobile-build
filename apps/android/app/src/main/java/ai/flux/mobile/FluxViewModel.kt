@@ -96,11 +96,12 @@ class FluxViewModel(
                 it.copy(
                     coreOnline = false,
                     aiReady = false,
+                    aiVerified = false,
                     activationRequired = false,
                     isConnecting = false,
-                    voiceConfigured = false,
-                    voiceProvider = "unavailable",
-                    voiceOfficial = false,
+                    voiceConfigured = connectionSettings.geminiApiKeyConfigured(),
+                    voiceProvider = if (connectionSettings.geminiApiKeyConfigured()) "Gemini Live • protegido no aparelho" else "unavailable",
+                    voiceOfficial = connectionSettings.geminiApiKeyConfigured(),
                     error = if (showFailure) "Configure o endereço HTTPS do Flux Core." else null,
                 )
             }
@@ -190,7 +191,9 @@ class FluxViewModel(
     fun updateCoreUrl(value: String) {
         runCatching { connectionSettings.updateCoreUrl(value) }
             .onSuccess {
-                _state.update { it.copy(coreUrl = connectionSettings.coreUrl(), error = null) }
+                _state.update { it.copy(coreUrl = connectionSettings.coreUrl(), coreOnline = false,
+                    coreAuthConfigured = connectionSettings.authTokenConfigured(),
+                    voiceVerified = false, aiVerified = false, error = null) }
                 reconnect(showFailure = true)
             }
             .onFailure { reportError(it.message ?: "Endereço inválido.") }
@@ -209,6 +212,8 @@ class FluxViewModel(
                 _state.update {
                     it.copy(
                         geminiKeyConfigured = configured,
+                        aiVerified = false,
+                        voiceVerified = false,
                         aiReady = if (configured && !it.coreOnline) false else it.aiReady,
                         voiceConfigured = configured || it.voiceConfigured,
                         voiceProvider = if (configured) "Gemini Live • protegido no aparelho" else it.voiceProvider,
@@ -225,6 +230,8 @@ class FluxViewModel(
         _state.update {
             it.copy(
                 geminiKeyConfigured = false,
+                aiVerified = false,
+                voiceVerified = false,
                 voiceConfigured = false,
                 voiceProvider = "unavailable",
                 voiceOfficial = false,
@@ -234,7 +241,10 @@ class FluxViewModel(
         reconnect(showFailure = false)
     }
 
-    fun setListening(value: Boolean) = _state.update { it.copy(isListening = value) }
+    fun setVoiceConnecting(value: Boolean) = _state.update { it.copy(voiceConnecting = value) }
+    fun setListening(value: Boolean) = _state.update {
+        it.copy(isListening = value, voiceConnecting = false, voiceVerified = it.voiceVerified || value)
+    }
     fun setGlasses(name: String?) = _state.update { it.copy(glassesName = name) }
     fun reportError(message: String?) = _state.update { it.copy(error = message) }
     fun clearError() = _state.update { it.copy(error = null) }
@@ -301,6 +311,7 @@ class FluxViewModel(
 
     fun setMemoryEnabled(value: Boolean) {
         workspace.setMemoryEnabled(value)
+        cache.rotateConversation()
         _state.update { it.copy(memoryEnabled = value) }
     }
 
@@ -334,7 +345,8 @@ class FluxViewModel(
         val messages = state.value.messages + UiMessage(role = Role.FLUX, content = clean, mode = "FLUX LIVE")
         cache.saveMessages(messages)
         _state.update { it.copy(messages = messages, isResponding = false,
-            aiReady = if (it.geminiKeyConfigured) true else it.aiReady, error = null) }
+            aiReady = if (it.geminiKeyConfigured) true else it.aiReady,
+            aiVerified = true, error = null) }
     }
 
     fun failDirectMessage(message: String) {
@@ -369,6 +381,7 @@ class FluxViewModel(
         pendingChats.clear()
         workspace.savePendingChats(emptyList())
         cache.saveMessages(emptyList())
+        cache.rotateConversation()
         _state.update { it.copy(messages = emptyList(), pendingMessageCount = 0, error = null) }
     }
 
@@ -428,7 +441,8 @@ class FluxViewModel(
             runCatching {
                 api.chat(
                     requestId = pending.messageId,
-                    conversationId = cache.conversationId(),
+                    conversationId = if (workspace.memoryEnabled()) cache.conversationId()
+                        else java.util.UUID.randomUUID().toString(),
                     message = pending.content,
                     voice = pending.voice,
                 )
@@ -445,6 +459,7 @@ class FluxViewModel(
                         isResponding = false,
                         coreOnline = true,
                         aiReady = true,
+                        aiVerified = true,
                         pendingMessageCount = pendingChats.size,
                         error = null,
                     )

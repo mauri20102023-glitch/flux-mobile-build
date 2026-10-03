@@ -11,7 +11,7 @@ class FluxLocalWorkspace(context: Context) {
     private val preferences = context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE)
 
     fun loadTasks(): List<LocalTask> = runCatching {
-        val stored = preferences.getString("tasks", null) ?: return defaultTasks()
+        val stored = preferences.getString("tasks", null) ?: return emptyList()
         val array = JSONArray(stored)
         buildList {
             for (index in 0 until array.length()) {
@@ -19,7 +19,7 @@ class FluxLocalWorkspace(context: Context) {
                 add(LocalTask(item.getString("id"), item.getString("title"), item.optBoolean("completed")))
             }
         }
-    }.getOrElse { defaultTasks() }
+    }.getOrElse { emptyList() }
 
     fun saveTasks(tasks: List<LocalTask>) {
         val array = JSONArray()
@@ -34,7 +34,7 @@ class FluxLocalWorkspace(context: Context) {
     }
 
     fun loadProjects(): List<LocalProject> = runCatching {
-        val stored = preferences.getString("projects", null) ?: return defaultProjects()
+        val stored = preferences.getString("projects", null) ?: return emptyList()
         val array = JSONArray(stored)
         buildList {
             for (index in 0 until array.length()) {
@@ -47,7 +47,7 @@ class FluxLocalWorkspace(context: Context) {
                 ))
             }
         }
-    }.getOrElse { defaultProjects() }
+    }.getOrElse { emptyList() }
 
     fun saveProjects(projects: List<LocalProject>) {
         val array = JSONArray()
@@ -105,15 +105,4 @@ class FluxLocalWorkspace(context: Context) {
         preferences.edit().putString("pending_chats", array.toString()).apply()
     }
 
-    private fun defaultTasks() = listOf(
-        LocalTask(title = "Hospedar o Flux Core em HTTPS"),
-        LocalTask(title = "Testar a voz FLUX Live"),
-        LocalTask(title = "Testar os óculos Bluetooth"),
-    )
-
-    private fun defaultProjects() = listOf(
-        LocalProject(name = "Flux AI", objective = "Validar a inteligência pessoal em vários dispositivos", progress = 28),
-        LocalProject(name = "Mauright", objective = "Organizar operação e crescimento nos marketplaces", progress = 12),
-        LocalProject(name = "Automobili", objective = "Aprimorar a presença digital e a venda de veículos", progress = 18),
-    )
 }

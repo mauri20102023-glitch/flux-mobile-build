@@ -113,9 +113,9 @@ class FluxVoiceInteractionSession(
         onSessionChanged = { connected ->
             context.mainExecutor.execute {
                 orb.setActive(connected)
-                if (connected) FluxWakeWordService.pauseForConversation()
-                else FluxWakeWordService.resumeAfterConversation()
-                status.text = if (connected) "FLUX ouvindo" else "Diga ‘Flux’ para tentar de novo"
+                // Keep the wake recognizer paused while this sheet owns the mic.
+                // onHide/onDestroy restore it after the sheet actually closes.
+                status.text = if (connected) "FLUX ouvindo" else "Feche para chamar o FLUX novamente"
             }
         },
         onUserTranscript = { text -> context.mainExecutor.execute { transcript.text = "Você: $text" } },

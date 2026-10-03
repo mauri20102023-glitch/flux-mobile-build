@@ -33,7 +33,6 @@ class FluxTextController(
     private val api = application.api
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val sendMutex = Mutex()
-    private val conversationId = "android-${UUID.randomUUID()}"
 
     override fun send(message: String) {
         val clean = message.trim()
@@ -44,7 +43,8 @@ class FluxTextController(
                     if (application.connectionSettings.authTokenConfigured()) {
                         runCatching { api.chat(
                             requestId = UUID.randomUUID().toString(),
-                            conversationId = conversationId,
+                            conversationId = if (application.workspace.memoryEnabled())
+                                application.cache.conversationId() else UUID.randomUUID().toString(),
                             message = clean,
                             voice = false,
                         ).content }.getOrElse { failure ->
@@ -67,7 +67,10 @@ class FluxTextController(
         require(key.isNotBlank()) { "Ative sua chave do Gemini nos ajustes do FLUX." }
         // beginDirectMessage já salvou a mensagem atual no histórico local.
         val history = JSONArray()
-        application.cache.loadMessages().takeLast(16).dropWhile { it.role != Role.USER }.forEach { message ->
+        val messages = application.cache.loadMessages()
+        val context = if (application.workspace.memoryEnabled()) messages.takeLast(16)
+            .dropWhile { it.role != Role.USER } else messages.takeLast(1)
+        context.forEach { message ->
             val role = when (message.role) {
                 Role.USER -> "user"
                 Role.FLUX -> "model"

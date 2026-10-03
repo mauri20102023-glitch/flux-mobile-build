@@ -3,6 +3,11 @@ package ai.flux.mobile
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -138,7 +144,6 @@ fun FluxMobileApp(
     onDeleteTask: (String) -> Unit,
     onAddProject: (String, String) -> Unit,
     onMemoryEnabled: (Boolean) -> Unit,
-    onProactivityEnabled: (Boolean) -> Unit,
     onClearConversation: () -> Unit,
     onClearError: () -> Unit,
 ) {
@@ -147,7 +152,9 @@ fun FluxMobileApp(
 
     Scaffold(
         containerColor = Color.Transparent,
-        bottomBar = { PulseNavigation(selected, onVoice) { selectedName = it.name } },
+        bottomBar = { PulseNavigation(selected, {
+            if (state.isListening || state.voiceConnecting) onStop() else onVoice()
+        }) { selectedName = it.name } },
     ) { padding ->
         Box(
             Modifier.fillMaxSize()
@@ -157,7 +164,7 @@ fun FluxMobileApp(
             when (selected) {
                 FluxTab.HOME -> PulseHome(
                     state = state,
-                    onVoice = onVoice,
+                    onVoice = { if (state.isListening || state.voiceConnecting) onStop() else onVoice() },
                     onChat = { selectedName = FluxTab.CHAT.name },
                     onPlans = { selectedName = FluxTab.AGENDA.name },
                     onStudio = { selectedName = FluxTab.LAB.name },
@@ -177,7 +184,7 @@ fun FluxMobileApp(
                 FluxTab.CONTROL -> ControlScreen(
                     state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
-                    onProactivityEnabled, onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
+                    onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
                     onGeminiKeyChange, onGeminiKeyClear,
                 )
             }
@@ -245,7 +252,7 @@ private fun PulseHome(
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = LocalDateTime.now() } }
     val online = state.coreOnline && state.coreAuthConfigured
     val greeting = when (now.hour) { in 0..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
-    val lastReply = state.messages.lastOrNull { it.role == Role.FLUX }?.content ?: "Pronto quando você estiver."
+    val lastReply = state.messages.lastOrNull { it.role == Role.FLUX }?.content
     Column(
         Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 18.dp),
@@ -277,34 +284,25 @@ private fun PulseHome(
                     .padding(horizontal = 24.dp, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(if (state.voiceConfigured) "●  FLUX LIVE" else "●  FLUX CORE",
-                    color = if (state.voiceConfigured) Green else PulseRed,
+                Text(if (state.voiceVerified) "●  FLUX LIVE" else "●  FLUX",
+                    color = if (state.voiceVerified) Green else PulseRed,
                     fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
                 Spacer(Modifier.height(16.dp))
-                Text("$greeting, Maurício.", color = White, fontSize = 37.sp,
-                    lineHeight = 39.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                Text("$greeting, Maurício.", color = White, fontSize = 30.sp,
+                    lineHeight = 34.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(10.dp))
                 Text(
                     when {
                         state.voiceConfigured && state.wakeWordEnabled -> "Diga ‘Flux’ ou toque no núcleo para conversar."
                         state.voiceConfigured -> "Toque no núcleo para conversar por voz."
-                        else -> "O chat já está disponível. Ative a voz em Ajustes."
+                        else -> "Configure a voz nos Ajustes para conversar."
                     },
                     color = Muted, textAlign = TextAlign.Center, lineHeight = 20.sp,
                 )
                 Spacer(Modifier.height(24.dp))
-                Box(contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(160.dp).border(1.dp, Color(0xFF54DCFF).copy(alpha = 0.4f), CircleShape))
-                    Box(Modifier.size(143.dp).border(1.dp, PulseRed.copy(alpha = 0.6f), CircleShape))
-                    Box(
-                        Modifier.size(118.dp).background(
-                            Brush.radialGradient(listOf(White, PulseRed, Color(0xFF4A0717), Ink)), CircleShape,
-                        ).clickable(onClick = onVoice),
-                        contentAlignment = Alignment.Center,
-                    ) { Text("F", color = White, fontSize = 42.sp, fontWeight = FontWeight.Black) }
-                }
+                FluxOrb(state, 148.dp, onVoice)
                 Spacer(Modifier.height(15.dp))
-                Text(if (state.isListening) "OUVINDO" else "TOQUE PARA FALAR", color = Muted,
+                Text(presenceLabel(state).uppercase(), color = Muted,
                     fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
                 Spacer(Modifier.height(22.dp))
                 OutlinedAction("ABRIR CHAT", Icons.Default.ChatBubbleOutline, onChat)
@@ -320,7 +318,8 @@ private fun PulseHome(
         }
         Spacer(Modifier.height(12.dp))
         HomePanel("CONVERSA", "Último contato") {
-            Text("“${lastReply.take(160)}${if (lastReply.length > 160) "…" else ""}”",
+            Text(if (lastReply == null) "Nenhuma conversa ainda."
+                 else "“${lastReply.take(160)}${if (lastReply.length > 160) "…" else ""}”",
                 fontSize = 18.sp, lineHeight = 25.sp)
             Spacer(Modifier.height(12.dp))
             HomeAction(Icons.Default.ChatBubbleOutline, "Ver chat", "Continue a conversa", onChat)
@@ -329,7 +328,7 @@ private fun PulseHome(
         HomePanel("ECOSSISTEMA", "Presença FLUX") {
             HomeAction(Icons.Default.PhoneAndroid, "Este dispositivo", if (online) "Conectado ao Core" else "Configure a conexão", onDevices)
             Spacer(Modifier.height(8.dp))
-            HomeAction(Icons.Default.Image, "FLUX Studio", "Criar imagens e testar funções", onStudio)
+            HomeAction(Icons.Default.Image, "FLUX Studio", "Criar imagens pelo Core", onStudio)
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -382,7 +381,7 @@ private fun PulseChat(
         PulseHeader(state)
         if (state.activationRequired && state.coreOnline) ActivationStrip(onActivate)
         if (state.messages.isEmpty()) {
-            EmptyPulse(state.isListening, onVoice, Modifier.weight(1f))
+            EmptyPulse(state, onVoice, onStop, Modifier.weight(1f))
         } else {
             LazyColumn(
                 state = listState,
@@ -396,7 +395,7 @@ private fun PulseChat(
         }
         Composer(
             value = draft,
-            listening = state.isListening,
+            listening = state.isListening || state.voiceConnecting,
             enabled = !state.isResponding,
             onValueChange = { draft = it },
             onVoice = onVoice,
@@ -427,7 +426,7 @@ private fun PulseHeader(state: FluxUiState) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Olá, Maurício", fontSize = 21.sp, fontWeight = FontWeight.Black)
-            Text("FLUX CHAT • MOBILE 1.7.6", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
+            Text("FLUX • ${BuildConfig.VERSION_NAME}", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
         }
         StatusPill(
             label = when {
@@ -448,28 +447,57 @@ private fun PulseHeader(state: FluxUiState) {
 }
 
 @Composable
-private fun EmptyPulse(listening: Boolean, onVoice: () -> Unit, modifier: Modifier = Modifier) {
+private fun presenceLabel(state: FluxUiState): String = when {
+    state.voiceConnecting -> "Conectando voz…"
+    state.isListening -> "Ouvindo…"
+    state.isResponding -> "Pensando…"
+    !state.networkAvailable -> "Sem internet"
+    !state.coreOnline && !state.geminiKeyConfigured -> "Configure a IA para conversar"
+    else -> "Disponível"
+}
+
+@Composable
+private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+    val animation = rememberInfiniteTransition(label = "Presença FLUX")
+    val breath by animation.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(if (state.isListening) 800 else 2600), RepeatMode.Reverse),
+        label = "Respiração",
+    )
+    val active = state.isListening || state.voiceConnecting || state.isResponding
+    val accent = if (!state.networkAvailable) Muted else PulseRed
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().graphicsLayer {
+            val scale = 0.92f + breath * if (active) 0.13f else 0.035f
+            scaleX = scale
+            scaleY = scale
+        }.clip(CircleShape).background(accent.copy(alpha = if (active) .16f else .07f)))
+        Box(
+            Modifier.fillMaxSize(.77f).clip(CircleShape)
+                .background(Brush.radialGradient(listOf(Color(0xFFFFD8DD), accent, PulseRedDark, Panel)))
+                .border(1.dp, Color.White.copy(alpha = .28f), CircleShape)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
+                if (state.isListening || state.voiceConnecting) "Encerrar voz" else "Conversar por voz",
+                tint = Color.White, modifier = Modifier.fillMaxSize(.34f))
+        }
+    }
+}
+
+@Composable
+private fun EmptyPulse(state: FluxUiState, onVoice: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier.fillMaxWidth().padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Box(
-                Modifier.size(if (listening) 188.dp else 164.dp).clip(CircleShape)
-                    .background(PulseRed.copy(alpha = if (listening) 0.18f else 0.08f)),
-            )
-            Box(
-                Modifier.size(126.dp).clip(CircleShape)
-                    .background(Brush.radialGradient(listOf(PulseRed, PulseRedDark, Color(0xFF31070D))))
-                    .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape)
-                    .clickable(onClick = onVoice),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Default.Mic, "Falar com o FLUX", tint = Color.White, modifier = Modifier.size(44.dp)) }
-        }
+        FluxOrb(state, 164.dp, if (state.isListening || state.voiceConnecting) onStop else onVoice)
         Spacer(Modifier.height(28.dp))
         Text(
-            if (listening) "Estou ouvindo" else "Como posso ajudar agora?",
+            if (state.isListening) "Estou ouvindo" else "Como posso ajudar agora?",
             fontSize = 28.sp,
             lineHeight = 33.sp,
             fontWeight = FontWeight.Black,
@@ -477,8 +505,8 @@ private fun EmptyPulse(listening: Boolean, onVoice: () -> Unit, modifier: Modifi
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            if (listening) "Fale normalmente e termine a frase."
-            else "Converse por texto ou voz. O contexto continua entre celular, TV, computador e EDITH.",
+            if (state.isListening) "Fale normalmente. Você pode me interromper."
+            else "${presenceLabel(state)}. Converse por texto ou toque no núcleo para falar.",
             color = Muted,
             textAlign = TextAlign.Center,
             lineHeight = 21.sp,
@@ -689,26 +717,27 @@ private fun DevicesScreen(
         Spacer(Modifier.height(22.dp))
         SectionLabel("ECOSSISTEMA")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DeviceTile(Icons.Default.Tv, "TV", "SmartThings", Modifier.weight(1f))
-            DeviceTile(Icons.Default.Watch, "Relógio", "Wear OS", Modifier.weight(1f))
+            DeviceTile(Icons.Default.Tv, "TV", "Não pareada", Modifier.weight(1f))
+            DeviceTile(Icons.Default.Watch, "Relógio", "Não integrado", Modifier.weight(1f))
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DeviceTile(Icons.Default.Computer, "Computador", "FLUX Core", Modifier.weight(1f))
-            DeviceTile(Icons.Default.PhoneAndroid, "Celular", "Android", Modifier.weight(1f))
+            DeviceTile(Icons.Default.Computer, "Computador", if (state.coreOnline) "Core acessível" else "Sem conexão", Modifier.weight(1f))
+            DeviceTile(Icons.Default.PhoneAndroid, "Celular", "Este aparelho", Modifier.weight(1f))
         }
         Spacer(Modifier.height(22.dp))
         SectionLabel("APLICATIVOS")
-        AppRow(Icons.Default.MusicNote, "Spotify", "Música e controles", onSpotify)
-        AppRow(Icons.Default.SmartToy, "WhatsApp", "Preparar mensagem para você confirmar", onWhatsApp)
-        AppRow(Icons.Default.PhotoCamera, "Instagram", "Abrir publicação e mensagens", onInstagram)
+        Text("Atalhos para abrir aplicativos. Nenhuma conta é conectada aqui.", color = Muted, fontSize = 12.sp)
+        AppRow(Icons.Default.MusicNote, "Spotify", "Abrir aplicativo ou site", onSpotify)
+        AppRow(Icons.Default.SmartToy, "WhatsApp", "Abrir rascunho para você editar", onWhatsApp)
+        AppRow(Icons.Default.PhotoCamera, "Instagram", "Abrir aplicativo ou site", onInstagram)
         AppRow(Icons.Default.Email, "E-mail", "Preparar novo e-mail", onEmail)
         AppRow(Icons.Default.CalendarMonth, "Agenda", "Criar compromisso para confirmar", onCalendar)
         AppRow(Icons.Default.Palette, "Canva", "Abrir projetos e criações", onCanva)
         AppRow(Icons.Default.Cloud, "Google Drive", "Abrir arquivos", onDrive)
         AppRow(Icons.Default.PlayCircle, "YouTube", "Abrir vídeos e pesquisa", onYouTube)
-        AppRow(Icons.Default.Tv, "Samsung Crystal", "Parear e controlar pelo SmartThings", onSmartThings)
-        AppRow(Icons.Default.Storefront, "Mercado Livre", "Pesquisa e compras", onMercadoLivre)
+        AppRow(Icons.Default.Tv, "SmartThings", "Abrir aplicativo ou site; TV ainda não pareada", onSmartThings)
+        AppRow(Icons.Default.Storefront, "Mercado Livre", "Abrir aplicativo ou site", onMercadoLivre)
     }
 }
 
@@ -723,7 +752,7 @@ private fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
             }.getOrNull()
         }
     }
-    ScreenScroll("FLUX LAB", "Criação controlada, testes e recuperação antes de qualquer atualização.") {
+    ScreenScroll("FLUX STUDIO", "Crie imagens e confira o estado do sistema.") {
         SectionLabel("FLUX STUDIO")
         Text("Crie imagens por descrição usando o gerador seguro do FLUX Core.", color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(10.dp))
@@ -758,34 +787,13 @@ private fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        SectionLabel("DESENVOLVIMENTO SEGURO")
-        FeatureCard(Icons.Default.Build, "FLUX Builder", "Prepara novas funções em um projeto separado. Nunca instala sozinho.", PulseRed)
-        Spacer(Modifier.height(9.dp))
-        FeatureCard(Icons.Default.Science, "FLUX Test Lab", "Executa testes isolados antes de liberar uma versão.", Color(0xFF00D9F5))
-        Spacer(Modifier.height(9.dp))
-        FeatureCard(Icons.Default.Security, "FLUX Security", "Revisa permissões, segredos e ações de risco.", Green)
-        Spacer(Modifier.height(9.dp))
-        FeatureCard(Icons.Default.SystemUpdate, "FLUX Update", "Só instala pacotes assinados após sua confirmação.", Amber)
-        Spacer(Modifier.height(9.dp))
-        FeatureCard(Icons.Default.Restore, "FLUX Recovery", "Mantém uma versão anterior pronta para desfazer falhas.", Color(0xFFFF7D88))
-        Spacer(Modifier.height(9.dp))
-        FeatureCard(Icons.Default.Code, "FLUX Developer Mode", "Exibe código, testes e registros na TV ou no computador.", Color(0xFF8D73FF))
-        Spacer(Modifier.height(18.dp))
-        Surface(
-            color = Color(0xFF102218),
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, Green.copy(alpha = 0.5f)),
-        ) {
-            Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.VerifiedUser, null, tint = Green)
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "Regra central: criar, testar, revisar, pedir sua aprovação e só então atualizar.",
-                    color = White,
-                    lineHeight = 20.sp,
-                )
-            }
-        }
+        SectionLabel("DIAGNÓSTICO")
+        SystemStatus("FLUX Core", state.coreOnline, if (state.coreOnline) "Diagnóstico respondeu" else "Conecte em Ajustes")
+        SystemStatus("Voz Live", state.voiceVerified,
+            if (state.voiceVerified) "Sessão aberta neste uso do aplicativo"
+            else if (state.voiceConfigured) "Configurada; teste de áudio pendente" else "Ainda não configurada")
+        Text("Instalação de atualizações e recuperação não estão disponíveis no aplicativo.",
+            color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
     }
 }
 
@@ -800,7 +808,6 @@ private fun ControlScreen(
     onAppSettings: () -> Unit,
     onNotifications: () -> Unit,
     onMemory: (Boolean) -> Unit,
-    onProactivity: (Boolean) -> Unit,
     onClear: () -> Unit,
     onWakeWord: (Boolean) -> Unit,
     onAccent: (String) -> Unit,
@@ -824,28 +831,30 @@ private fun ControlScreen(
             "FLUX Core",
             state.coreOnline,
             when {
-                state.coreOnline -> "Conexão persistente ativa"
+                state.coreOnline -> "Diagnóstico do Core respondeu"
                 !state.coreAuthConfigured -> "Aguardando código de pareamento"
                 state.isConnecting -> "Tentando reconectar"
                 else -> "Servidor ainda não alcançado"
             },
         )
-        SystemStatus("Inteligência", state.aiReady || state.geminiKeyConfigured, when {
-            state.aiReady -> "IA pronta para responder"
-            state.geminiKeyConfigured -> "Gemini pessoal configurado • teste o chat"
+        SystemStatus("Inteligência", state.aiVerified, when {
+            state.aiVerified -> "Resposta recebida neste uso"
+            state.aiReady -> "Provedor configurado; teste o chat"
+            state.geminiKeyConfigured -> "Chave salva; resposta ainda não testada"
             else -> "Precisa de ativação"
         })
         SystemStatus(
             "FLUX LIVE",
-            state.voiceConfigured && state.voiceOfficial,
-            if (state.voiceConfigured) state.voiceProvider else "Precisa de ativação",
+            state.voiceVerified,
+            if (state.voiceVerified) "Sessão de voz aberta neste uso"
+            else if (state.voiceConfigured) "Configurada; teste de áudio pendente" else "Precisa de ativação",
         )
         Spacer(Modifier.height(12.dp))
         if (state.coreAuthConfigured) {
             OutlinedAction("TESTAR CONEXÃO", Icons.Default.Refresh, onReconnect)
             Spacer(Modifier.height(8.dp))
         }
-        OutlinedAction("TESTAR GEMINI LIVE", Icons.Default.VolumeUp, onTestVoice)
+        OutlinedAction("INICIAR TESTE DE VOZ", Icons.Default.VolumeUp, onTestVoice)
 
         Spacer(Modifier.height(22.dp))
         SectionLabel("FLUX LINK")
@@ -862,18 +871,18 @@ private fun ControlScreen(
             if (state.coreAuthConfigured) "Credencial protegida pelo Android" else "Aguardando código temporário")
         Spacer(Modifier.height(10.dp))
         PrimaryButton("SALVAR ENDEREÇO", Icons.Default.Link) { onCoreUrlChange(coreUrl) }
-        if (!state.coreAuthConfigured) {
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = pairCode,
-                onValueChange = { pairCode = it.trim() },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Cole o código temporário", color = Muted) },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-            )
-            Spacer(Modifier.height(10.dp))
-            PrimaryButton("PAREAR APARELHO", Icons.Default.Link) { onPairCode(pairCode) }
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = pairCode,
+            onValueChange = { pairCode = it.trim() },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(if (state.coreAuthConfigured) "Novo código para reparar" else "Cole o código temporário", color = Muted) },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+        )
+        Spacer(Modifier.height(10.dp))
+        PrimaryButton(if (state.coreAuthConfigured) "PAREAR NOVAMENTE" else "PAREAR APARELHO", Icons.Default.Link) {
+            onPairCode(pairCode)
         }
 
         Spacer(Modifier.height(22.dp))
@@ -942,7 +951,7 @@ private fun ControlScreen(
         ToggleCard(
             Icons.Default.RecordVoiceOver,
             "Ativação mãos-livres por “Flux”",
-            "Modo principal: diga “Flux” ou “Flux, veja minha tela” sem tocar",
+            "Usa o reconhecimento local do Android quando disponível",
             state.wakeWordEnabled,
             onWakeWord,
         )
@@ -960,9 +969,8 @@ private fun ControlScreen(
         FeatureCard(Icons.Default.Security, "Permissões do aplicativo", "Microfone, Bluetooth e energia", PulseRed, onAppSettings)
         Spacer(Modifier.height(22.dp))
         SectionLabel("COMPORTAMENTO")
-        ToggleCard(Icons.Default.Memory, "Memória", "Manter o contexto das conversas", state.memoryEnabled, onMemory)
-        Spacer(Modifier.height(8.dp))
-        ToggleCard(Icons.Default.AutoAwesome, "Proatividade", "Sugerir próximos passos sem exagerar", state.moderateProactivity, onProactivity)
+        ToggleCard(Icons.Default.Memory, "Histórico nas respostas",
+            "Usar mensagens anteriores no chat; desligar inicia um contexto novo", state.memoryEnabled, onMemory)
         Spacer(Modifier.height(22.dp))
         SectionLabel("APARÊNCIA")
         AccentSelector(state.accentKey, onAccent)
@@ -999,7 +1007,7 @@ private fun SystemStatus(name: String, online: Boolean, detail: String) {
             Text(name, fontWeight = FontWeight.Bold)
             Text(detail, color = Muted, fontSize = 12.sp)
         }
-        Text(if (online) "OK" else "AÇÃO", color = if (online) Green else PulseRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Text(if (online) "OK" else "PENDENTE", color = if (online) Green else PulseRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
     }
 }
 

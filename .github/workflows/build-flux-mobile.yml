@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.7.6
+name: Build FLUX Mobile 1.7.7
 
 on:
   workflow_dispatch:
@@ -12,6 +12,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Check site and Core bundle
+        run: |
+          node --check web/flux-ath/app.js
+          node --check web/flux-ath/sw.js
+          npm run check
+
   signing-tools:
     runs-on: ubuntu-latest
     steps:
@@ -57,15 +72,15 @@ jobs:
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.6.apk
-          sha256sum FLUX-Mobile-1.7.6.apk > FLUX-Mobile-1.7.6.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.7.apk
+          sha256sum FLUX-Mobile-1.7.7.apk > FLUX-Mobile-1.7.7.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.7.6
+          name: FLUX-Mobile-1.7.7
           path: |
-            FLUX-Mobile-1.7.6.apk
-            FLUX-Mobile-1.7.6.sha256
+            FLUX-Mobile-1.7.7.apk
+            FLUX-Mobile-1.7.7.sha256
           if-no-files-found: error
           retention-days: 7
