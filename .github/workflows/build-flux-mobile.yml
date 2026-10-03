@@ -72,10 +72,18 @@ jobs:
 
       - name: Verify assistant recognition metadata in APK
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree \
-            apps/android/app/build/outputs/apk/release/app-release.apk \
-            res/xml/voice_interaction_service.xml \
-            | grep -q 'ai.flux.mobile.assistant.FluxRecognitionService'
+          APK=apps/android/app/build/outputs/apk/release/app-release.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          found=0
+          # Android Gradle may shorten resource paths inside the release APK.
+          while IFS= read -r resource; do
+            xml=$("$AAPT" dump xmltree "$APK" "$resource")
+            if [[ "$xml" == *'ai.flux.mobile.assistant.FluxRecognitionService'* ]]; then
+              found=1
+              break
+            fi
+          done < <(unzip -Z1 "$APK" | grep '^res/.*\.xml$')
+          test "$found" -eq 1
 
       - name: Prepare APK and checksum
         run: |
