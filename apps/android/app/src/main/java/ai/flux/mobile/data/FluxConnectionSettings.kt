@@ -22,6 +22,7 @@ class FluxConnectionSettings(context: Context) {
         val normalized = value.trim().trimEnd('/')
         val uri = runCatching { URI(normalized) }.getOrNull()
         require(uri != null && !uri.host.isNullOrBlank() && uri.rawUserInfo == null &&
+            uri.rawQuery == null && uri.rawFragment == null && uri.path.orEmpty().isEmpty() &&
             (uri.scheme == "https" || isPrivateLocalHttp(normalized))) {
             "Use HTTPS ou um endereço local privado do Flux Core"
         }
@@ -34,8 +35,13 @@ class FluxConnectionSettings(context: Context) {
         val uri = URI(value)
         if (uri.scheme != "http") return@runCatching false
         val host = uri.host?.lowercase() ?: return@runCatching false
-        host == "localhost" || host == "127.0.0.1" || host.startsWith("10.") ||
-            host.startsWith("192.168.") || Regex("^172\\.(1[6-9]|2\\d|3[01])\\.").containsMatchIn(host)
+        if (host == "localhost") return@runCatching true
+        val octets = host.split('.').map { it.toIntOrNull() ?: return@runCatching false }
+        if (octets.size != 4 || octets.any { it !in 0..255 }) return@runCatching false
+        octets[0] == 127 && octets[1] == 0 && octets[2] == 0 && octets[3] == 1 ||
+            octets[0] == 10 ||
+            octets[0] == 192 && octets[1] == 168 ||
+            octets[0] == 172 && octets[1] in 16..31
     }.getOrDefault(false)
 
     fun authToken(): String = secureTokenStore.read()
