@@ -18,6 +18,10 @@ class LocalConversationCache(context: Context) {
         }
     }
 
+    fun rotateConversation() {
+        preferences.edit().putString("conversation_id", UUID.randomUUID().toString()).apply()
+    }
+
     fun loadMessages(): List<UiMessage> = runCatching {
         val array = JSONArray(preferences.getString("recent_messages", "[]"))
         buildList {

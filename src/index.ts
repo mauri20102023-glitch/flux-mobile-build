@@ -320,7 +320,7 @@ export class FluxState {
         desktop: "NOT_CONFIGURED",
         tv: "NOT_CONFIGURED",
         realtime: voiceReady ? "OK" : "NOT_CONFIGURED",
-        memory: "OK",
+        memory: "CHAT_HISTORY_ONLY",
         authentication: "DEVICE_PAIRED",
         version: "1.7.0-gemini-live",
         checkedAt: new Date().toISOString(),

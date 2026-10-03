@@ -56,7 +56,7 @@
             <div class="deck-copy">
               <p class="eyebrow"><span class="live-dot"></span> FLUX LIVE</p>
               <h2 id="greeting">Boa noite, Maurício.</h2>
-              <p id="homeHint">Toque no núcleo — no Android, basta dizer “Flux”.</p>
+              <p id="homeHint">Toque no núcleo. No Android compatível, você também pode dizer “Flux”.</p>
               <div class="quick-row">
                 <button class="chip" data-prompt="Organize meu dia e destaque o que é mais importante.">Organizar meu dia</button>
                 <button class="chip" data-action="start-screen">Ver minha tela</button>
@@ -84,7 +84,7 @@
             </article>
             <article class="panel transcript-panel">
               <div class="panel-head"><div><p class="eyebrow">CONVERSA</p><h3>Último contato</h3></div><button class="text-button" data-go="chat">VER CHAT</button></div>
-              <blockquote id="lastExchange">“Pronto quando você estiver.”</blockquote>
+              <blockquote id="lastExchange">Nenhuma conversa ainda.</blockquote>
               <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             </article>
             <article class="panel ecosystem-panel">
@@ -130,31 +130,31 @@
         </section>
 
         <section class="view" data-view="memory">
-          <div class="section-intro"><div><p class="eyebrow">FLUX MEMORY</p><h2>O que o FLUX sabe sobre você</h2><p>Você controla o que entra, o que é privado e o que deve ser esquecido.</p></div><button class="primary-button" data-action="new-memory">＋ NOVA MEMÓRIA</button></div>
-          <div class="privacy-banner"><span>⌾</span><div><b>Proteção ativa</b><p>Dados marcados como privados pedem seu PIN antes de serem exibidos.</p></div><button data-go="settings">CONFIGURAR PIN</button></div>
+          <div class="section-intro"><div><p class="eyebrow">FLUX MEMORY</p><h2>Suas notas locais</h2><p>Estas notas ficam neste navegador. O chat não as usa automaticamente.</p></div><button class="primary-button" data-action="new-memory">＋ NOVA NOTA</button></div>
+          <div class="privacy-banner"><span>⌾</span><div><b>Notas privadas</b><p>Um PIN protege o conteúdo cifrado antes de salvar neste navegador.</p></div><button data-go="settings">CONFIGURAR PIN</button></div>
           <div id="memoryList" class="memory-grid"></div>
         </section>
 
         <section class="view" data-view="integrations">
-          <div class="section-intro"><div><p class="eyebrow">FLUX LINK</p><h2>Seus serviços, conectados</h2><p>Atalhos funcionam agora. Ações automáticas exigem autorização oficial de cada serviço.</p></div></div>
+          <div class="section-intro"><div><p class="eyebrow">FLUX LINK</p><h2>Atalhos de serviços</h2><p>Estes atalhos abrem os serviços oficiais. Nenhuma conta é conectada ao FLUX por aqui.</p></div></div>
           <div id="integrationGrid" class="integration-grid"></div>
         </section>
 
         <section class="view" data-view="devices">
-          <div class="section-intro"><div><p class="eyebrow">FLUX NEXUS</p><h2>Um cérebro, várias telas</h2><p>Gerencie onde o FLUX pode ouvir, falar e aparecer.</p></div><button class="primary-button" data-action="scan-devices">⌁ PROCURAR</button></div>
+          <div class="section-intro"><div><p class="eyebrow">FLUX NEXUS</p><h2>Dispositivos</h2><p>Veja o que está disponível neste navegador e o que precisa de configuração externa.</p></div><button class="primary-button" data-action="scan-devices">VER SUPORTE</button></div>
           <div class="device-grid" id="deviceGrid"></div>
           <article class="panel samsung-panel"><div><p class="eyebrow">SAMSUNG CRYSTAL</p><h3>Controle pela SmartThings</h3><p>Abra o painel oficial para parear sua TV com segurança.</p></div><button class="primary-button" data-integration="smartthings">ABRIR SMARTTHINGS</button></article>
         </section>
 
         <section class="view" data-view="lab">
-          <div class="section-intro"><div><p class="eyebrow">FLUX LAB</p><h2>Evolução com freios de segurança</h2><p>Novas funções são propostas, testadas e revisadas antes de qualquer instalação.</p></div></div>
+          <div class="section-intro"><div><p class="eyebrow">FLUX LAB</p><h2>Ferramentas locais</h2><p>Registre propostas e verifique recursos deste navegador. Nenhuma função é instalada daqui.</p></div></div>
           <div class="lab-grid" id="labGrid">
-            <button class="lab-module" data-lab="builder"><span>01</span><b>FLUX Builder</b><small>Descreva uma função nova</small></button>
-            <button class="lab-module" data-lab="test"><span>02</span><b>FLUX Test Lab</b><small>Teste isolado do sistema</small></button>
-            <button class="lab-module" data-lab="security"><span>03</span><b>FLUX Security</b><small>Permissões e riscos</small></button>
-            <button class="lab-module" data-lab="update"><span>04</span><b>FLUX Update</b><small>Verifique a versão</small></button>
-            <button class="lab-module" data-lab="recovery"><span>05</span><b>FLUX Recovery</b><small>Backup e restauração</small></button>
-            <button class="lab-module" data-lab="developer"><span>06</span><b>Developer Mode</b><small>Console técnico local</small></button>
+            <button class="lab-module" data-lab="builder"><span>01</span><b>Propostas</b><small>Registre uma ideia como projeto</small></button>
+            <button class="lab-module" data-lab="test"><span>02</span><b>Verificações</b><small>Cheque recursos e conexão</small></button>
+            <button class="lab-module" data-lab="security"><span>03</span><b>Privacidade</b><small>Veja condições locais</small></button>
+            <button class="lab-module" data-lab="update"><span>04</span><b>Versão</b><small>Consulte site e Core</small></button>
+            <button class="lab-module" data-lab="recovery"><span>05</span><b>Cópia local</b><small>Salve e restaure dados deste navegador</small></button>
+            <button class="lab-module" data-lab="developer"><span>06</span><b>Dados técnicos</b><small>Resumo local</small></button>
           </div>
           <pre class="developer-console" id="developerConsole" hidden></pre>
         </section>
@@ -164,8 +164,8 @@
           <div class="settings-grid">
             <article class="panel setting-card"><h3>Aparência</h3><p>Escolha a assinatura de energia.</p><div class="theme-picker"><button data-theme-pick="ember" class="ember selected" aria-label="Vermelho e ciano"></button><button data-theme-pick="ion" class="ion" aria-label="Azul e violeta"></button><button data-theme-pick="aurora" class="aurora" aria-label="Verde e azul"></button><button data-theme-pick="gold" class="gold" aria-label="Dourado e vermelho"></button></div></article>
             <article class="panel setting-card"><h3>FLUX Core</h3><p id="pairStatus" role="status">Verificando conexão…</p><label>CÓDIGO DE PAREAMENTO<input id="pairCode" type="text" inputmode="text" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Cole o código de uso único"></label><button class="primary-button wide" id="saveConnection">CONECTAR AO CORE</button><p class="helper">Use um código exclusivo para este navegador. Ele expira em 15 minutos e funciona uma vez.</p></article>
-            <article class="panel setting-card"><h3>Privacidade</h3><label>PIN LOCAL<input id="privatePin" type="password" inputmode="numeric" maxlength="8" placeholder="4 a 8 números"></label><p class="helper">O PIN protege memórias privadas neste aparelho. Nunca use senha bancária.</p><button class="secondary-button wide" id="savePin">SALVAR PIN</button></article>
-            <article class="panel setting-card"><h3>Voz e visão</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Voz Gemini Live do FLUX</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>No site, disponível enquanto a tela está aberta</small></span><input type="checkbox" id="wakeEnabled"></label><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
+            <article class="panel setting-card"><h3>Privacidade</h3><label>PIN ATUAL (SE JÁ EXISTIR)<input id="oldPrivatePin" type="password" inputmode="numeric" maxlength="12" autocomplete="off"></label><label>NOVO PIN<input id="privatePin" type="password" inputmode="numeric" maxlength="12" placeholder="6 a 12 números" autocomplete="off"></label><p class="helper">O PIN cifra as notas privadas neste navegador. Para trocar, informe o atual.</p><button class="secondary-button wide" id="savePin">SALVAR PIN</button></article>
+            <article class="panel setting-card"><h3>Voz e visão</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Requer FLUX Core com Gemini Live ativo</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>Ativação contínua disponível apenas no app Android compatível</small></span><input type="checkbox" id="wakeEnabled" disabled></label><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
           </div>
         </section>
       </main>

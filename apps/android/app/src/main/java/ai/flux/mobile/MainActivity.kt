@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.speech.SpeechRecognizer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -134,7 +135,6 @@ class MainActivity : ComponentActivity() {
                     onDeleteTask = viewModel::deleteTask,
                     onAddProject = viewModel::addProject,
                     onMemoryEnabled = viewModel::setMemoryEnabled,
-                    onProactivityEnabled = viewModel::setModerateProactivity,
                     onClearConversation = viewModel::clearConversation,
                     onClearError = viewModel::clearError,
                 )
@@ -180,6 +180,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         runCatching { voice?.destroy() }
+        if (::viewModel.isInitialized &&
+            (viewModel.state.value.isListening || viewModel.state.value.voiceConnecting)) {
+            FluxWakeWordService.resumeAfterConversation()
+        }
         runCatching { text?.destroy() }
         runCatching { bluetooth.release() }
         super.onDestroy()
@@ -210,12 +214,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startListening() {
+        if (viewModel.state.value.isListening || viewModel.state.value.voiceConnecting) return
         runCatching {
+            // The wake listener and Gemini Live cannot own the microphone together.
+            FluxWakeWordService.pauseForConversation()
+            viewModel.setVoiceConnecting(true)
             val route = bluetooth.detectAndSelect()
             viewModel.setGlasses(route.name)
             voiceController().startSession()
         }.onFailure { failure ->
-            viewModel.setListening(false)
+            onVoiceSessionChanged(false)
             viewModel.reportError(
                 failure.message?.takeIf(String::isNotBlank)
                     ?: "Não foi possível iniciar a voz FLUX Live neste aparelho.",
@@ -225,7 +233,13 @@ class MainActivity : ComponentActivity() {
 
     private fun stopListening() {
         runCatching { voice?.endSession() }
-        viewModel.setListening(false)
+        onVoiceSessionChanged(false)
+    }
+
+    private fun onVoiceSessionChanged(connected: Boolean) {
+        viewModel.setListening(connected)
+        if (connected) FluxWakeWordService.pauseForConversation()
+        else FluxWakeWordService.resumeAfterConversation()
     }
 
     private fun sendText(message: String) {
@@ -254,6 +268,11 @@ class MainActivity : ComponentActivity() {
             stopService(Intent(this, FluxWakeWordService::class.java))
             return
         }
+        if (!onDeviceWakeAvailable()) {
+            viewModel.setWakeWordEnabled(false)
+            viewModel.reportError("A ativação por voz local não está disponível neste Android. Use o gesto do assistente ou o botão de voz.")
+            return
+        }
         val required = buildList {
             if (!hasPermission(Manifest.permission.RECORD_AUDIO)) add(Manifest.permission.RECORD_AUDIO)
             if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
@@ -270,8 +289,15 @@ class MainActivity : ComponentActivity() {
 
     private fun startWakeWordService() {
         if (!viewModel.state.value.wakeWordEnabled) return
+        if (!onDeviceWakeAvailable()) {
+            viewModel.setWakeWordEnabled(false)
+            return
+        }
         ContextCompat.startForegroundService(this, Intent(this, FluxWakeWordService::class.java))
     }
+
+    private fun onDeviceWakeAvailable(): Boolean =
+        Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
 
     private fun hasNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT < 33 || hasPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -309,11 +335,7 @@ class MainActivity : ComponentActivity() {
         )
         return constructor.newInstance(
             this,
-            { connected: Boolean ->
-                viewModel.setListening(connected)
-                if (connected) FluxWakeWordService.pauseForConversation()
-                else FluxWakeWordService.resumeAfterConversation()
-            },
+            ::onVoiceSessionChanged,
             viewModel::appendVoiceUser,
             viewModel::appendVoiceAgent,
             viewModel::reportError,

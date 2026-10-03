@@ -93,7 +93,7 @@ class FluxWakeWordService : Service(), RecognitionListener {
 
     private fun consume(bundle: Bundle?) {
         val candidates = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
-        val match = candidates.firstOrNull { normalize(it).contains("flux") } ?: return
+        val match = candidates.firstOrNull { WAKE_WORD.containsMatchIn(normalize(it)) } ?: return
         val normalized = normalize(match)
         val vision = normalized.contains("tela") && listOf("veja", "olhe", "analise", "leia").any(normalized::contains)
         pauseRecognition()
@@ -193,6 +193,7 @@ class FluxWakeWordService : Service(), RecognitionListener {
     }
 
     companion object {
+        private val WAKE_WORD = Regex("\\bflux\\b")
         private const val CHANNEL_ID = "flux_wake_word"
         private const val NOTIFICATION_ID = 2106
         private const val ACTION_STOP = "ai.flux.mobile.STOP_WAKE_WORD"
