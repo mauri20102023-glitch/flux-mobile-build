@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.7.7
+name: Build FLUX Mobile 1.7.8
 
 on:
   workflow_dispatch:
@@ -70,17 +70,24 @@ jobs:
           FLUX_CORE_URL: "https://flux-core-12.mauri20102023.workers.dev"
         run: ./gradlew :app:assembleRelease --stacktrace
 
+      - name: Verify assistant recognition metadata in APK
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree \
+            apps/android/app/build/outputs/apk/release/app-release.apk \
+            res/xml/voice_interaction_service.xml \
+            | grep -q 'ai.flux.mobile.assistant.FluxRecognitionService'
+
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.7.apk
-          sha256sum FLUX-Mobile-1.7.7.apk > FLUX-Mobile-1.7.7.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.8.apk
+          sha256sum FLUX-Mobile-1.7.8.apk > FLUX-Mobile-1.7.8.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.7.7
+          name: FLUX-Mobile-1.7.8
           path: |
-            FLUX-Mobile-1.7.7.apk
-            FLUX-Mobile-1.7.7.sha256
+            FLUX-Mobile-1.7.8.apk
+            FLUX-Mobile-1.7.8.sha256
           if-no-files-found: error
           retention-days: 7
