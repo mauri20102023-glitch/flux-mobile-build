@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.7.8
+name: Build FLUX Mobile 1.7.9
 
 on:
   workflow_dispatch:
@@ -87,15 +87,15 @@ jobs:
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.8.apk
-          sha256sum FLUX-Mobile-1.7.8.apk > FLUX-Mobile-1.7.8.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.7.9.apk
+          sha256sum FLUX-Mobile-1.7.9.apk > FLUX-Mobile-1.7.9.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.7.8
+          name: FLUX-Mobile-1.7.9
           path: |
-            FLUX-Mobile-1.7.8.apk
-            FLUX-Mobile-1.7.8.sha256
+            FLUX-Mobile-1.7.9.apk
+            FLUX-Mobile-1.7.9.sha256
           if-no-files-found: error
           retention-days: 7

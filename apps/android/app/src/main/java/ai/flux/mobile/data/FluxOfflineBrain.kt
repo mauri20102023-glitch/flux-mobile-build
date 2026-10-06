@@ -37,6 +37,20 @@ class FluxOfflineBrain {
         val normalized = message.lowercase(Locale.forLanguageTag("pt-BR"))
         val pendingTasks = tasks.filterNot(LocalTask::completed)
 
+        if (Regex("^(?:flux[,! ]*)?(?:bom dia|me atualize|resumo do dia|como está meu dia)\\b").containsMatchIn(normalized)) {
+            val today = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale.forLanguageTag("pt-BR")))
+            val tasksSummary = if (pendingTasks.isEmpty()) "Você não tem tarefas locais em aberto."
+                else "Você tem ${pendingTasks.size} ${if (pendingTasks.size == 1) "tarefa" else "tarefas"} em aberto: " +
+                    pendingTasks.take(3).joinToString("; ") { it.title } + "."
+            val projectsSummary = if (projects.isEmpty()) "Ainda não há projetos locais cadastrados."
+                else "Projetos em andamento: " + projects.take(2).joinToString("; ") { it.name } + "."
+            return OfflineBrainResult(
+                "Bom dia, Maurício. Hoje é $today. $tasksSummary $projectsSummary " +
+                    "O Google Agenda, as notícias e o clima ainda não estão conectados neste aplicativo, então não tenho dados dessas fontes.",
+                handledLocally = true,
+            )
+        }
+
         if (Regex("\\b(abra|abrir|inicie|iniciar)\\b.*\\bspotify\\b").containsMatchIn(normalized)) {
             return OfflineBrainResult("Certo, Maurício. Abrindo o Spotify.", true, action = OfflineAction.OPEN_SPOTIFY)
         }

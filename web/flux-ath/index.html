@@ -53,24 +53,39 @@
       <main id="main">
         <section class="view active" data-view="home">
           <div class="command-deck">
+            <div class="deck-grid" aria-hidden="true"></div>
             <div class="deck-copy">
-              <p class="eyebrow"><span class="live-dot"></span> FLUX LIVE</p>
+              <p class="eyebrow deck-kicker"><span class="live-dot"></span> SEU CENTRO DE COMANDO <span class="deck-index">/ 01</span></p>
               <h2 id="greeting">Boa noite, Maurício.</h2>
-              <p id="homeHint">Toque no núcleo. No Android compatível, você também pode dizer “Flux”.</p>
+              <p id="homeHint">Seu dia, em foco. Diga “bom dia” ou abra o resumo para ver o que importa agora.</p>
               <div class="quick-row">
-                <button class="chip" data-prompt="Organize meu dia e destaque o que é mais importante.">Organizar meu dia</button>
-                <button class="chip" data-action="start-screen">Ver minha tela</button>
-                <button class="chip" data-go="studio">Criar imagem</button>
+                <button class="briefing-trigger" data-action="briefing"><span>✦</span> ME ATUALIZE AGORA <span aria-hidden="true">↗</span></button>
+                <button class="chip" data-action="toggle-voice"><span class="chip-pulse">●</span> Conversar por voz</button>
               </div>
+              <div class="deck-foot"><span id="deckDate">HOJE</span><span class="deck-divider"></span><span>FLUX / PERSONAL OS</span></div>
             </div>
             <div class="core-wrap">
+              <span class="core-topline">NÚCLEO DE ENERGIA <i>●</i> ATIVO NA INTERFACE</span>
               <button class="energy-core" id="voiceCore" aria-label="Iniciar conversa por voz" data-state="idle">
                 <span class="orbit orbit-a"></span><span class="orbit orbit-b"></span>
+                <span class="orbit orbit-c"></span><span class="orb-lines"></span>
                 <span class="core-light"></span><span class="core-f">F</span>
               </button>
               <span class="core-label" id="voiceStatus">TOQUE PARA FALAR</span>
               <button class="stop-voice" id="stopVoice" hidden>ENCERRAR</button>
             </div>
+          </div>
+
+          <div class="briefing-heading" id="briefingHeading">
+            <div><p class="eyebrow">INTELIGÊNCIA DO DIA <span class="heading-line"></span> 01 / 04</p><h3>Seu panorama de hoje<span class="heading-period">.</span></h3><p>Informações reais do seu FLUX, atualizadas quando você pedir.</p></div>
+            <button class="briefing-refresh" data-action="briefing" aria-label="Atualizar panorama">↻ <span>ATUALIZAR PANORAMA</span></button>
+          </div>
+          <div class="briefing-banner" id="briefingBanner" role="status"><span>✦</span><div><strong>Pronto para começar.</strong><small>Diga “bom dia” no microfone ou toque em “Me atualize agora”.</small></div><button data-action="briefing">COMEÇAR ↗</button></div>
+          <div class="briefing-grid" id="briefingGrid" aria-live="polite">
+            <article class="brief-card focus-card"><div class="brief-card-top"><span class="brief-icon">⌁</span><span class="brief-source">FLUX PLANNER</span></div><p class="brief-label">EM FOCO</p><h4 id="briefTaskHeadline">Tudo sob controle.</h4><p id="briefTaskDetail">Suas tarefas locais aparecerão aqui.</p><button class="brief-link" data-go="planner">VER TAREFAS <span>↗</span></button><span class="card-number">01</span></article>
+            <article class="brief-card"><div class="brief-card-top"><span class="brief-icon weather-icon">☼</span><span class="brief-source">OPEN-METEO</span></div><p class="brief-label">CLIMA AGORA</p><h4 id="briefWeatherHeadline">Sua localização</h4><p id="briefWeatherDetail">Ative o clima para consultar a previsão da sua região.</p><button class="brief-link" data-action="weather">ATIVAR CLIMA <span>↗</span></button><span class="card-number">02</span></article>
+            <article class="brief-card"><div class="brief-card-top"><span class="brief-icon">◇</span><span class="brief-source">SEUS PROJETOS</span></div><p class="brief-label">EM ANDAMENTO</p><h4 id="briefProjectHeadline">Novas possibilidades.</h4><p id="briefProjectDetail">Acompanhe aqui os projetos que você cadastrou.</p><button class="brief-link" data-go="planner">VER PROJETOS <span>↗</span></button><span class="card-number">03</span></article>
+            <article class="brief-card"><div class="brief-card-top"><span class="brief-icon">⌘</span><span class="brief-source">FONTES EXTERNAS</span></div><p class="brief-label">AGENDA & NOTÍCIAS</p><h4>Sem acesso às contas.</h4><p>O Google Agenda é um atalho. Eventos e notícias só entram no resumo quando houver uma fonte conectada.</p><button class="brief-link" data-go="integrations">VER CONEXÕES <span>↗</span></button><span class="card-number">04</span></article>
           </div>
 
           <div class="home-grid">
