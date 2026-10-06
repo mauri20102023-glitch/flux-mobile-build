@@ -29,7 +29,8 @@ android {
         "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
     defaultConfig {
-        applicationId = "ai.flux.mobile"
+        applicationId = System.getenv("FLUX_APPLICATION_ID").orEmpty().ifBlank { "ai.flux.mobile" }
+        manifestPlaceholders["fluxAppLabel"] = System.getenv("FLUX_APP_LABEL").orEmpty().ifBlank { "FLUX" }
         minSdk = 28
         targetSdk = 35
         versionCode = 37
