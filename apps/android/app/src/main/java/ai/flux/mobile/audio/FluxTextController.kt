@@ -19,11 +19,11 @@ import org.json.JSONObject
 import java.util.UUID
 
 interface FluxTextBridge {
-    fun send(message: String)
+    fun send(message: String, context: String = "")
     fun destroy()
 }
 
-/** Text chat uses the protected personal Gemini key when available. */
+/** Text chat uses the paired FLUX Core, with the saved personal key as an optional fallback. */
 class FluxTextController(
     context: Context,
     private val onResponse: (String) -> Unit,
@@ -34,23 +34,21 @@ class FluxTextController(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val sendMutex = Mutex()
 
-    override fun send(message: String) {
+    override fun send(message: String, context: String) {
         val clean = message.trim()
         if (clean.isEmpty()) return
         scope.launch {
             sendMutex.withLock {
                 runCatching {
                     if (application.connectionSettings.authTokenConfigured()) {
-                        runCatching { api.chat(
+                        api.chat(
                             requestId = UUID.randomUUID().toString(),
                             conversationId = if (application.workspace.memoryEnabled())
                                 application.cache.conversationId() else UUID.randomUUID().toString(),
                             message = clean,
                             voice = false,
-                        ).content }.getOrElse { failure ->
-                            if (application.connectionSettings.geminiApiKeyConfigured()) personalChat()
-                            else throw failure
-                        }
+                            context = context,
+                        ).content
                     } else if (application.connectionSettings.geminiApiKeyConfigured()) {
                         personalChat()
                     } else {

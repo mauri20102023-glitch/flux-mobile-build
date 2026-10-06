@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="pt-BR" data-theme="ember">
+<html lang="pt-BR" data-theme="ion">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#090a0e">
+  <meta name="theme-color" content="#030b20">
   <meta name="description" content="FLUX — inteligência pessoal de Maurício para conversar, criar, organizar e conectar dispositivos.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -55,24 +55,31 @@
           <div class="command-deck">
             <div class="deck-grid" aria-hidden="true"></div>
             <div class="deck-copy">
-              <p class="eyebrow deck-kicker"><span class="live-dot"></span> SEU CENTRO DE COMANDO <span class="deck-index">/ 01</span></p>
+              <p class="eyebrow deck-kicker"><span class="live-dot"></span> FLUX / CENTRO DE COMANDO <span class="deck-index">/ 01</span></p>
               <h2 id="greeting">Boa noite, Maurício.</h2>
-              <p id="homeHint">Seu dia, em foco. Diga “bom dia” ou abra o resumo para ver o que importa agora.</p>
+              <p id="homeHint">Sua voz, agenda e previsão em um só lugar. Toque no núcleo para conversar.</p>
               <div class="quick-row">
                 <button class="briefing-trigger" data-action="briefing"><span>✦</span> ME ATUALIZE AGORA <span aria-hidden="true">↗</span></button>
                 <button class="chip" data-action="toggle-voice"><span class="chip-pulse">●</span> Conversar por voz</button>
               </div>
-              <div class="deck-foot"><span id="deckDate">HOJE</span><span class="deck-divider"></span><span>FLUX / PERSONAL OS</span></div>
+              <div class="deck-foot"><span id="deckDate">HOJE</span><span class="deck-divider"></span><span>INTELIGÊNCIA PESSOAL</span></div>
             </div>
             <div class="core-wrap">
-              <span class="core-topline">NÚCLEO DE ENERGIA <i>●</i> ATIVO NA INTERFACE</span>
+              <span class="core-topline">FLUX / ASSISTENTE <i>●</i> PRONTO</span>
               <button class="energy-core" id="voiceCore" aria-label="Iniciar conversa por voz" data-state="idle">
                 <span class="orbit orbit-a"></span><span class="orbit orbit-b"></span>
-                <span class="orbit orbit-c"></span><span class="orb-lines"></span>
-                <span class="core-light"></span><span class="core-f">F</span>
+                <span class="orbit orbit-c"></span><span class="orbit orbit-d"></span><span class="orbit orbit-e"></span><span class="orb-lines"></span>
+                <span class="core-light"></span><span class="core-f">✦</span>
               </button>
               <span class="core-label" id="voiceStatus">TOQUE PARA FALAR</span>
               <button class="stop-voice" id="stopVoice" hidden>ENCERRAR</button>
+            </div>
+            <div class="deck-telemetry" aria-label="Conexões do FLUX">
+              <div class="telemetry-head">PAINEL DE SISTEMAS <span>01 / 03</span></div>
+              <button class="telemetry-card" data-action="weather"><span class="telemetry-icon">☼</span><span><small>PREVISÃO</small><b id="deckWeather">Consultar clima</b><em>Open-Meteo · localização opcional</em></span><span>↗</span></button>
+              <button class="telemetry-card" data-go="integrations"><span class="telemetry-icon">▦</span><span><small>AGENDA</small><b id="deckCalendar">Aguardando Android</b><em>Próximos eventos, se autorizado</em></span><span>↗</span></button>
+              <button class="telemetry-card" data-go="settings"><span class="telemetry-icon">◉</span><span><small>VOZ</small><b id="deckVoice">Parear para falar</b><em>ElevenLabs · voz FLUX</em></span><span>↗</span></button>
+              <div class="telemetry-foot">FLUX 1.8 <span>●</span> INTERFACE ATIVA</div>
             </div>
           </div>
 
@@ -85,7 +92,7 @@
             <article class="brief-card focus-card"><div class="brief-card-top"><span class="brief-icon">⌁</span><span class="brief-source">FLUX PLANNER</span></div><p class="brief-label">EM FOCO</p><h4 id="briefTaskHeadline">Tudo sob controle.</h4><p id="briefTaskDetail">Suas tarefas locais aparecerão aqui.</p><button class="brief-link" data-go="planner">VER TAREFAS <span>↗</span></button><span class="card-number">01</span></article>
             <article class="brief-card"><div class="brief-card-top"><span class="brief-icon weather-icon">☼</span><span class="brief-source">OPEN-METEO</span></div><p class="brief-label">CLIMA AGORA</p><h4 id="briefWeatherHeadline">Sua localização</h4><p id="briefWeatherDetail">Ative o clima para consultar a previsão da sua região.</p><button class="brief-link" data-action="weather">ATIVAR CLIMA <span>↗</span></button><span class="card-number">02</span></article>
             <article class="brief-card"><div class="brief-card-top"><span class="brief-icon">◇</span><span class="brief-source">SEUS PROJETOS</span></div><p class="brief-label">EM ANDAMENTO</p><h4 id="briefProjectHeadline">Novas possibilidades.</h4><p id="briefProjectDetail">Acompanhe aqui os projetos que você cadastrou.</p><button class="brief-link" data-go="planner">VER PROJETOS <span>↗</span></button><span class="card-number">03</span></article>
-            <article class="brief-card"><div class="brief-card-top"><span class="brief-icon">⌘</span><span class="brief-source">FONTES EXTERNAS</span></div><p class="brief-label">AGENDA & NOTÍCIAS</p><h4>Sem acesso às contas.</h4><p>O Google Agenda é um atalho. Eventos e notícias só entram no resumo quando houver uma fonte conectada.</p><button class="brief-link" data-go="integrations">VER CONEXÕES <span>↗</span></button><span class="card-number">04</span></article>
+            <article class="brief-card"><div class="brief-card-top"><span class="brief-icon">▦</span><span class="brief-source">AGENDA DO ANDROID</span></div><p class="brief-label">PRÓXIMOS EVENTOS</p><h4 id="briefCalendarHeadline">Aguardando permissão.</h4><p id="briefCalendarDetail">Autorize a agenda no app Android para sincronizar os próximos eventos.</p><button class="brief-link" data-go="integrations">VER CONEXÕES <span>↗</span></button><span class="card-number">04</span></article>
           </div>
 
           <div class="home-grid">
@@ -151,7 +158,7 @@
         </section>
 
         <section class="view" data-view="integrations">
-          <div class="section-intro"><div><p class="eyebrow">FLUX LINK</p><h2>Atalhos de serviços</h2><p>Estes atalhos abrem os serviços oficiais. Nenhuma conta é conectada ao FLUX por aqui.</p></div></div>
+          <div class="section-intro"><div><p class="eyebrow">FLUX LINK</p><h2>Conexões e atalhos</h2><p>Agenda do Android sincroniza após sua permissão. WhatsApp e Spotify abrem os aplicativos oficiais; ainda não acessam suas contas.</p></div></div>
           <div id="integrationGrid" class="integration-grid"></div>
         </section>
 
@@ -180,7 +187,7 @@
             <article class="panel setting-card"><h3>Aparência</h3><p>Escolha a assinatura de energia.</p><div class="theme-picker"><button data-theme-pick="ember" class="ember selected" aria-label="Vermelho e ciano"></button><button data-theme-pick="ion" class="ion" aria-label="Azul e violeta"></button><button data-theme-pick="aurora" class="aurora" aria-label="Verde e azul"></button><button data-theme-pick="gold" class="gold" aria-label="Dourado e vermelho"></button></div></article>
             <article class="panel setting-card"><h3>FLUX Core</h3><p id="pairStatus" role="status">Verificando conexão…</p><label>CÓDIGO DE PAREAMENTO<input id="pairCode" type="text" inputmode="text" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Cole o código de uso único"></label><button class="primary-button wide" id="saveConnection">CONECTAR AO CORE</button><p class="helper">Use um código exclusivo para este navegador. Ele expira em 15 minutos e funciona uma vez.</p></article>
             <article class="panel setting-card"><h3>Privacidade</h3><label>PIN ATUAL (SE JÁ EXISTIR)<input id="oldPrivatePin" type="password" inputmode="numeric" maxlength="12" autocomplete="off"></label><label>NOVO PIN<input id="privatePin" type="password" inputmode="numeric" maxlength="12" placeholder="6 a 12 números" autocomplete="off"></label><p class="helper">O PIN cifra as notas privadas neste navegador. Para trocar, informe o atual.</p><button class="secondary-button wide" id="savePin">SALVAR PIN</button></article>
-            <article class="panel setting-card"><h3>Voz e visão</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Voz do navegador; Gemini Live quando configurado</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>Ativação contínua disponível apenas no app Android compatível</small></span><input type="checkbox" id="wakeEnabled" disabled></label><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
+            <article class="panel setting-card"><h3>Voz e contexto</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Voz FLUX pela ElevenLabs após parear o Core</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>Ativação contínua disponível apenas no app Android compatível</small></span><input type="checkbox" id="wakeEnabled" disabled></label><p class="helper">A agenda do Android compartilha os próximos eventos com seu Core somente após você autorizar a permissão no aplicativo.</p><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
           </div>
         </section>
       </main>

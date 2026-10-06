@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,25 +19,27 @@ import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import ai.flux.mobile.audio.BluetoothAudioRouter
 import ai.flux.mobile.audio.FluxTextBridge
 import ai.flux.mobile.audio.FluxVoiceBridge
 import ai.flux.mobile.assistant.FluxVoiceInteractionService
 import ai.flux.mobile.assistant.FluxWakeWordService
 import ai.flux.mobile.integrations.ExternalAppRouter
-import ai.flux.mobile.data.FluxOfflineBrain
+import ai.flux.mobile.data.FluxLocalContext
+import kotlinx.coroutines.launch
 import android.content.Context
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-    private enum class PermissionAction { VOICE, WAKE, DEVICE_SCAN }
+    private enum class PermissionAction { VOICE, WAKE, DEVICE_SCAN, CONTEXT }
 
     private lateinit var viewModel: FluxViewModel
     // O canal de áudio em tempo real não participa da abertura do aplicativo.
     // A instância só existe depois que Maurício toca no microfone.
     private var voice: FluxVoiceBridge? = null
     private var text: FluxTextBridge? = null
-    private var briefingSpeech: TextToSpeech? = null
+    private var pendingContextMessage: String? = null
     private lateinit var bluetooth: BluetoothAudioRouter
     private lateinit var externalApps: ExternalAppRouter
     private var pendingVoiceStart = false
@@ -75,6 +76,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
             PermissionAction.DEVICE_SCAN -> scanGlasses()
+            PermissionAction.CONTEXT -> pendingContextMessage?.let { message ->
+                pendingContextMessage = null
+                sendWithContext(message)
+            }
             null -> Unit
         }
     }
@@ -190,7 +195,6 @@ class MainActivity : ComponentActivity() {
             FluxWakeWordService.resumeAfterConversation()
         }
         runCatching { text?.destroy() }
-        runCatching { briefingSpeech?.shutdown() }
         runCatching { bluetooth.release() }
         super.onDestroy()
     }
@@ -222,7 +226,7 @@ class MainActivity : ComponentActivity() {
     private fun startListening() {
         if (viewModel.state.value.isListening || viewModel.state.value.voiceConnecting) return
         runCatching {
-            // The wake listener and Gemini Live cannot own the microphone together.
+            // The wake listener and the conversation cannot own the microphone together.
             FluxWakeWordService.pauseForConversation()
             viewModel.setVoiceConnecting(true)
             val route = bluetooth.detectAndSelect()
@@ -232,7 +236,7 @@ class MainActivity : ComponentActivity() {
             onVoiceSessionChanged(false)
             viewModel.reportError(
                 failure.message?.takeIf(String::isNotBlank)
-                    ?: "Não foi possível iniciar a voz FLUX Live neste aparelho.",
+                    ?: "Não foi possível iniciar a voz FLUX neste aparelho.",
             )
         }
     }
@@ -250,29 +254,31 @@ class MainActivity : ComponentActivity() {
 
     private fun sendText(message: String) {
         val normalized = message.trim().lowercase(Locale.forLanguageTag("pt-BR"))
-        if (Regex("^(?:flux[,! ]*)?(?:bom dia|me atualize|resumo do dia|como está meu dia)\\b").containsMatchIn(normalized)) {
-            val current = viewModel.state.value
-            val summary = FluxOfflineBrain().respond(message, current.tasks, current.projects).content
-            viewModel.appendLocalBriefing(message, summary)
-            speakLocalBriefing(summary)
+        val overview = listOf("bom dia", "me atualize", "resumo do dia", "meu dia").any(normalized::contains)
+        val calendar = overview || listOf("agenda", "compromisso", "evento", "reunião").any(normalized::contains)
+        val weather = overview || listOf("clima", "tempo", "previsão", "chuva").any(normalized::contains)
+        val needed = buildList {
+            if (calendar && !hasPermission(Manifest.permission.READ_CALENDAR)) add(Manifest.permission.READ_CALENDAR)
+            if (weather && !hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        if (needed.isNotEmpty()) {
+            pendingContextMessage = message
+            permissionAction = PermissionAction.CONTEXT
+            permissions.launch(needed.toTypedArray())
             return
         }
-        viewModel.beginDirectMessage(message)
-        runCatching { textController().send(message) }
-            .onFailure { viewModel.failDirectMessage(it.message ?: "Não foi possível conversar com o FLUX Live.") }
+        sendWithContext(message)
     }
 
-    private fun speakLocalBriefing(summary: String) {
-        val existing = briefingSpeech
-        if (existing != null) {
-            existing.speak(summary, TextToSpeech.QUEUE_FLUSH, null, "flux-daily-briefing")
-            return
-        }
-        briefingSpeech = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                briefingSpeech?.language = Locale.forLanguageTag("pt-BR")
-                briefingSpeech?.speak(summary, TextToSpeech.QUEUE_FLUSH, null, "flux-daily-briefing")
-            } else viewModel.reportError("O resumo apareceu na tela, mas a voz do Android não está disponível.")
+    private fun sendWithContext(message: String) {
+        viewModel.beginDirectMessage(message)
+        lifecycleScope.launch {
+            runCatching {
+                val facts = FluxLocalContext.collect(this@MainActivity,
+                    (application as FluxApplication).api, message)
+                viewModel.updateDailyFacts(facts)
+                textController().send(message, facts.context)
+            }.onFailure { viewModel.failDirectMessage(it.message ?: "Não consegui consultar seus dados agora.") }
         }
     }
 
@@ -346,13 +352,12 @@ class MainActivity : ComponentActivity() {
     private fun voiceController(): FluxVoiceBridge = voice ?: createVoiceController().also { voice = it }
 
     /**
-     * Não referencie FluxVoiceController diretamente nesta Activity. O nome em
-     * texto mantém o canal Gemini Live fora do caminho de abertura. Até um
-     * erro de carregamento fica contido no toque do microfone.
+     * O controlador de voz é carregado ao tocar no microfone, para que uma
+     * falha de áudio não impeça a abertura da interface principal.
      */
     @Suppress("UNCHECKED_CAST")
     private fun createVoiceController(): FluxVoiceBridge {
-        val implementation = Class.forName("ai.flux.mobile.audio.FluxVoiceController")
+        val implementation = Class.forName("ai.flux.mobile.audio.FluxConversationalVoice")
         val callback = kotlin.jvm.functions.Function1::class.java
         val constructor = implementation.getConstructor(
             Context::class.java,

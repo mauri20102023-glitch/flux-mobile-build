@@ -45,6 +45,8 @@ data class FluxUiState(
     val voiceConfigured: Boolean = false,
     val voiceProvider: String = "unavailable",
     val voiceOfficial: Boolean = false,
+    val calendarHeadline: String = "Agenda não autorizada",
+    val weatherHeadline: String = "Clima não consultado",
     val glassesName: String? = null,
     val coreUrl: String = "",
     val coreAuthConfigured: Boolean = false,
