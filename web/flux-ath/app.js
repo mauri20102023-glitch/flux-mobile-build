@@ -1,6 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const VERSION = "1.7.7";
+const VERSION = "1.7.9";
 const STORE = "flux-workspace-v1";
 const DEVICE_ID = localStorage.getItem("flux-device-id") || `web-${crypto.randomUUID()}`;
 localStorage.setItem("flux-device-id", DEVICE_ID);
@@ -40,6 +40,8 @@ let installEvent = null;
 let screenStream = null;
 let screenTimer = null;
 let selectedStyle = "cinematográfica";
+let weatherNow = null;
+let localRecognizer = null;
 
 function save() {
   // Decrypted private notes exist only in memory while the reveal dialog is open.
@@ -80,6 +82,7 @@ function updateClock() {
   $("#clock").textContent = now.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
   $("#todayLabel").textContent = now.toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
   $("#greeting").textContent = `${hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"}, Maurício.`;
+  $("#deckDate").textContent = now.toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }).toUpperCase();
 }
 
 function renderMessages() {
@@ -95,6 +98,10 @@ function renderMessages() {
 
 async function sendChat(message) {
   const clean = message.trim(); if (!clean) return;
+  if (isBriefingRequest(clean)) {
+    state.messages.push({ id:crypto.randomUUID(), role:"user", text:clean });
+    runBriefing({ speak:true, log:true }); go("chat"); return;
+  }
   const user = { id:crypto.randomUUID(), role:"user", text:clean }; const pending = { id:crypto.randomUUID(), role:"flux", text:"Pensando…", mode:"FLUX", pending:true };
   state.messages.push(user, pending); save(); renderMessages(); go("chat");
   try {
@@ -118,11 +125,79 @@ function renderTasks() {
     row.innerHTML = `<button class="task-check" data-task-toggle="${task.id}">${task.done ? "✓" : ""}</button><b>${escapeHtml(task.title)}</b><button class="delete-button" data-task-delete="${task.id}" aria-label="Excluir">×</button>`; list.append(row);
   });
   if (!state.tasks.length) list.innerHTML = '<p class="helper">Nada pendente. Aproveite o espaço livre.</p>';
+  renderBriefingCards();
 }
 function addTask(title) { const clean = title.trim(); if (!clean) return; state.tasks.unshift({ id:crypto.randomUUID(), title:clean, done:false }); save(); renderTasks(); toast("Tarefa adicionada.", "ok"); }
 function renderProjects() {
   const list = $("#projectList"); list.innerHTML = ""; state.projects.forEach(project => { const node = document.createElement("article"); node.className = "project-card"; node.style.setProperty("--progress", Math.max(0,Math.min(1,project.progress || 0))); node.innerHTML = `<b>${escapeHtml(project.name)}</b><p>${escapeHtml(project.note || "Sem objetivo definido")}</p><small>${Math.round((project.progress || 0)*100)}% CONCLUÍDO</small>`; list.append(node); });
   if (!state.projects.length) list.innerHTML = '<p class="helper">Nenhum projeto ainda. Crie o primeiro quando precisar.</p>';
+  renderBriefingCards();
+}
+
+function isBriefingRequest(value) {
+  const normalized = value.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return /^(?:flux[ ,.!]*)?bom dia\b/.test(normalized) || /^(?:flux[ ,.!]*)?(?:me atualize|resumo do dia|como esta meu dia)\b/.test(normalized);
+}
+
+function briefingFacts() {
+  const pending = state.tasks.filter(task => !task.done);
+  const day = new Date().toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
+  const taskSentence = pending.length ? `${pending.length} tarefa${pending.length===1?"":"s"} em aberto: ${pending.slice(0,3).map(task=>task.title).join("; ")}${pending.length>3?"; e outras pendências":""}.` : "Nenhuma tarefa local em aberto.";
+  const projectSentence = state.projects.length ? `${state.projects.length} projeto${state.projects.length===1?"":"s"} no FLUX: ${state.projects.slice(0,2).map(project=>project.name).join("; ")}.` : "Nenhum projeto local cadastrado.";
+  const weatherSentence = weatherNow && Date.now()-weatherNow.at<15*60_000 ? `Clima na sua região: ${Math.round(weatherNow.temperature)} graus, ${weatherNow.condition.toLowerCase()}. Máxima de ${Math.round(weatherNow.high)} e mínima de ${Math.round(weatherNow.low)} graus. Fonte: Open-Meteo.` : "Clima não consultado; ative a localização no cartão de clima.";
+  return { day, pending, taskSentence, projectSentence, weatherSentence,
+    spoken:`Bom dia, Maurício. Hoje é ${day}. ${taskSentence} ${projectSentence} ${weatherSentence} Google Agenda e notícias ainda não estão conectados ao FLUX; por isso não vou inventar esses dados.` };
+}
+
+function renderBriefingCards() {
+  const facts=briefingFacts();
+  $("#briefTaskHeadline").textContent=facts.pending.length ? `${facts.pending.length} ${facts.pending.length===1?"tarefa pede":"tarefas pedem"} atenção.` : "Tudo sob controle.";
+  $("#briefTaskDetail").textContent=facts.pending.length ? facts.pending.slice(0,2).map(task=>task.title).join(" · ") : "Nenhuma tarefa local em aberto.";
+  $("#briefProjectHeadline").textContent=state.projects.length ? `${state.projects.length} ${state.projects.length===1?"projeto":"projetos"} em andamento.` : "Novas possibilidades.";
+  $("#briefProjectDetail").textContent=state.projects.length ? state.projects.slice(0,2).map(project=>project.name).join(" · ") : "Cadastre um projeto para acompanhar seu avanço.";
+  if(weatherNow && Date.now()-weatherNow.at<15*60_000){
+    $("#briefWeatherHeadline").textContent=`${Math.round(weatherNow.temperature)}° · ${weatherNow.condition}`;
+    $("#briefWeatherDetail").textContent=`Máx. ${Math.round(weatherNow.high)}° · mín. ${Math.round(weatherNow.low)}°. Atualizado às ${new Date(weatherNow.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}.`;
+    $("[data-action=weather]",$("#briefingGrid")).innerHTML="ATUALIZAR CLIMA <span>↗</span>";
+  }
+}
+
+function weatherCondition(code) {
+  if(code===0)return "Céu limpo";
+  if(code<=3)return "Parcialmente nublado";
+  if(code===45||code===48)return "Neblina";
+  if(code>=51&&code<=67)return "Chuva";
+  if(code>=71&&code<=77)return "Neve";
+  if(code>=80&&code<=82)return "Pancadas de chuva";
+  if(code>=95)return "Trovoadas";
+  return "Condições variáveis";
+}
+async function updateWeather() {
+  if(!navigator.geolocation)throw new Error("Este navegador não oferece localização.");
+  const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:12000,maximumAge:10*60_000}));
+  const url=new URL("https://api.open-meteo.com/v1/forecast");
+  url.search=new URLSearchParams({latitude:position.coords.latitude.toFixed(3),longitude:position.coords.longitude.toFixed(3),current:"temperature_2m,weather_code",daily:"temperature_2m_max,temperature_2m_min",timezone:"auto",forecast_days:"1"}).toString();
+  const response=await fetch(url.toString());if(!response.ok)throw new Error("O serviço de clima não respondeu.");
+  const data=await response.json();if(!Number.isFinite(data.current?.temperature_2m)||!Number.isFinite(data.daily?.temperature_2m_max?.[0]))throw new Error("O clima não está disponível para esta região.");
+  weatherNow={temperature:data.current.temperature_2m,condition:weatherCondition(data.current.weather_code),high:data.daily.temperature_2m_max[0],low:data.daily.temperature_2m_min[0],at:Date.now()};
+  renderBriefingCards();toast("Clima atualizado pela Open-Meteo.","ok");
+}
+
+function speakBriefing(text) {
+  if(!("speechSynthesis" in window))return toast("A leitura em voz alta não está disponível neste navegador.","error");
+  window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang="pt-BR";utterance.rate=1.02;
+  const voices=window.speechSynthesis.getVoices();utterance.voice=voices.find(voice=>voice.lang?.toLowerCase()==="pt-br")||null;
+  utterance.onstart=()=>setVoiceState("speaking","LENDO SEU PANORAMA");utterance.onend=()=>setVoiceState("idle","TOQUE PARA FALAR");utterance.onerror=()=>setVoiceState("idle","TOQUE PARA FALAR");window.speechSynthesis.speak(utterance);
+}
+
+function runBriefing({speak=false,log=false}={}) {
+  renderBriefingCards();const facts=briefingFacts();
+  $("#briefingBanner").classList.add("ready");
+  $("#briefingBanner").innerHTML=`<span>✦</span><div><strong>Seu panorama está pronto.</strong><small>${escapeHtml(facts.day)} · ${facts.pending.length} ${facts.pending.length===1?"tarefa":"tarefas"} em aberto · ${state.projects.length} ${state.projects.length===1?"projeto":"projetos"}</small></div><button data-action="speak-briefing">OUVIR ↗</button>`;
+  $("#briefingGrid").classList.remove("revealed");requestAnimationFrame(()=>$("#briefingGrid").classList.add("revealed"));
+  if(log){state.messages.push({id:crypto.randomUUID(),role:"flux",text:facts.spoken,mode:"RESUMO LOCAL"});save();renderMessages();}
+  if(speak)speakBriefing(facts.spoken);
+  return facts;
 }
 
 async function hashText(value) { const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)); return btoa(String.fromCharCode(...new Uint8Array(bytes))); }
@@ -181,7 +256,7 @@ class FluxLive {
     const sessionResponse=await fetch(core("/v1/live/session"),{method:"POST",headers:headers(),body:"{}"});
     const session=await readResponse(sessionResponse); if(!this.running)return; this.session=session; this.ready=false;
     const ws=new WebSocket(`${session.endpoint}?access_token=${encodeURIComponent(session.token)}`); this.socket=ws;
-    ws.onopen=()=>{if(!this.running||this.socket!==ws)return;const setup={model:`models/${session.model}`,generationConfig:{responseModalities:["AUDIO"],temperature:.7,speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.voice}}}},systemInstruction:{parts:[{text:session.systemInstruction}]},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:this.resumeHandle?{handle:this.resumeHandle}:{},contextWindowCompression:{slidingWindow:{}},realtimeInputConfig:{automaticActivityDetection:{disabled:false,silenceDurationMs:700,prefixPaddingMs:300,startOfSpeechSensitivity:"START_SENSITIVITY_HIGH",endOfSpeechSensitivity:"END_SENSITIVITY_HIGH"},activityHandling:"START_OF_ACTIVITY_INTERRUPTS",turnCoverage:"TURN_INCLUDES_ONLY_ACTIVITY"}};ws.send(JSON.stringify({setup}));};
+    ws.onopen=()=>{if(!this.running||this.socket!==ws)return;const facts=briefingFacts();const briefingContext=`\nQuando Maurício disser “bom dia” ou pedir o panorama, responda em português com um resumo breve dos dados abaixo, sem inventar eventos, notícias, contas ou dispositivos. Data: ${facts.day}. ${facts.taskSentence} ${facts.projectSentence} ${facts.weatherSentence} Google Agenda e notícias não estão conectados ao FLUX. Use apenas estas fontes para o panorama.`;const setup={model:`models/${session.model}`,generationConfig:{responseModalities:["AUDIO"],temperature:.7,speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:session.voice}}}},systemInstruction:{parts:[{text:session.systemInstruction+briefingContext}]},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:this.resumeHandle?{handle:this.resumeHandle}:{},contextWindowCompression:{slidingWindow:{}},realtimeInputConfig:{automaticActivityDetection:{disabled:false,silenceDurationMs:700,prefixPaddingMs:300,startOfSpeechSensitivity:"START_SENSITIVITY_HIGH",endOfSpeechSensitivity:"END_SENSITIVITY_HIGH"},activityHandling:"START_OF_ACTIVITY_INTERRUPTS",turnCoverage:"TURN_INCLUDES_ONLY_ACTIVITY"}};ws.send(JSON.stringify({setup}));};
     ws.onmessage=event=>{if(this.socket===ws)try{this.handle(JSON.parse(event.data));}catch{this.fail("Não foi possível processar a resposta de voz.");}};
     ws.onerror=()=>{try{ws.close();}catch{}};
     ws.onclose=()=>{if(this.socket!==ws||!this.running)return;if(!this.ready&&this.resumeHandle)this.resumeHandle="";this.socket=null;this.ready=false;this.reconnect();};
@@ -206,7 +281,7 @@ class FluxLive {
     if(server.inputTranscription?.text) this.userText=mergeTranscript(this.userText,server.inputTranscription.text);
     if(server.outputTranscription?.text) this.fluxText=mergeTranscript(this.fluxText,server.outputTranscription.text);
     if(server.interrupted){ this.nextPlay=this.context.currentTime; setVoiceState("listening","OUVINDO — PODE FALAR"); }
-    if(server.turnComplete){ if(this.userText.trim()) state.messages.push({id:crypto.randomUUID(),role:"user",text:this.userText.trim()}); if(this.fluxText.trim()) state.messages.push({id:crypto.randomUUID(),role:"flux",text:this.fluxText.trim(),mode:"FLUX LIVE"}); this.userText=""; this.fluxText=""; save(); renderMessages(); setVoiceState("listening","OUVINDO — PODE FALAR"); }
+    if(server.turnComplete){ if(isBriefingRequest(this.userText.trim()))runBriefing();if(this.userText.trim()) state.messages.push({id:crypto.randomUUID(),role:"user",text:this.userText.trim()}); if(this.fluxText.trim()) state.messages.push({id:crypto.randomUUID(),role:"flux",text:this.fluxText.trim(),mode:"FLUX LIVE"}); this.userText=""; this.fluxText=""; save(); renderMessages(); setVoiceState("listening","OUVINDO — PODE FALAR"); }
   }
   play(encoded){ const bytes=Uint8Array.from(atob(encoded),char=>char.charCodeAt(0)); const samples=new Float32Array(Math.floor(bytes.length/2)); const view=new DataView(bytes.buffer); for(let i=0;i<samples.length;i++) samples[i]=view.getInt16(i*2,true)/32768; const buffer=this.context.createBuffer(1,samples.length,24000); buffer.copyToChannel(samples,0); const source=this.context.createBufferSource(); source.buffer=buffer; source.connect(this.context.destination); const at=Math.max(this.context.currentTime+.015,this.nextPlay); source.start(at); this.nextPlay=at+buffer.duration; }
   sendText(text, complete=true){ if(this.socket?.readyState!==WebSocket.OPEN) return false; this.socket.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text}]}],turnComplete:complete}})); return true; }
@@ -218,8 +293,22 @@ const live=new FluxLive();
 function mergeTranscript(current,incoming){ if(!current)return incoming; if(incoming.startsWith(current))return incoming; if(current.endsWith(incoming))return current; return current+incoming; }
 function bytesToBase64(buffer){ const bytes=new Uint8Array(buffer); let binary=""; const step=0x8000; for(let i=0;i<bytes.length;i+=step) binary+=String.fromCharCode(...bytes.subarray(i,i+step)); return btoa(binary); }
 function downsample(float32,inputRate,outputRate){ const ratio=inputRate/outputRate; const length=Math.round(float32.length/ratio); const result=new Int16Array(length); for(let i=0;i<length;i++){ const start=Math.floor(i*ratio),end=Math.min(float32.length,Math.floor((i+1)*ratio)); let sum=0,count=0; for(let j=start;j<end;j++){sum+=float32[j];count++;} const sample=Math.max(-1,Math.min(1,sum/Math.max(1,count))); result[i]=sample<0?sample*32768:sample*32767; } return result; }
-function setVoiceState(mode,label){ $("#voiceCore").dataset.state=mode; $("#voiceStatus").textContent=label; $("#stopVoice").hidden=mode==="idle"; $("#homeHint").textContent=mode==="listening"?"Estou ouvindo. Pode falar naturalmente.":mode==="speaking"?"Pode me interromper a qualquer momento.":"Toque no núcleo. No Android compatível, diga “Flux”."; }
-async function toggleVoice(){ try{ if(live.active)live.stop(); else await live.start(); }catch(error){ live.fail(friendlyError(error)); if(error.code==="NO_TOKEN")go("settings"); } }
+function setVoiceState(mode,label){ $("#voiceCore").dataset.state=mode; $("#voiceStatus").textContent=label; $("#stopVoice").hidden=mode==="idle"; $("#homeHint").textContent=mode==="listening"?"Estou ouvindo. Pode dizer “bom dia”.":mode==="speaking"?"Seu FLUX está falando. Você pode interromper a leitura.":"Seu dia, em foco. Diga “bom dia” ou abra o resumo para ver o que importa agora."; }
+function startLocalRecognition(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition)throw new Error("Este navegador não oferece reconhecimento de voz. Use o botão ‘Me atualize agora’.");
+  localRecognizer=new SpeechRecognition();localRecognizer.lang="pt-BR";localRecognizer.continuous=false;localRecognizer.interimResults=false;
+  localRecognizer.onresult=event=>{const heard=event.results?.[0]?.[0]?.transcript||"";if(heard)sendChat(heard);};
+  localRecognizer.onerror=event=>{if(event.error!=="no-speech")toast("Não consegui ouvir. Toque no núcleo e tente novamente.","error");};
+  localRecognizer.onend=()=>{localRecognizer=null;setVoiceState("idle","TOQUE PARA FALAR");};
+  localRecognizer.start();setVoiceState("listening","OUVINDO — DIGA BOM DIA");
+}
+async function toggleVoice(){
+  if(localRecognizer){localRecognizer.stop();return;}
+  if(window.speechSynthesis?.speaking){window.speechSynthesis.cancel();setVoiceState("idle","TOQUE PARA FALAR");return;}
+  try{if(live.active)live.stop();else if(state.token)await live.start();else startLocalRecognition();}
+  catch(error){live.fail(friendlyError(error));}
+}
 
 async function startScreen(){
   if(!navigator.mediaDevices?.getDisplayMedia){ toast("O compartilhamento de tela exige um navegador compatível ou o app Android.","error"); return; }
@@ -257,8 +346,8 @@ function restoreBackup(){try{const backup=localStorage.getItem("flux-recovery-ba
 async function testAudio(){ try{if(!live.active)await live.start();const started=Date.now();while(live.active&&!live.ready&&Date.now()-started<10000)await new Promise(resolve=>setTimeout(resolve,150));if(!live.ready||!live.sendText("Diga apenas: Olá Maurício, o áudio do FLUX está funcionando."))throw new Error("A voz ainda não abriu uma sessão. Confira a conexão e tente novamente.");toast("Pedido de teste enviado. Confirme se ouviu a resposta.","ok");}catch(error){toast(friendlyError(error),"error");} }
 
 function bindEvents(){
-  document.addEventListener("click",async event=>{const goButton=event.target.closest("[data-go]");if(goButton){go(goButton.dataset.go);return;}const action=event.target.closest("[data-action]")?.dataset.action;if(action==="toggle-voice")return toggleVoice();if(action==="start-screen")return startScreen();if(action==="stop-screen")return stopScreen();if(action==="new-task")return newTaskModal();if(action==="new-project")return newProjectModal();if(action==="new-memory")return newMemoryModal();if(action==="run-check")return runLab("test");if(action==="scan-devices")return showReport("FLUX NEXUS","Dispositivos",'<p>Este site não faz busca automática de TV, relógio ou óculos. Para a TV, abra o SmartThings. Para fones Bluetooth, use os ajustes do Android.</p>');if(action==="audio-test")return testAudio();const prompt=event.target.closest("[data-prompt]")?.dataset.prompt;if(prompt)return sendChat(prompt);const integration=event.target.closest("[data-integration]")?.dataset.integration;if(integration)return openIntegration(integration);const lab=event.target.closest("[data-lab]")?.dataset.lab;if(lab)return runLab(lab);const theme=event.target.closest("[data-theme-pick]")?.dataset.themePick;if(theme){state.theme=theme;save();applyTheme();return;}const toggle=event.target.closest("[data-task-toggle]")?.dataset.taskToggle;if(toggle){const task=state.tasks.find(item=>item.id===toggle);if(task)task.done=!task.done;save();renderTasks();return;}const del=event.target.closest("[data-task-delete]")?.dataset.taskDelete;if(del){state.tasks=state.tasks.filter(item=>item.id!==del);save();renderTasks();return;}const memoryDelete=event.target.closest("[data-memory-delete]")?.dataset.memoryDelete;if(memoryDelete){revealedMemories.delete(memoryDelete);state.memories=state.memories.filter(item=>item.id!==memoryDelete);save();renderMemories();toast("Memória esquecida.");return;}const reveal=event.target.closest("[data-memory-reveal]")?.dataset.memoryReveal;if(reveal)return revealMemory(reveal);const device=event.target.closest("[data-device]")?.dataset.device;if(device)return deviceAction(device);});
-  $("#voiceCore").onclick=toggleVoice; $("#stopVoice").onclick=()=>live.stop();
+  document.addEventListener("click",async event=>{const goButton=event.target.closest("[data-go]");if(goButton){go(goButton.dataset.go);return;}const action=event.target.closest("[data-action]")?.dataset.action;if(action==="briefing")return runBriefing({speak:true,log:true});if(action==="speak-briefing")return speakBriefing(briefingFacts().spoken);if(action==="weather")return updateWeather().catch(error=>toast(error.code===1?"Localização não autorizada. O restante do resumo continua disponível.":friendlyError(error),"error"));if(action==="toggle-voice")return toggleVoice();if(action==="start-screen")return startScreen();if(action==="stop-screen")return stopScreen();if(action==="new-task")return newTaskModal();if(action==="new-project")return newProjectModal();if(action==="new-memory")return newMemoryModal();if(action==="run-check")return runLab("test");if(action==="scan-devices")return showReport("FLUX NEXUS","Dispositivos",'<p>Este site não faz busca automática de TV, relógio ou óculos. Para a TV, abra o SmartThings. Para fones Bluetooth, use os ajustes do Android.</p>');if(action==="audio-test")return testAudio();const prompt=event.target.closest("[data-prompt]")?.dataset.prompt;if(prompt)return sendChat(prompt);const integration=event.target.closest("[data-integration]")?.dataset.integration;if(integration)return openIntegration(integration);const lab=event.target.closest("[data-lab]")?.dataset.lab;if(lab)return runLab(lab);const theme=event.target.closest("[data-theme-pick]")?.dataset.themePick;if(theme){state.theme=theme;save();applyTheme();return;}const toggle=event.target.closest("[data-task-toggle]")?.dataset.taskToggle;if(toggle){const task=state.tasks.find(item=>item.id===toggle);if(task)task.done=!task.done;save();renderTasks();return;}const del=event.target.closest("[data-task-delete]")?.dataset.taskDelete;if(del){state.tasks=state.tasks.filter(item=>item.id!==del);save();renderTasks();return;}const memoryDelete=event.target.closest("[data-memory-delete]")?.dataset.memoryDelete;if(memoryDelete){revealedMemories.delete(memoryDelete);state.memories=state.memories.filter(item=>item.id!==memoryDelete);save();renderMemories();toast("Memória esquecida.");return;}const reveal=event.target.closest("[data-memory-reveal]")?.dataset.memoryReveal;if(reveal)return revealMemory(reveal);const device=event.target.closest("[data-device]")?.dataset.device;if(device)return deviceAction(device);});
+  $("#voiceCore").onclick=toggleVoice; $("#stopVoice").onclick=()=>{if(localRecognizer)localRecognizer.stop();else if(window.speechSynthesis?.speaking){window.speechSynthesis.cancel();setVoiceState("idle","TOQUE PARA FALAR");}else live.stop();};
   $("#chatForm").onsubmit=event=>{event.preventDefault();const input=$("#chatInput");sendChat(input.value);input.value="";input.style.height="auto";};
   $("#chatInput").oninput=event=>{event.target.style.height="auto";event.target.style.height=`${Math.min(150,event.target.scrollHeight)}px`;};
   $("#chatInput").onkeydown=event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();$("#chatForm").requestSubmit();}};

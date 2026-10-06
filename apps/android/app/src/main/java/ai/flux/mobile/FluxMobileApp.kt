@@ -112,6 +112,7 @@ fun FluxTheme(accentKey: String = "red", content: @Composable () -> Unit) {
 fun FluxMobileApp(
     state: FluxUiState,
     onSend: (String) -> Unit,
+    onBriefing: () -> Unit,
     onVoice: () -> Unit,
     onStop: () -> Unit,
     onAssistantSetup: () -> Unit,
@@ -165,6 +166,7 @@ fun FluxMobileApp(
                 FluxTab.HOME -> PulseHome(
                     state = state,
                     onVoice = { if (state.isListening || state.voiceConnecting) onStop() else onVoice() },
+                    onBriefing = onBriefing,
                     onChat = { selectedName = FluxTab.CHAT.name },
                     onPlans = { selectedName = FluxTab.AGENDA.name },
                     onStudio = { selectedName = FluxTab.LAB.name },
@@ -242,6 +244,7 @@ private fun RowScope.PulseNavItem(selected: FluxTab, tab: FluxTab, onSelect: (Fl
 private fun PulseHome(
     state: FluxUiState,
     onVoice: () -> Unit,
+    onBriefing: () -> Unit,
     onChat: () -> Unit,
     onPlans: () -> Unit,
     onStudio: () -> Unit,
@@ -305,10 +308,24 @@ private fun PulseHome(
                 Text(presenceLabel(state).uppercase(), color = Muted,
                     fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
                 Spacer(Modifier.height(22.dp))
+                Button(
+                    onClick = onBriefing,
+                    shape = RoundedCornerShape(13.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) { Text("✦   ME ATUALIZE AGORA", fontWeight = FontWeight.Black, letterSpacing = 1.sp) }
+                Spacer(Modifier.height(10.dp))
                 OutlinedAction("ABRIR CHAT", Icons.Default.ChatBubbleOutline, onChat)
             }
         }
         Spacer(Modifier.height(16.dp))
+        HomePanel("PANORAMA DO DIA", "O que importa agora") {
+            Text("${state.tasks.count { !it.completed }} tarefas em aberto", color = White, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(5.dp))
+            Text("${state.projects.size} projetos locais · Agenda e notícias não conectadas", color = Muted, fontSize = 12.sp)
+            Spacer(Modifier.height(12.dp))
+            HomeAction(Icons.Default.CheckCircleOutline, "Ouvir seu resumo", "Tarefas e projetos, com dados reais", onBriefing)
+        }
+        Spacer(Modifier.height(12.dp))
         HomePanel("AGORA", "Seu centro de comando") {
             Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), fontSize = 39.sp, fontWeight = FontWeight.Light)
             Text(now.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale("pt", "BR"))), color = Muted)

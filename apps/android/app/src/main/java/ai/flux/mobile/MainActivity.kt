@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,7 +26,9 @@ import ai.flux.mobile.audio.FluxVoiceBridge
 import ai.flux.mobile.assistant.FluxVoiceInteractionService
 import ai.flux.mobile.assistant.FluxWakeWordService
 import ai.flux.mobile.integrations.ExternalAppRouter
+import ai.flux.mobile.data.FluxOfflineBrain
 import android.content.Context
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private enum class PermissionAction { VOICE, WAKE, DEVICE_SCAN }
@@ -35,6 +38,7 @@ class MainActivity : ComponentActivity() {
     // A instância só existe depois que Maurício toca no microfone.
     private var voice: FluxVoiceBridge? = null
     private var text: FluxTextBridge? = null
+    private var briefingSpeech: TextToSpeech? = null
     private lateinit var bluetooth: BluetoothAudioRouter
     private lateinit var externalApps: ExternalAppRouter
     private var pendingVoiceStart = false
@@ -103,6 +107,7 @@ class MainActivity : ComponentActivity() {
                 FluxMobileApp(
                     state = state,
                     onSend = ::sendText,
+                    onBriefing = { sendText("Bom dia") },
                     onVoice = ::requestVoice,
                     onStop = ::stopListening,
                     onAssistantSetup = ::requestAssistantRole,
@@ -185,6 +190,7 @@ class MainActivity : ComponentActivity() {
             FluxWakeWordService.resumeAfterConversation()
         }
         runCatching { text?.destroy() }
+        runCatching { briefingSpeech?.shutdown() }
         runCatching { bluetooth.release() }
         super.onDestroy()
     }
@@ -243,9 +249,31 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sendText(message: String) {
+        val normalized = message.trim().lowercase(Locale.forLanguageTag("pt-BR"))
+        if (Regex("^(?:flux[,! ]*)?(?:bom dia|me atualize|resumo do dia|como está meu dia)\\b").containsMatchIn(normalized)) {
+            val current = viewModel.state.value
+            val summary = FluxOfflineBrain().respond(message, current.tasks, current.projects).content
+            viewModel.appendLocalBriefing(message, summary)
+            speakLocalBriefing(summary)
+            return
+        }
         viewModel.beginDirectMessage(message)
         runCatching { textController().send(message) }
             .onFailure { viewModel.failDirectMessage(it.message ?: "Não foi possível conversar com o FLUX Live.") }
+    }
+
+    private fun speakLocalBriefing(summary: String) {
+        val existing = briefingSpeech
+        if (existing != null) {
+            existing.speak(summary, TextToSpeech.QUEUE_FLUSH, null, "flux-daily-briefing")
+            return
+        }
+        briefingSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                briefingSpeech?.language = Locale.forLanguageTag("pt-BR")
+                briefingSpeech?.speak(summary, TextToSpeech.QUEUE_FLUSH, null, "flux-daily-briefing")
+            } else viewModel.reportError("O resumo apareceu na tela, mas a voz do Android não está disponível.")
+        }
     }
 
     private fun textController(): FluxTextBridge = text ?: createTextController().also { text = it }

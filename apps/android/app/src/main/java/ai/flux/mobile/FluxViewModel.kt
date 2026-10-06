@@ -339,6 +339,14 @@ class FluxViewModel(
         _state.update { it.copy(messages = messages, isResponding = true, error = null) }
     }
 
+    fun appendLocalBriefing(request: String, response: String) {
+        val messages = state.value.messages +
+            UiMessage(role = Role.USER, content = request, mode = "LOCAL") +
+            UiMessage(role = Role.FLUX, content = response, mode = "RESUMO LOCAL")
+        cache.saveMessages(messages)
+        _state.update { it.copy(messages = messages, isResponding = false, error = null) }
+    }
+
     fun completeDirectMessage(text: String) {
         val clean = text.trim()
         if (clean.isEmpty()) return
