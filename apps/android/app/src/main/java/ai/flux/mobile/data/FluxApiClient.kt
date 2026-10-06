@@ -17,6 +17,8 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 data class ChatResult(val content: String, val mode: String, val outputDeviceId: String)
+data class WeatherResult(val temperature: Double, val high: Double, val low: Double,
+    val rainChance: Int, val condition: String)
 data class PairResult(val deviceToken: String, val deviceId: String)
 data class VoiceSessionResult(
     val token: String,
@@ -58,6 +60,19 @@ class FluxApiClient(
             .url(baseUrl().trimEnd('/') + "/v1/pair/redeem")
             .post(json(body))
             .build()
+        executeWithRetry(request, maxAttempts = 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            val result = JSONObject(raw)
+            PairResult(result.getString("deviceToken"), result.getString("deviceId"))
+        }
+    }
+
+    suspend fun migrateLegacy(legacyToken: String): PairResult = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("deviceId", deviceId()).put("legacyToken", legacyToken)
+        val request = Request.Builder()
+            .url("https://flux-mobile-build2.mauri20102023.workers.dev/v1/pair/migrate")
+            .post(json(body)).build()
         executeWithRetry(request, maxAttempts = 1).use {
             val raw = it.body?.string().orEmpty()
             if (!it.isSuccessful) throw apiFailure(it.code, raw)
@@ -114,6 +129,7 @@ class FluxApiClient(
         conversationId: String,
         message: String,
         voice: Boolean,
+        context: String = "",
     ): ChatResult = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("requestId", requestId)
@@ -121,6 +137,7 @@ class FluxApiClient(
             put("message", message)
             put("deviceId", deviceId())
             put("modality", if (voice) "VOICE" else "TEXT")
+            if (context.isNotBlank()) put("context", context.take(3_000))
         }
         val response = executeWithRetry(request("/v1/chat").post(json(body)).build(), maxAttempts = 4)
         response.use {
@@ -132,6 +149,47 @@ class FluxApiClient(
                 mode = result.getString("mode"),
                 outputDeviceId = result.optString("outputDeviceId", deviceId()),
             )
+        }
+    }
+
+    suspend fun weather(latitude: Double, longitude: Double): WeatherResult = withContext(Dispatchers.IO) {
+        val url = "/v1/weather?lat=${"%.3f".format(java.util.Locale.US, latitude)}" +
+            "&lon=${"%.3f".format(java.util.Locale.US, longitude)}"
+        executeWithRetry(request(url).get().build(), maxAttempts = 2).use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw apiFailure(response.code, raw)
+            val data = JSONObject(raw)
+            val code = data.optInt("code", -1)
+            val condition = when {
+                code == 0 -> "céu limpo"
+                code in 1..3 -> "parcialmente nublado"
+                code == 45 || code == 48 -> "neblina"
+                code in 51..67 || code in 80..82 -> "chuva"
+                code in 71..77 -> "neve"
+                code >= 95 -> "trovoadas"
+                else -> "condições variáveis"
+            }
+            WeatherResult(data.getDouble("temperature"), data.optDouble("high"),
+                data.optDouble("low"), data.optInt("rainChance"), condition)
+        }
+    }
+
+    suspend fun updateCalendar(events: List<CalendarEntry>) = withContext(Dispatchers.IO) {
+        val entries = org.json.JSONArray()
+        events.take(20).forEach { entry ->
+            entries.put(JSONObject().put("title", entry.title).put("start", entry.start).put("end", entry.end))
+        }
+        val body = JSONObject().put("events", entries)
+        executeWithRetry(request("/v1/calendar").post(json(body)).build(), maxAttempts = 1).use {
+            if (!it.isSuccessful) throw apiFailure(it.code, it.body?.string().orEmpty())
+        }
+    }
+
+    suspend fun synthesize(text: String): ByteArray = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("text", text.take(1_000))
+        executeWithRetry(request("/v1/tts").post(json(body)).build(), maxAttempts = 1).use {
+            if (!it.isSuccessful) throw apiFailure(it.code, it.body?.string().orEmpty())
+            it.body?.bytes() ?: error("A voz FLUX retornou áudio vazio.")
         }
     }
 

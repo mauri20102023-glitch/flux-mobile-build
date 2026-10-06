@@ -21,7 +21,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import ai.flux.mobile.audio.FluxVoiceBridge
-import ai.flux.mobile.audio.FluxVoiceController
+import ai.flux.mobile.audio.FluxConversationalVoice
 
 /** Native bottom-sheet assistant, similar to Android's contextual assistant surface. */
 class FluxVoiceInteractionSession(
@@ -50,7 +50,7 @@ class FluxVoiceInteractionSession(
         super.onShow(args, showFlags)
         shown = true
         FluxWakeWordService.pauseForConversation()
-        status.text = if (visionRequested) "Lendo a tela…" else "Conectando ao FLUX Live…"
+        status.text = if (visionRequested) "Lendo o texto da tela…" else "Ativando voz FLUX…"
         voice().startSession()
     }
 
@@ -108,7 +108,7 @@ class FluxVoiceInteractionSession(
         super.onDestroy()
     }
 
-    private fun voice(): FluxVoiceBridge = controller ?: FluxVoiceController(
+    private fun voice(): FluxVoiceBridge = controller ?: FluxConversationalVoice(
         context = context,
         onSessionChanged = { connected ->
             context.mainExecutor.execute {

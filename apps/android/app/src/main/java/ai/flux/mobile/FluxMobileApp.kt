@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +35,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -53,15 +56,17 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val PulseRed: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 private val PulseRedDark: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.secondary
-private val Ink = Color(0xFF07080A)
-private val Panel = Color(0xFF111318)
-private val PanelRaised = Color(0xFF191C22)
-private val Line = Color(0xFF30343D)
+private val Ink = Color(0xFF050B1B)
+private val Panel = Color(0xFF0B1630)
+private val PanelRaised = Color(0xFF122044)
+private val Line = Color(0xFF234574)
 private val White = Color(0xFFF4F6FA)
 private val Muted = Color(0xFF9BA2AD)
 private val Green = Color(0xFF52D27F)
@@ -77,8 +82,9 @@ private enum class FluxTab(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun FluxTheme(accentKey: String = "red", content: @Composable () -> Unit) {
+fun FluxTheme(accentKey: String = "blue", content: @Composable () -> Unit) {
     val (accent, accentDark) = when (accentKey) {
+        "blue" -> Color(0xFF17B8FF) to Color(0xFF1255C7)
         "cyan" -> Color(0xFF00D9F5) to Color(0xFF006D7A)
         "purple" -> Color(0xFF8D73FF) to Color(0xFF4932A3)
         "gold" -> Color(0xFFFFB840) to Color(0xFF865700)
@@ -159,7 +165,7 @@ fun FluxMobileApp(
     ) { padding ->
         Box(
             Modifier.fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFF14161B), Ink, Color(0xFF050608))))
+                .background(Brush.verticalGradient(listOf(Color(0xFF0A265D), Ink, Color(0xFF030716))))
                 .padding(padding),
         ) {
             when (selected) {
@@ -206,7 +212,7 @@ fun FluxMobileApp(
 
 @Composable
 private fun PulseNavigation(selected: FluxTab, onVoice: () -> Unit, onSelect: (FluxTab) -> Unit) {
-    NavigationBar(containerColor = Color(0xF20A0A0D), tonalElevation = 0.dp) {
+    NavigationBar(containerColor = Color(0xF2081532), tonalElevation = 0.dp) {
         listOf(FluxTab.HOME, FluxTab.CHAT).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
         NavigationBarItem(
             selected = false,
@@ -214,7 +220,7 @@ private fun PulseNavigation(selected: FluxTab, onVoice: () -> Unit, onSelect: (F
             icon = {
                 Box(
                     Modifier.size(50.dp).background(
-                        Brush.radialGradient(listOf(Color(0xFFFF8092), PulseRed, Color(0xFF460B19))), CircleShape,
+                        Brush.radialGradient(listOf(Color(0xFFB7EFFF), PulseRed, Color(0xFF061A4D))), CircleShape,
                     ).border(1.dp, Color(0xFF54DCFF).copy(alpha = 0.65f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.Black) }
@@ -283,7 +289,7 @@ private fun PulseHome(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
-                Modifier.background(Brush.linearGradient(listOf(Color(0xFF21151C), Panel, Color(0xFF101821))))
+                Modifier.background(Brush.linearGradient(listOf(Color(0xFF0A2C73), Panel, Color(0xFF091029))))
                     .padding(horizontal = 24.dp, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -303,7 +309,7 @@ private fun PulseHome(
                     color = Muted, textAlign = TextAlign.Center, lineHeight = 20.sp,
                 )
                 Spacer(Modifier.height(24.dp))
-                FluxOrb(state, 148.dp, onVoice)
+                FluxOrb(state, 224.dp, onVoice)
                 Spacer(Modifier.height(15.dp))
                 Text(presenceLabel(state).uppercase(), color = Muted,
                     fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
@@ -321,7 +327,8 @@ private fun PulseHome(
         HomePanel("PANORAMA DO DIA", "O que importa agora") {
             Text("${state.tasks.count { !it.completed }} tarefas em aberto", color = White, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(5.dp))
-            Text("${state.projects.size} projetos locais · Agenda e notícias não conectadas", color = Muted, fontSize = 12.sp)
+            Text(state.calendarHeadline, color = Muted, fontSize = 12.sp)
+            Text(state.weatherHeadline, color = Muted, fontSize = 12.sp)
             Spacer(Modifier.height(12.dp))
             HomeAction(Icons.Default.CheckCircleOutline, "Ouvir seu resumo", "Tarefas e projetos, com dados reais", onBriefing)
         }
@@ -451,7 +458,7 @@ private fun PulseHeader(state: FluxUiState) {
                 state.isConnecting -> "CONECTANDO"
                 state.coreOnline && state.aiReady -> "ONLINE"
                 state.coreOnline -> "CORE ONLINE"
-                state.geminiKeyConfigured -> "GEMINI PESSOAL"
+                state.geminiKeyConfigured -> "CHAVE ANTIGA"
                 else -> "CONFIGURAR"
             },
             color = when {
@@ -469,7 +476,7 @@ private fun presenceLabel(state: FluxUiState): String = when {
     state.isListening -> "Ouvindo…"
     state.isResponding -> "Pensando…"
     !state.networkAvailable -> "Sem internet"
-    !state.coreOnline && !state.geminiKeyConfigured -> "Configure a IA para conversar"
+    !state.coreOnline -> "Conecte o Core para conversar"
     else -> "Disponível"
 }
 
@@ -483,24 +490,34 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
         label = "Respiração",
     )
     val active = state.isListening || state.voiceConnecting || state.isResponding
-    val accent = if (!state.networkAvailable) Muted else PulseRed
-    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+    val accent = if (!state.networkAvailable) Muted else Color(0xFF169FFF)
+    Box(Modifier.size(size).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.fillMaxSize().graphicsLayer {
-            val scale = 0.92f + breath * if (active) 0.13f else 0.035f
-            scaleX = scale
-            scaleY = scale
-        }.clip(CircleShape).background(accent.copy(alpha = if (active) .16f else .07f)))
-        Box(
-            Modifier.fillMaxSize(.77f).clip(CircleShape)
-                .background(Brush.radialGradient(listOf(Color(0xFFFFD8DD), accent, PulseRedDark, Panel)))
-                .border(1.dp, Color.White.copy(alpha = .28f), CircleShape)
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
-                if (state.isListening || state.voiceConnecting) "Encerrar voz" else "Conversar por voz",
-                tint = Color.White, modifier = Modifier.fillMaxSize(.34f))
+            val scale = 0.94f + breath * if (active) 0.1f else 0.03f
+            scaleX = scale; scaleY = scale
+        }.clip(CircleShape).background(Brush.radialGradient(listOf(
+            Color(0xFF135EFF).copy(alpha = .34f), accent.copy(alpha = .09f), Color.Transparent))))
+        Canvas(Modifier.fillMaxSize(.88f)) {
+            val centerX = this.size.width / 2f
+            val centerY = this.size.height / 2f
+            val base = this.size.minDimension * .36f
+            repeat(9) { line ->
+                val path = Path()
+                for (step in 0..150) {
+                    val angle = step / 150f * 2f * Math.PI.toFloat()
+                    val wave = sin(angle * (2.7f + line * .11f) + line * .86f + breath * .9f)
+                    val radius = base + wave * (6f + line * 1.2f)
+                    val x = centerX + cos(angle) * radius
+                    val y = centerY + sin(angle) * radius * (.84f + line * .01f)
+                    if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(path, color = Color(0xFF13A7FF).copy(alpha = .24f + line * .046f),
+                    style = Stroke(width = if (line % 3 == 0) 2.4f else 1.2f))
+            }
         }
+        Icon(if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
+            if (state.isListening || state.voiceConnecting) "Encerrar voz" else "Conversar por voz",
+            tint = Color(0xFFA8E8FF), modifier = Modifier.size(26.dp).align(Alignment.BottomCenter))
     }
 }
 
@@ -522,7 +539,7 @@ private fun EmptyPulse(state: FluxUiState, onVoice: () -> Unit, onStop: () -> Un
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            if (state.isListening) "Fale normalmente. Você pode me interromper."
+            if (state.isListening) "Fale normalmente. Toque em parar para encerrar."
             else "${presenceLabel(state)}. Converse por texto ou toque no núcleo para falar.",
             color = Muted,
             textAlign = TextAlign.Center,
@@ -834,8 +851,6 @@ private fun ControlScreen(
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
     var pairCode by remember { mutableStateOf("") }
-    var geminiKey by rememberSaveable { mutableStateOf("") }
-    var showGeminiKey by rememberSaveable { mutableStateOf(false) }
 
     ScreenScroll("SISTEMA", "Conexão, inteligência, voz e privacidade.") {
         SectionLabel("STATUS AO VIVO")
@@ -857,14 +872,14 @@ private fun ControlScreen(
         SystemStatus("Inteligência", state.aiVerified, when {
             state.aiVerified -> "Resposta recebida neste uso"
             state.aiReady -> "Provedor configurado; teste o chat"
-            state.geminiKeyConfigured -> "Chave salva; resposta ainda não testada"
+            state.geminiKeyConfigured -> "Chave antiga salva; o Core é a rota principal"
             else -> "Precisa de ativação"
         })
         SystemStatus(
-            "FLUX LIVE",
+            "Voz FLUX",
             state.voiceVerified,
-            if (state.voiceVerified) "Sessão de voz aberta neste uso"
-            else if (state.voiceConfigured) "Configurada; teste de áudio pendente" else "Precisa de ativação",
+            if (state.voiceVerified) "Reconhecimento iniciado neste uso; confira o áudio"
+            else if (state.voiceConfigured) "ElevenLabs Flash configurada; teste o áudio" else "Precisa de ativação",
         )
         Spacer(Modifier.height(12.dp))
         if (state.coreAuthConfigured) {
@@ -903,57 +918,21 @@ private fun ControlScreen(
         }
 
         Spacer(Modifier.height(22.dp))
-        SectionLabel("GEMINI LIVE PESSOAL")
+        SectionLabel("INTELIGÊNCIA E VOZ")
         Text(
-            "Cole a chave uma única vez. Ela fica criptografada pelo Android Keystore e não entra no APK, no GitHub ou no histórico do FLUX.",
+            "O Core usa um modelo de texto na Cloudflare e a voz FLUX da ElevenLabs. A conversa é por turnos e reabre o microfone após cada resposta.",
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,
         )
         Spacer(Modifier.height(10.dp))
-        SystemStatus(
-            "Chave do Gemini",
-            state.geminiKeyConfigured,
-            if (state.geminiKeyConfigured) "Protegida neste aparelho" else "Ainda não configurada",
-        )
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = geminiKey,
-            onValueChange = { geminiKey = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = {
-                Text(
-                    if (state.geminiKeyConfigured) "Digite uma nova chave para substituir" else "Cole sua chave do Gemini",
-                    color = Muted,
-                )
-            },
-            singleLine = true,
-            visualTransformation = if (showGeminiKey) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { showGeminiKey = !showGeminiKey }) {
-                    Icon(if (showGeminiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility, "Mostrar ou ocultar chave")
-                }
-            },
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = PulseRed,
-                unfocusedBorderColor = Line,
-                focusedContainerColor = Panel,
-                unfocusedContainerColor = Panel,
-            ),
-        )
-        Spacer(Modifier.height(10.dp))
-        PrimaryButton(
-            if (state.geminiKeyConfigured) "SUBSTITUIR CHAVE PROTEGIDA" else "PROTEGER E ATIVAR GEMINI",
-            Icons.Default.Key,
-        ) {
-            onGeminiKeyChange(geminiKey)
-            geminiKey = ""
-            showGeminiKey = false
-        }
+        SystemStatus("Agenda do Android", state.calendarHeadline != "Agenda não autorizada", state.calendarHeadline)
+        SystemStatus("Previsão do tempo", state.weatherHeadline != "Clima não consultado", state.weatherHeadline)
+        Text("Ao pedir o panorama, o Android solicita acesso à agenda e à localização aproximada. Os próximos eventos são sincronizados com o site pareado.",
+            color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
         if (state.geminiKeyConfigured) {
             Spacer(Modifier.height(8.dp))
-            OutlinedAction("REMOVER CHAVE DESTE APARELHO", Icons.Default.DeleteOutline, onGeminiKeyClear, danger = true)
+            OutlinedAction("REMOVER CHAVE ANTIGA DO GEMINI", Icons.Default.DeleteOutline, onGeminiKeyClear, danger = true)
         }
         Spacer(Modifier.height(22.dp))
         SectionLabel("ASSISTENTE")
@@ -1100,7 +1079,7 @@ private fun ToggleCard(icon: ImageVector, title: String, subtitle: String, check
 @Composable
 private fun AccentSelector(selected: String, onSelect: (String) -> Unit) {
     val accents = listOf(
-        "red" to Color(0xFFFF304A),
+        "blue" to Color(0xFF17B8FF),
         "cyan" to Color(0xFF00D9F5),
         "purple" to Color(0xFF8D73FF),
         "gold" to Color(0xFFFFB840),

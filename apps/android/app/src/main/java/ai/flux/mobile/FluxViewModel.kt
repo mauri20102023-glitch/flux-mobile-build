@@ -6,6 +6,7 @@ import ai.flux.mobile.data.FluxApiClient
 import ai.flux.mobile.data.FluxApiException
 import ai.flux.mobile.data.FluxConnectionSettings
 import ai.flux.mobile.data.FluxLocalWorkspace
+import ai.flux.mobile.data.LocalFacts
 import ai.flux.mobile.data.FluxNetworkMonitor
 import ai.flux.mobile.data.LocalConversationCache
 import ai.flux.mobile.model.FluxUiState
@@ -39,9 +40,9 @@ class FluxViewModel(
         coreUrl = connectionSettings.coreUrl(),
         coreAuthConfigured = connectionSettings.authTokenConfigured(),
         geminiKeyConfigured = connectionSettings.geminiApiKeyConfigured(),
-        voiceConfigured = connectionSettings.geminiApiKeyConfigured(),
-        voiceProvider = if (connectionSettings.geminiApiKeyConfigured()) "Gemini Live • protegido no aparelho" else "unavailable",
-        voiceOfficial = connectionSettings.geminiApiKeyConfigured(),
+        voiceConfigured = false,
+        voiceProvider = "unavailable",
+        voiceOfficial = false,
         tasks = workspace.loadTasks(),
         projects = workspace.loadProjects(),
         memoryEnabled = workspace.memoryEnabled(),
@@ -52,11 +53,31 @@ class FluxViewModel(
         showAssistantOnboarding = !workspace.assistantPromptDismissed(),
     ))
     val state = _state.asStateFlow()
+
+    fun updateDailyFacts(facts: LocalFacts) {
+        _state.update { it.copy(calendarHeadline = facts.calendarHeadline,
+            weatherHeadline = facts.weatherHeadline) }
+    }
     private var networkAvailable = false
     private var consecutiveConnectionFailures = 0
     private var hasConnectedOnce = false
 
     init {
+        viewModelScope.launch {
+            if (connectionSettings.coreUrl() == LEGACY_CORE && connectionSettings.authTokenConfigured()) {
+                val oldToken = connectionSettings.authToken()
+                runCatching { api.migrateLegacy(oldToken) }.onSuccess { paired ->
+                    connectionSettings.updateCoreUrl(NEW_CORE)
+                    connectionSettings.updateAuthToken(paired.deviceToken)
+                    _state.update { it.copy(coreUrl = NEW_CORE, coreAuthConfigured = true,
+                        error = null) }
+                    reconnect(showFailure = false)
+                }.onFailure {
+                    _state.update { current -> current.copy(error =
+                        "A migração automática do Core não terminou. O pareamento antigo continua salvo.") }
+                }
+            }
+        }
         viewModelScope.launch {
             networkMonitor.available.collectLatest { available ->
                 networkAvailable = available
@@ -90,6 +111,11 @@ class FluxViewModel(
         }
     }
 
+    companion object {
+        private const val LEGACY_CORE = "https://flux-core-12.mauri20102023.workers.dev"
+        private const val NEW_CORE = "https://flux-mobile-build2.mauri20102023.workers.dev"
+    }
+
     fun reconnect(showFailure: Boolean = true) {
         if (state.value.coreUrl.isBlank()) {
             _state.update {
@@ -99,9 +125,9 @@ class FluxViewModel(
                     aiVerified = false,
                     activationRequired = false,
                     isConnecting = false,
-                    voiceConfigured = connectionSettings.geminiApiKeyConfigured(),
-                    voiceProvider = if (connectionSettings.geminiApiKeyConfigured()) "Gemini Live • protegido no aparelho" else "unavailable",
-                    voiceOfficial = connectionSettings.geminiApiKeyConfigured(),
+                    voiceConfigured = false,
+                    voiceProvider = "unavailable",
+                    voiceOfficial = false,
                     error = if (showFailure) "Configure o endereço HTTPS do Flux Core." else null,
                 )
             }
@@ -141,9 +167,9 @@ class FluxViewModel(
                         aiReady = diagnostics.aiReady,
                         activationRequired = diagnostics.activationRequired,
                         isConnecting = false,
-                        voiceConfigured = diagnostics.voiceConfigured || connectionSettings.geminiApiKeyConfigured(),
-                        voiceProvider = if (connectionSettings.geminiApiKeyConfigured()) "Gemini Live • protegido no aparelho" else diagnostics.voiceProvider,
-                        voiceOfficial = diagnostics.voiceOfficial || connectionSettings.geminiApiKeyConfigured(),
+                        voiceConfigured = diagnostics.voiceProvider == "elevenlabs-tts",
+                        voiceProvider = diagnostics.voiceProvider,
+                        voiceOfficial = diagnostics.voiceOfficial,
                         error = null,
                     )
                 }
