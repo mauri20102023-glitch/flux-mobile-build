@@ -41,7 +41,7 @@
         android:name=".FluxApplication"
         android:allowBackup="false"
         android:icon="@drawable/ic_flux_app"
-        android:label="FLUX"
+        android:label="${fluxAppLabel}"
         android:roundIcon="@drawable/ic_flux_app"
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
