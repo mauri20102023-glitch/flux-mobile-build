@@ -42,6 +42,7 @@ let screenTimer = null;
 let selectedStyle = "cinematográfica";
 let weatherNow = null;
 let localRecognizer = null;
+let coreLiveAvailable = false;
 
 function save() {
   // Decrypted private notes exist only in memory while the reveal dialog is open.
@@ -82,7 +83,7 @@ function updateClock() {
   $("#clock").textContent = now.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
   $("#todayLabel").textContent = now.toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
   $("#greeting").textContent = `${hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"}, Maurício.`;
-  $("#deckDate").textContent = now.toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }).toUpperCase();
+  $("#deckDate").textContent = now.toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }).replace(/ de /g," ").toUpperCase();
 }
 
 function renderMessages() {
@@ -184,6 +185,7 @@ async function updateWeather() {
 }
 
 function speakBriefing(text) {
+  if(!state.voiceEnabled)return;
   if(!("speechSynthesis" in window))return toast("A leitura em voz alta não está disponível neste navegador.","error");
   window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang="pt-BR";utterance.rate=1.02;
   const voices=window.speechSynthesis.getVoices();utterance.voice=voices.find(voice=>voice.lang?.toLowerCase()==="pt-br")||null;
@@ -237,8 +239,8 @@ function renderDevices() {
 
 async function healthCheck(show = false) {
   const badge=$("#coreStatus"); badge.className="status-pill"; badge.querySelector("b").textContent="VERIFICANDO";
-  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); badge.classList.add("online"); badge.querySelector("b").textContent="CORE ONLINE"; if(show) toast(`FLUX Core ${body.version || "online"}${body.features?.live===false ? " — voz Live ainda indisponível" : ""}.`,"ok"); return body; }
-  catch(error){ badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
+  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); coreLiveAvailable=body.features?.live===true; badge.classList.add("online"); badge.querySelector("b").textContent="CORE ONLINE"; if(show) toast(`FLUX Core ${body.version || "online"}${body.features?.live===false ? " — voz Live ainda indisponível" : ""}.`,"ok"); return body; }
+  catch(error){ coreLiveAvailable=false; badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
 }
 async function diagnostics() { requireConnection(); const response=await fetch(core("/v1/diagnostics"),{headers:headers()}); return readResponse(response); }
 
@@ -306,7 +308,7 @@ function startLocalRecognition(){
 async function toggleVoice(){
   if(localRecognizer){localRecognizer.stop();return;}
   if(window.speechSynthesis?.speaking){window.speechSynthesis.cancel();setVoiceState("idle","TOQUE PARA FALAR");return;}
-  try{if(live.active)live.stop();else if(state.token)await live.start();else startLocalRecognition();}
+  try{if(live.active)live.stop();else if(state.token&&coreLiveAvailable)await live.start();else startLocalRecognition();}
   catch(error){live.fail(friendlyError(error));}
 }
 
@@ -343,7 +345,7 @@ async function systemTests(){const lines=[statusLine("Interface carregada",true)
 function storageTest(){try{localStorage.setItem("flux-test","ok");localStorage.removeItem("flux-test");return true;}catch{return false;}}
 function restoreBackup(){try{const backup=localStorage.getItem("flux-recovery-backup");if(!backup)throw new Error("Nenhuma cópia encontrada.");const token=state.token;state={...initial,...JSON.parse(backup),token};save();location.reload();}catch(error){toast(friendlyError(error),"error");}}
 
-async function testAudio(){ try{if(!live.active)await live.start();const started=Date.now();while(live.active&&!live.ready&&Date.now()-started<10000)await new Promise(resolve=>setTimeout(resolve,150));if(!live.ready||!live.sendText("Diga apenas: Olá Maurício, o áudio do FLUX está funcionando."))throw new Error("A voz ainda não abriu uma sessão. Confira a conexão e tente novamente.");toast("Pedido de teste enviado. Confirme se ouviu a resposta.","ok");}catch(error){toast(friendlyError(error),"error");} }
+async function testAudio(){ try{if(!state.voiceEnabled)throw new Error("Ative a resposta falada primeiro.");if(!coreLiveAvailable){speakBriefing("Olá, Maurício. A voz do navegador está funcionando.");toast("Teste de voz local iniciado.","ok");return;}if(!live.active)await live.start();const started=Date.now();while(live.active&&!live.ready&&Date.now()-started<10000)await new Promise(resolve=>setTimeout(resolve,150));if(!live.ready||!live.sendText("Diga apenas: Olá Maurício, o áudio do FLUX está funcionando."))throw new Error("A voz ainda não abriu uma sessão. Confira a conexão e tente novamente.");toast("Pedido de teste enviado. Confirme se ouviu a resposta.","ok");}catch(error){toast(friendlyError(error),"error");} }
 
 function bindEvents(){
   document.addEventListener("click",async event=>{const goButton=event.target.closest("[data-go]");if(goButton){go(goButton.dataset.go);return;}const action=event.target.closest("[data-action]")?.dataset.action;if(action==="briefing")return runBriefing({speak:true,log:true});if(action==="speak-briefing")return speakBriefing(briefingFacts().spoken);if(action==="weather")return updateWeather().catch(error=>toast(error.code===1?"Localização não autorizada. O restante do resumo continua disponível.":friendlyError(error),"error"));if(action==="toggle-voice")return toggleVoice();if(action==="start-screen")return startScreen();if(action==="stop-screen")return stopScreen();if(action==="new-task")return newTaskModal();if(action==="new-project")return newProjectModal();if(action==="new-memory")return newMemoryModal();if(action==="run-check")return runLab("test");if(action==="scan-devices")return showReport("FLUX NEXUS","Dispositivos",'<p>Este site não faz busca automática de TV, relógio ou óculos. Para a TV, abra o SmartThings. Para fones Bluetooth, use os ajustes do Android.</p>');if(action==="audio-test")return testAudio();const prompt=event.target.closest("[data-prompt]")?.dataset.prompt;if(prompt)return sendChat(prompt);const integration=event.target.closest("[data-integration]")?.dataset.integration;if(integration)return openIntegration(integration);const lab=event.target.closest("[data-lab]")?.dataset.lab;if(lab)return runLab(lab);const theme=event.target.closest("[data-theme-pick]")?.dataset.themePick;if(theme){state.theme=theme;save();applyTheme();return;}const toggle=event.target.closest("[data-task-toggle]")?.dataset.taskToggle;if(toggle){const task=state.tasks.find(item=>item.id===toggle);if(task)task.done=!task.done;save();renderTasks();return;}const del=event.target.closest("[data-task-delete]")?.dataset.taskDelete;if(del){state.tasks=state.tasks.filter(item=>item.id!==del);save();renderTasks();return;}const memoryDelete=event.target.closest("[data-memory-delete]")?.dataset.memoryDelete;if(memoryDelete){revealedMemories.delete(memoryDelete);state.memories=state.memories.filter(item=>item.id!==memoryDelete);save();renderMemories();toast("Memória esquecida.");return;}const reveal=event.target.closest("[data-memory-reveal]")?.dataset.memoryReveal;if(reveal)return revealMemory(reveal);const device=event.target.closest("[data-device]")?.dataset.device;if(device)return deviceAction(device);});
