@@ -77,14 +77,14 @@ const viewMeta = {
   studio:["CRIAÇÃO","FLUX Studio"], memory:["CONTEXTO","Memória"], integrations:["SERVIÇOS","FLUX Link"],
   devices:["ECOSSISTEMA","Dispositivos"], lab:["EVOLUÇÃO SEGURA","FLUX Lab"], settings:["CONTROLE","Configurações"],
 };
-function go(view, updateUrl = true) {
+function go(view, updateUrl = true, focusInput = true) {
   if (!viewMeta[view]) view = "home";
   $$(".view").forEach(node => node.classList.toggle("active", node.dataset.view === view));
   $$('[data-go]').forEach(node => node.classList.toggle("active", node.dataset.go === view));
   $("#sectionEyebrow").textContent = viewMeta[view][0]; $("#sectionTitle").textContent = viewMeta[view][1];
   if (updateUrl) history.replaceState(null, "", view === "home" ? location.pathname : `?view=${view}`);
   window.scrollTo({ top:0, behavior:"smooth" });
-  if (view === "chat") setTimeout(() => $("#chatInput").focus(), 150);
+  if (view === "chat" && focusInput) setTimeout(() => $("#chatInput").focus(), 150);
 }
 
 function updateClock() {
@@ -110,10 +110,10 @@ async function sendChat(message, { spoken = false } = {}) {
   const clean = message.trim(); if (!clean) return;
   if (isBriefingRequest(clean)) {
     state.messages.push({ id:crypto.randomUUID(), role:"user", text:clean });
-    await runBriefing({ speak:spoken || state.voiceEnabled, log:true }); go("chat"); return;
+    await runBriefing({ speak:spoken || state.voiceEnabled, log:true }); go("chat",true,!spoken); return;
   }
   const user = { id:crypto.randomUUID(), role:"user", text:clean }; const pending = { id:crypto.randomUUID(), role:"flux", text:"Pensando…", mode:"FLUX", pending:true };
-  state.messages.push(user, pending); save(); renderMessages(); go("chat");
+  state.messages.push(user, pending); save(); renderMessages(); go("chat",true,!spoken);
   try {
     requireConnection();
     if (/\b(clima|tempo|previs[aã]o|temperatura|chuva)\b/i.test(clean) && (!weatherNow || Date.now()-weatherNow.at>15*60_000)) {
@@ -311,7 +311,7 @@ function renderDevices() {
 
 async function healthCheck(show = false) {
   const badge=$("#coreStatus"); badge.className="status-pill"; badge.querySelector("b").textContent="VERIFICANDO";
-  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); coreLiveAvailable=body.features?.live===true; badge.classList.add(state.token?"online":"offline"); badge.querySelector("b").textContent=state.token?"VERIFICANDO":"PAREAR"; $("#deckVoice").textContent=state.token?(body.features?.voice?"Voz FLUX pronta":"Voz indisponível"):"Parear para falar"; if(show) toast(`FLUX Core ${body.version || "online"}. ${state.token?"Verificando pareamento.":"Pareie este navegador para conversar."}`,"ok"); return body; }
+  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); coreLiveAvailable=body.features?.live===true; badge.classList.add(state.token?"online":"offline"); badge.querySelector("b").textContent=state.token?"VERIFICANDO":"PAREAR"; $("#deckVoice").textContent=state.token?(body.features?.voice?"Voz configurada":"Voz indisponível"):"Parear para falar"; if(show) toast(`FLUX Core ${body.version || "online"}. ${state.token?"Verificando pareamento.":"Pareie este navegador para conversar."}`,"ok"); return body; }
   catch(error){ coreLiveAvailable=false; badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
 }
 async function diagnostics() { requireConnection(); const response=await fetch(core("/v1/diagnostics"),{headers:headers()}); return readResponse(response); }
