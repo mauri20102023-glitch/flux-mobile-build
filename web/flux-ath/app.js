@@ -1,6 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const VERSION = "1.8.0";
+const VERSION = "1.8.1";
 const STORE = "flux-workspace-v1";
 const DEVICE_ID = localStorage.getItem("flux-device-id") || `web-${crypto.randomUUID()}`;
 localStorage.setItem("flux-device-id", DEVICE_ID);
@@ -48,10 +48,12 @@ let weatherNow = null;
 let calendarNow = null;
 let localRecognizer = null;
 let coreLiveAvailable = false;
+let coreRealtimeProvider = "unavailable";
 let voiceSession = false;
 let voiceAudio = null;
 let voiceAudioUrl = null;
 let voiceRequest = null;
+let sceneCards = [];
 
 function save() {
   // Decrypted private notes exist only in memory while the reveal dialog is open.
@@ -106,6 +108,37 @@ function renderMessages() {
   $("#lastExchange").textContent = last ? `“${last.text.slice(0,180)}${last.text.length > 180 ? "…" : ""}”` : "Nenhuma conversa ainda.";
 }
 
+function renderSceneCards() {
+  for (const [selector, cards] of [["#sceneFeed", sceneCards.slice(0, 1)], ["#chatInsights", sceneCards.slice(0, 3)]]) {
+    const container = $(selector); container.replaceChildren();
+    for (const card of cards) {
+      const node = document.createElement("article"); node.className = `scene-card scene-${card.kind}`;
+      node.innerHTML = `<div class="scene-card-head"><span class="scene-icon">${escapeHtml(card.icon)}</span><span>${escapeHtml(card.label)}</span><i>● ${escapeHtml(card.badge || "ATUALIZADO")}</i></div><strong>${escapeHtml(card.title)}</strong><p>${escapeHtml(card.detail)}</p><small>${escapeHtml(card.source)}</small>`;
+      container.append(node);
+    }
+  }
+}
+function showSceneCard(card) {
+  sceneCards = [card, ...sceneCards.filter(item => item.kind !== card.kind)].slice(0, 3);
+  renderSceneCards();
+}
+function showCalendarScene() {
+  if (!calendarNow?.connected) return;
+  const events = (calendarNow.events || []).filter(event => Date.parse(event.start) >= Date.now() - 5 * 60_000);
+  showSceneCard({ kind:"calendar", icon:"▦", label:"SUA AGENDA", title:events.length ? events[0].title : "Agenda livre",
+    detail:events.length ? `${new Date(events[0].start).toLocaleString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })} · ${events.length} evento(s) próximo(s)` : "Nenhum evento próximo sincronizado.", source:"AGENDA DO ANDROID", badge:"SINCRONIZADO" });
+}
+function showTaskScene() {
+  const pending = state.tasks.filter(task => !task.done);
+  showSceneCard({ kind:"tasks", icon:"⌁", label:"EM FOCO", title:pending.length ? `${pending.length} ${pending.length === 1 ? "tarefa" : "tarefas"} em aberto` : "Tudo sob controle",
+    detail:pending.length ? pending.slice(0, 2).map(task => task.title).join(" · ") : "Nenhuma tarefa pendente neste dispositivo.", source:"FLUX PLANNER", badge:"LOCAL" });
+}
+function weatherPlaceFromQuery(query) {
+  if (!/\b(clima|tempo|previs[aã]o|temperatura|chuva)\b/i.test(query)) return "";
+  const match = query.match(/\b(?:em|para|de)\s+([\p{L}][\p{L}\s'’-]{1,65})/iu);
+  return match?.[1].replace(/\s+(?:hoje|amanhã|agora|neste momento)\s*$/i, "").trim() || "";
+}
+
 async function sendChat(message, { spoken = false } = {}) {
   const clean = message.trim(); if (!clean) return;
   if (isBriefingRequest(clean)) {
@@ -116,13 +149,22 @@ async function sendChat(message, { spoken = false } = {}) {
   state.messages.push(user, pending); save(); renderMessages(); go("chat",true,!spoken);
   try {
     requireConnection();
-    if (/\b(clima|tempo|previs[aã]o|temperatura|chuva)\b/i.test(clean) && (!weatherNow || Date.now()-weatherNow.at>15*60_000)) {
-      try { await updateWeather({ silent:true }); } catch { /* Context notes that the forecast is unavailable. */ }
+    if (/\b(clima|tempo|previs[aã]o|temperatura|chuva)\b/i.test(clean)) {
+      const place = weatherPlaceFromQuery(clean);
+      if (place || !weatherNow || Date.now()-weatherNow.at>15*60_000) {
+        try { await updateWeather({ silent:true, place }); }
+        catch (error) { if (place) throw error; /* Sem localização, o contexto informa que a previsão está indisponível. */ }
+      } else showWeatherScene();
     }
     await loadCalendar();
+    if (/\b(agenda|evento|compromisso|reuni[aã]o)\b/i.test(clean)) showCalendarScene();
+    if (/\b(tarefa|pend[eê]ncia|plano|projeto)\b/i.test(clean)) showTaskScene();
     const response = await fetch(core("/v1/chat"), { method:"POST", headers:headers(), body:JSON.stringify({ requestId:crypto.randomUUID(), conversationId:getConversationId(), message:clean, context:contextForChat(), deviceId:DEVICE_ID, modality:spoken?"VOICE":"TEXT" }) });
     const payload = await readResponse(response);
     pending.text = payload.content; pending.mode = payload.mode || "FLUX"; pending.pending = false;
+    if (!/\b(clima|tempo|previs[aã]o|temperatura|chuva|agenda|evento|compromisso|tarefa|pend[eê]ncia)\b/i.test(clean)) {
+      showSceneCard({kind:"answer",icon:"✦",label:"FLUX RESPONDE",title:"Entendido, Maurício",detail:payload.content.slice(0,180),source:"FLUX CORE"});
+    }
   } catch (error) { pending.text = friendlyError(error); pending.mode = "AVISO"; pending.pending = false; }
   save(); renderMessages();
   if(spoken && pending.mode!=="AVISO")await speakFlux(pending.text);
@@ -181,7 +223,7 @@ function briefingFacts() {
   const day = new Date().toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
   const taskSentence = pending.length ? `${pending.length} tarefa${pending.length===1?"":"s"} em aberto: ${pending.slice(0,3).map(task=>task.title).join("; ")}${pending.length>3?"; e outras pendências":""}.` : "Nenhuma tarefa local em aberto.";
   const projectSentence = state.projects.length ? `${state.projects.length} projeto${state.projects.length===1?"":"s"} no FLUX: ${state.projects.slice(0,2).map(project=>project.name).join("; ")}.` : "Nenhum projeto local cadastrado.";
-  const weatherSentence = weatherNow && Date.now()-weatherNow.at<15*60_000 ? `Clima na sua região: ${Math.round(weatherNow.temperature)} graus, ${weatherNow.condition.toLowerCase()}. Máxima de ${Math.round(weatherNow.high)} e mínima de ${Math.round(weatherNow.low)} graus. Fonte: Open-Meteo.` : "Clima não consultado; ative a localização no cartão de clima.";
+  const weatherSentence = weatherNow && Date.now()-weatherNow.at<15*60_000 ? `Clima em ${weatherNow.location}: ${Math.round(weatherNow.temperature)} graus, ${weatherNow.condition.toLowerCase()}. Máxima de ${Math.round(weatherNow.high)} e mínima de ${Math.round(weatherNow.low)} graus. Fonte: Open-Meteo.` : "Clima não consultado; peça a previsão para uma cidade ou ative a localização no cartão de clima.";
   const calendarSentenceText=calendarSentence();
   return { day, pending, taskSentence, projectSentence, weatherSentence, calendarSentence:calendarSentenceText,
     spoken:`Olá, Maurício. Hoje é ${day}. ${taskSentence} ${projectSentence} ${weatherSentence} ${calendarSentenceText}` };
@@ -195,7 +237,7 @@ function renderBriefingCards() {
   $("#briefProjectDetail").textContent=state.projects.length ? state.projects.slice(0,2).map(project=>project.name).join(" · ") : "Cadastre um projeto para acompanhar seu avanço.";
   if(weatherNow && Date.now()-weatherNow.at<15*60_000){
     $("#briefWeatherHeadline").textContent=`${Math.round(weatherNow.temperature)}° · ${weatherNow.condition}`;
-    $("#briefWeatherDetail").textContent=`Máx. ${Math.round(weatherNow.high)}° · mín. ${Math.round(weatherNow.low)}°. Atualizado às ${new Date(weatherNow.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}.`;
+    $("#briefWeatherDetail").textContent=`${weatherNow.location} · Máx. ${Math.round(weatherNow.high)}° · mín. ${Math.round(weatherNow.low)}°. Atualizado às ${new Date(weatherNow.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}.`;
     $("[data-action=weather]",$("#briefingGrid")).innerHTML="ATUALIZAR CLIMA <span>↗</span>";
     $("#deckWeather").textContent=`${Math.round(weatherNow.temperature)}° · ${weatherNow.condition}`;
   }
@@ -215,15 +257,35 @@ function weatherCondition(code) {
   if(code>=95)return "Trovoadas";
   return "Condições variáveis";
 }
-async function updateWeather({silent=false}={}) {
-  if(!navigator.geolocation)throw new Error("Este navegador não oferece localização.");
-  const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:12000,maximumAge:10*60_000}));
+function showWeatherScene() {
+  if (!weatherNow) return;
+  showSceneCard({ kind:"weather", icon:"☼", label:`CLIMA · ${weatherNow.location.toUpperCase()}`,
+    title:`${Math.round(weatherNow.temperature)}° · ${weatherNow.condition}`,
+    detail:`Máxima ${Math.round(weatherNow.high)}° · mínima ${Math.round(weatherNow.low)}°`,
+    source:`OPEN-METEO · ${new Date(weatherNow.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`, badge:"AGORA" });
+}
+async function updateWeather({silent=false,place=""}={}) {
+  let latitude, longitude, location = "sua região";
+  if(place) {
+    const geoUrl = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    geoUrl.search = new URLSearchParams({name:place,count:"1",language:"pt",format:"json"}).toString();
+    const geoResponse = await fetch(geoUrl.toString());
+    if(!geoResponse.ok)throw new Error("Não consegui encontrar essa cidade agora.");
+    const found = (await geoResponse.json()).results?.[0];
+    if(!found || !Number.isFinite(found.latitude) || !Number.isFinite(found.longitude))throw new Error(`Não encontrei o clima de ${place}.`);
+    latitude = found.latitude; longitude = found.longitude;
+    location = [found.name, found.admin1].filter((name,index,items)=>name && (index === 0 || name !== items[0])).join(", ");
+  } else {
+    if(!navigator.geolocation)throw new Error("Este navegador não oferece localização. Peça o clima de uma cidade pelo chat.");
+    const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:12000,maximumAge:10*60_000}));
+    latitude = position.coords.latitude; longitude = position.coords.longitude;
+  }
   const url=new URL("https://api.open-meteo.com/v1/forecast");
-  url.search=new URLSearchParams({latitude:position.coords.latitude.toFixed(3),longitude:position.coords.longitude.toFixed(3),current:"temperature_2m,weather_code",daily:"temperature_2m_max,temperature_2m_min",timezone:"auto",forecast_days:"1"}).toString();
+  url.search=new URLSearchParams({latitude:latitude.toFixed(3),longitude:longitude.toFixed(3),current:"temperature_2m,weather_code",daily:"temperature_2m_max,temperature_2m_min",timezone:"auto",forecast_days:"1"}).toString();
   const response=await fetch(url.toString());if(!response.ok)throw new Error("O serviço de clima não respondeu.");
   const data=await response.json();if(!Number.isFinite(data.current?.temperature_2m)||!Number.isFinite(data.daily?.temperature_2m_max?.[0]))throw new Error("O clima não está disponível para esta região.");
-  weatherNow={temperature:data.current.temperature_2m,condition:weatherCondition(data.current.weather_code),high:data.daily.temperature_2m_max[0],low:data.daily.temperature_2m_min[0],at:Date.now()};
-  renderBriefingCards();if(!silent)toast("Clima atualizado pela Open-Meteo.","ok");
+  weatherNow={temperature:data.current.temperature_2m,condition:weatherCondition(data.current.weather_code),high:data.daily.temperature_2m_max[0],low:data.daily.temperature_2m_min[0],location,at:Date.now()};
+  renderBriefingCards();showWeatherScene();if(!silent)toast(`Clima de ${location} atualizado pela Open-Meteo.`,"ok");
 }
 
 function stopVoice() {
@@ -233,6 +295,7 @@ function stopVoice() {
   if(voiceAudio){voiceAudio.pause();voiceAudio.src="";voiceAudio=null;}
   if(voiceAudioUrl){URL.revokeObjectURL(voiceAudioUrl);voiceAudioUrl=null;}
   if(live.active)live.stop();
+  if(inworldLive.active)inworldLive.stop();
   setVoiceState("idle","TOQUE PARA FALAR");
 }
 
@@ -260,6 +323,7 @@ async function speakFlux(text) {
 async function runBriefing({speak=false,log=false}={}) {
   if(state.token)await loadCalendar();
   renderBriefingCards();const facts=briefingFacts();
+  showTaskScene();showCalendarScene();if(weatherNow)showWeatherScene();
   $("#briefingBanner").classList.add("ready");
   $("#briefingBanner").innerHTML=`<span>✦</span><div><strong>Seu panorama está pronto.</strong><small>${escapeHtml(facts.day)} · ${facts.pending.length} ${facts.pending.length===1?"tarefa":"tarefas"} em aberto · ${state.projects.length} ${state.projects.length===1?"projeto":"projetos"}</small></div><button data-action="speak-briefing">OUVIR ↗</button>`;
   $("#briefingGrid").classList.remove("revealed");requestAnimationFrame(()=>$("#briefingGrid").classList.add("revealed"));
@@ -311,8 +375,8 @@ function renderDevices() {
 
 async function healthCheck(show = false) {
   const badge=$("#coreStatus"); badge.className="status-pill"; badge.querySelector("b").textContent="VERIFICANDO";
-  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); coreLiveAvailable=body.features?.live===true; badge.classList.add(state.token?"online":"offline"); badge.querySelector("b").textContent=state.token?"VERIFICANDO":"PAREAR"; $("#deckVoice").textContent=state.token?(body.features?.voice?"Voz configurada":"Voz indisponível"):"Parear para falar"; if(show) toast(`FLUX Core ${body.version || "online"}. ${state.token?"Verificando pareamento.":"Pareie este navegador para conversar."}`,"ok"); return body; }
-  catch(error){ coreLiveAvailable=false; badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
+  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); coreLiveAvailable=body.features?.live===true; coreRealtimeProvider=body.features?.realtimeProvider||"unavailable"; badge.classList.add(state.token?"online":"offline"); badge.querySelector("b").textContent=state.token?"VERIFICANDO":"PAREAR"; $("#deckVoice").textContent=state.token?(body.features?.voice?"Voz FLUX pronta":"Voz indisponível"):"Parear para falar"; if(show) toast(`FLUX Core ${body.version || "online"}. ${state.token?"Verificando pareamento.":"Pareie este navegador para conversar."}`,"ok"); return body; }
+  catch(error){ coreLiveAvailable=false; coreRealtimeProvider="unavailable"; badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
 }
 async function diagnostics() { requireConnection(); const response=await fetch(core("/v1/diagnostics"),{headers:headers()}); return readResponse(response); }
 
@@ -364,6 +428,69 @@ class FluxLive {
   stop(close=true){ this.running=false;this.ready=false;clearTimeout(this.reconnectTimer);this.reconnectTimer=null;const ws=this.socket;this.socket=null;if(close)try{ws?.close(1000,"user-finished");}catch{}this.processor?.disconnect();this.source?.disconnect();this.mic?.getTracks().forEach(track=>track.stop());try{this.context?.close();}catch{}if(screenStream)stopScreen(false);this.processor=null;this.source=null;this.mic=null;this.context=null;this.nextPlay=0;this.resumeHandle="";this.reconnectAttempts=0;setVoiceState("idle","TOQUE PARA FALAR"); }
 }
 const live=new FluxLive();
+
+class FluxInworldLive {
+  constructor(){ this.running=false;this.pc=null;this.channel=null;this.mic=null;this.audio=null;this.userText="";this.fluxText=""; }
+  get active(){ return this.running; }
+  async start(){
+    if(this.active)return;
+    if(!window.RTCPeerConnection||!navigator.mediaDevices?.getUserMedia)throw new Error("Este navegador não suporta conversa contínua por voz.");
+    requireConnection();this.running=true;setVoiceState("connecting","CONECTANDO À VOZ FLUX");
+    try{
+      await loadCalendar();
+      const config=await readResponse(await fetch(core("/v1/live/ice-servers"),{headers:headers(),cache:"no-store"}));
+      if(!this.running)return;
+      this.mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+      if(!this.running){this.mic.getTracks().forEach(track=>track.stop());return;}
+      const pc=new RTCPeerConnection({iceServers:config.iceServers||[]});this.pc=pc;
+      this.mic.getTracks().forEach(track=>pc.addTrack(track,this.mic));
+      this.audio=document.createElement("audio");this.audio.autoplay=true;this.audio.setAttribute("playsinline","");this.audio.hidden=true;document.body.append(this.audio);
+      pc.ontrack=event=>{if(this.running&&this.audio){this.audio.srcObject=new MediaStream([event.track]);this.audio.play().catch(()=>toast("Toque novamente para liberar o áudio do FLUX.","error"));}};
+      pc.onconnectionstatechange=()=>{if(this.running&&pc.connectionState==="failed")this.fail("A conexão de voz foi interrompida. Toque para reconectar.");};
+      const channel=pc.createDataChannel("oai-events",{ordered:true});this.channel=channel;
+      channel.onopen=()=>{
+        if(!this.running)return;
+        channel.send(JSON.stringify({type:"session.update",session:{
+          type:"realtime",model:config.model,instructions:`${config.instructions}\n\nDados locais disponíveis agora: ${contextForChat()}`,
+          max_output_tokens:500,output_modalities:["audio","text"],
+          audio:{input:{transcription:{model:"inworld/inworld-stt-1",language:"pt-BR"},turn_detection:{type:"semantic_vad",eagerness:"medium",create_response:true,interrupt_response:true}},output:{model:"inworld-tts-2-flash",voice:config.voice,speed:1}},
+          providerData:{tts:{language:"pt-BR"}},
+        }}));
+        setVoiceState("listening","OUVINDO — PODE FALAR");
+      };
+      channel.onmessage=event=>{try{this.handle(JSON.parse(event.data));}catch{this.fail("Não consegui processar a conversa por voz.");}};
+      channel.onclose=()=>{if(this.running)this.fail("A conversa foi encerrada. Toque para reconectar.");};
+      const offer=await pc.createOffer();await pc.setLocalDescription(offer);
+      await new Promise(resolve=>{if(pc.iceGatheringState==="complete")return resolve();let timeout;const done=()=>{clearTimeout(timeout);pc.removeEventListener("icegatheringstatechange",check);resolve();};const check=()=>{if(pc.iceGatheringState==="complete")done();};timeout=setTimeout(done,3000);pc.addEventListener("icegatheringstatechange",check);});
+      if(!this.running)return;
+      const response=await fetch(core("/v1/live/offer"),{method:"POST",headers:{...headers(),"content-type":"application/sdp"},body:pc.localDescription.sdp});
+      if(!response.ok)await readResponse(response);
+      const answer=await response.text();if(!this.running)return;
+      await pc.setRemoteDescription({type:"answer",sdp:answer});
+    }catch(error){this.stop();throw error;}
+  }
+  handle(event){
+    if(event.type==="error"){this.fail(event.error?.message||"A Inworld não conseguiu responder por voz.");return;}
+    if(event.type==="input_audio_buffer.speech_started"){setVoiceState("listening","OUVINDO — PODE FALAR");return;}
+    if(event.type==="input_audio_buffer.speech_stopped"){setVoiceState("connecting","PROCESSANDO SUA FALA");return;}
+    if(event.type==="conversation.item.input_audio_transcription.completed"){
+      const text=event.transcript?.trim();if(text){state.messages.push({id:crypto.randomUUID(),role:"user",text});save();renderMessages();const place=weatherPlaceFromQuery(text);if(place)updateWeather({silent:true,place}).catch(error=>toast(friendlyError(error),"error"));if(/\b(agenda|evento|compromisso|reuni[aã]o)\b/i.test(text))showCalendarScene();if(/\b(tarefa|pend[eê]ncia|plano|projeto)\b/i.test(text))showTaskScene();}return;
+    }
+    if(event.type==="response.output_audio_transcript.delta"||event.type==="response.output_text.delta"){
+      if(event.type==="response.output_audio_transcript.delta")this.fluxText+=event.delta||"";
+      else if(!this.fluxText)this.userText+=event.delta||"";
+      setVoiceState("speaking","FLUX RESPONDENDO");return;
+    }
+    if(event.type==="response.done"){
+      const text=(this.fluxText||this.userText).trim();
+      if(text){state.messages.push({id:crypto.randomUUID(),role:"flux",text,mode:"FLUX LIVE"});save();renderMessages();if(!sceneCards.length)showSceneCard({kind:"answer",icon:"✦",label:"FLUX RESPONDE",title:"Entendido, Maurício",detail:text.slice(0,180),source:"FLUX LIVE"});}
+      this.fluxText="";this.userText="";setVoiceState("listening","OUVINDO — PODE FALAR");
+    }
+  }
+  fail(message){toast(message,"error");this.stop();}
+  stop(){this.running=false;this.channel?.close();this.pc?.close();this.mic?.getTracks().forEach(track=>track.stop());if(this.audio){this.audio.pause();this.audio.srcObject=null;this.audio.remove();}this.channel=null;this.pc=null;this.mic=null;this.audio=null;this.fluxText="";this.userText="";voiceSession=false;setVoiceState("idle","TOQUE PARA FALAR");}
+}
+const inworldLive=new FluxInworldLive();
 function mergeTranscript(current,incoming){ if(!current)return incoming; if(incoming.startsWith(current))return incoming; if(current.endsWith(incoming))return current; return current+incoming; }
 function bytesToBase64(buffer){ const bytes=new Uint8Array(buffer); let binary=""; const step=0x8000; for(let i=0;i<bytes.length;i+=step) binary+=String.fromCharCode(...bytes.subarray(i,i+step)); return btoa(binary); }
 function downsample(float32,inputRate,outputRate){ const ratio=inputRate/outputRate; const length=Math.round(float32.length/ratio); const result=new Int16Array(length); for(let i=0;i<length;i++){ const start=Math.floor(i*ratio),end=Math.min(float32.length,Math.floor((i+1)*ratio)); let sum=0,count=0; for(let j=start;j<end;j++){sum+=float32[j];count++;} const sample=Math.max(-1,Math.min(1,sum/Math.max(1,count))); result[i]=sample<0?sample*32768:sample*32767; } return result; }
@@ -380,8 +507,8 @@ function startLocalRecognition(){
 }
 function restartRecognition(){if(!voiceSession||localRecognizer||voiceAudio||voiceRequest)return;setTimeout(()=>{if(voiceSession&&!localRecognizer&&!voiceAudio&&!voiceRequest)try{startLocalRecognition();}catch(error){voiceSession=false;setVoiceState("idle","TOQUE PARA FALAR");toast(friendlyError(error),"error");}},450);}
 async function toggleVoice(){
-  if(voiceSession||localRecognizer||voiceAudio){stopVoice();return;}
-  try{requireConnection();voiceSession=true;startLocalRecognition();}
+  if(voiceSession||localRecognizer||voiceAudio||inworldLive.active){stopVoice();return;}
+  try{requireConnection();if(!coreLiveAvailable)await healthCheck();voiceSession=true;if(coreRealtimeProvider==="inworld")await inworldLive.start();else startLocalRecognition();}
   catch(error){voiceSession=false;setVoiceState("idle","TOQUE PARA FALAR");toast(friendlyError(error),"error");}
 }
 

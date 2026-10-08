@@ -73,12 +73,13 @@
               </button>
               <span class="core-label" id="voiceStatus">TOQUE PARA FALAR</span>
               <button class="stop-voice" id="stopVoice" hidden>ENCERRAR</button>
+              <div class="scene-feed" id="sceneFeed" aria-live="polite"></div>
             </div>
             <div class="deck-telemetry" aria-label="Conexões do FLUX">
               <div class="telemetry-head">PAINEL DE SISTEMAS <span>01 / 03</span></div>
               <button class="telemetry-card" data-action="weather"><span class="telemetry-icon">☼</span><span><small>PREVISÃO</small><b id="deckWeather">Consultar clima</b><em>Open-Meteo · localização opcional</em></span><span>↗</span></button>
               <button class="telemetry-card" data-go="integrations"><span class="telemetry-icon">▦</span><span><small>AGENDA</small><b id="deckCalendar">Aguardando Android</b><em>Próximos eventos, se autorizado</em></span><span>↗</span></button>
-              <button class="telemetry-card" data-go="settings"><span class="telemetry-icon">◉</span><span><small>VOZ</small><b id="deckVoice">Parear para falar</b><em>ElevenLabs · voz FLUX</em></span><span>↗</span></button>
+              <button class="telemetry-card" data-go="settings"><span class="telemetry-icon">◉</span><span><small>VOZ</small><b id="deckVoice">Parear para falar</b><em>Inworld · voz FLUX 4</em></span><span>↗</span></button>
               <div class="telemetry-foot">FLUX 1.8 <span>●</span> INTERFACE ATIVA</div>
             </div>
           </div>
@@ -120,6 +121,7 @@
         <section class="view chat-view" data-view="chat">
           <div class="chat-stage">
             <div class="chat-heading"><div><p class="eyebrow">FLUX CHAT</p><h2>Converse sobre qualquer coisa</h2></div><button class="text-button" id="clearChat">LIMPAR</button></div>
+            <div class="chat-insights" id="chatInsights" aria-live="polite"></div>
             <div class="messages" id="messages" aria-live="polite"></div>
             <form class="composer" id="chatForm">
               <button type="button" class="composer-tool" data-action="start-screen" aria-label="Compartilhar tela">▱</button>
@@ -187,7 +189,7 @@
             <article class="panel setting-card"><h3>Aparência</h3><p>Escolha a assinatura de energia.</p><div class="theme-picker"><button data-theme-pick="ember" class="ember selected" aria-label="Vermelho e ciano"></button><button data-theme-pick="ion" class="ion" aria-label="Azul e violeta"></button><button data-theme-pick="aurora" class="aurora" aria-label="Verde e azul"></button><button data-theme-pick="gold" class="gold" aria-label="Dourado e vermelho"></button></div></article>
             <article class="panel setting-card"><h3>FLUX Core</h3><p id="pairStatus" role="status">Verificando conexão…</p><label>CÓDIGO DE PAREAMENTO<input id="pairCode" type="text" inputmode="text" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Cole o código de uso único"></label><button class="primary-button wide" id="saveConnection">CONECTAR AO CORE</button><p class="helper">Use um código exclusivo para este navegador. Ele expira em 15 minutos e funciona uma vez.</p></article>
             <article class="panel setting-card"><h3>Privacidade</h3><label>PIN ATUAL (SE JÁ EXISTIR)<input id="oldPrivatePin" type="password" inputmode="numeric" maxlength="12" autocomplete="off"></label><label>NOVO PIN<input id="privatePin" type="password" inputmode="numeric" maxlength="12" placeholder="6 a 12 números" autocomplete="off"></label><p class="helper">O PIN cifra as notas privadas neste navegador. Para trocar, informe o atual.</p><button class="secondary-button wide" id="savePin">SALVAR PIN</button></article>
-            <article class="panel setting-card"><h3>Voz e contexto</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Voz FLUX pela ElevenLabs após parear o Core</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>Ativação contínua disponível apenas no app Android compatível</small></span><input type="checkbox" id="wakeEnabled" disabled></label><p class="helper">A agenda do Android compartilha os próximos eventos com seu Core somente após você autorizar a permissão no aplicativo.</p><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
+            <article class="panel setting-card"><h3>Voz e contexto</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Voz FLUX 4 pela Inworld após parear o Core</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>Ativação contínua disponível apenas no app Android compatível</small></span><input type="checkbox" id="wakeEnabled" disabled></label><p class="helper">A agenda do Android compartilha os próximos eventos com seu Core somente após você autorizar a permissão no aplicativo.</p><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
           </div>
         </section>
       </main>

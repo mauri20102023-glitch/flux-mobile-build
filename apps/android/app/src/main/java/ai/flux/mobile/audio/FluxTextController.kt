@@ -23,7 +23,7 @@ interface FluxTextBridge {
     fun destroy()
 }
 
-/** Text chat uses the paired FLUX Core, with the saved personal key as an optional fallback. */
+/** Text chat prefers FLUX Core and uses the personal Gemini key if unpaired. */
 class FluxTextController(
     context: Context,
     private val onResponse: (String) -> Unit,

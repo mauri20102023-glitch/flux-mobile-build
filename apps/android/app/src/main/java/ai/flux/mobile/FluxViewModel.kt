@@ -167,7 +167,7 @@ class FluxViewModel(
                         aiReady = diagnostics.aiReady,
                         activationRequired = diagnostics.activationRequired,
                         isConnecting = false,
-                        voiceConfigured = diagnostics.voiceProvider == "elevenlabs-tts",
+                        voiceConfigured = diagnostics.voiceProvider == "inworld-tts" || diagnostics.voiceProvider == "elevenlabs-tts",
                         voiceProvider = diagnostics.voiceProvider,
                         voiceOfficial = diagnostics.voiceOfficial,
                         error = null,

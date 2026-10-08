@@ -879,7 +879,7 @@ private fun ControlScreen(
             "Voz FLUX",
             state.voiceVerified,
             if (state.voiceVerified) "Reconhecimento iniciado neste uso; confira o áudio"
-            else if (state.voiceConfigured) "ElevenLabs Flash configurada; teste o áudio" else "Precisa de ativação",
+            else if (state.voiceConfigured) "Voz FLUX configurada no Core; teste o áudio" else "Precisa de ativação",
         )
         Spacer(Modifier.height(12.dp))
         if (state.coreAuthConfigured) {
@@ -920,7 +920,7 @@ private fun ControlScreen(
         Spacer(Modifier.height(22.dp))
         SectionLabel("INTELIGÊNCIA E VOZ")
         Text(
-            "O Core usa um modelo de texto na Cloudflare e a voz FLUX da ElevenLabs. A conversa é por turnos e reabre o microfone após cada resposta.",
+            "O Core usa a Inworld para inteligência e a voz FLUX 4. A conversa no Android é por turnos e reabre o microfone após cada resposta.",
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,

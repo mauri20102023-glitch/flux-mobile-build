@@ -256,7 +256,7 @@ class MainActivity : ComponentActivity() {
         val normalized = message.trim().lowercase(Locale.forLanguageTag("pt-BR"))
         val overview = listOf("bom dia", "me atualize", "resumo do dia", "meu dia").any(normalized::contains)
         val calendar = overview || listOf("agenda", "compromisso", "evento", "reunião").any(normalized::contains)
-        val weather = overview || listOf("clima", "tempo", "previsão", "chuva").any(normalized::contains)
+        val weather = overview || listOf("clima", "tempo", "previsão", "chuva", "temperatura").any(normalized::contains)
         val needed = buildList {
             if (calendar && !hasPermission(Manifest.permission.READ_CALENDAR)) add(Manifest.permission.READ_CALENDAR)
             if (weather && !hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) add(Manifest.permission.ACCESS_COARSE_LOCATION)
