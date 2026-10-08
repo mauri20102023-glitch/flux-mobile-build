@@ -128,6 +128,7 @@ class FluxVoiceInteractionSession(
         onError = { message ->
             context.mainExecutor.execute {
                 status.text = "Falha de conexão"
+                if (!visionRequested) transcript.visibility = View.VISIBLE
                 transcript.text = message
             }
         },
@@ -136,7 +137,7 @@ class FluxVoiceInteractionSession(
     private fun updateVisionState() {
         if (!visionRequested) return
         status.text = when {
-            screenshotReceived -> "Imagem capturada • contexto visual disponível"
+            screenshotReceived -> "Captura recebida • análise ainda não confirmada"
             visibleText.isNotBlank() -> "Texto da tela recebido • pode perguntar"
             else -> "Aguardando conteúdo da tela…"
         }
@@ -239,6 +240,21 @@ class FluxVoiceInteractionSession(
             else voice().sendUserMessage("Traduza para português brasileiro o texto visível nesta tela.")
         }, weighted())
         panel.addView(actions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(10) })
+        if (!visionRequested) {
+            // Wake activation displays only the sphere; Vision keeps its compact action sheet.
+            root.setBackgroundColor(Color.TRANSPARENT)
+            panel.background = null
+            panel.gravity = Gravity.CENTER
+            top.gravity = Gravity.CENTER
+            orb.layoutParams = LinearLayout.LayoutParams(dp(144), dp(144))
+            orb.contentDescription = "FLUX ativo. Toque para fechar."
+            orb.setOnClickListener { hide() }
+            titleBox.visibility = View.GONE
+            close.visibility = View.GONE
+            transcript.visibility = View.GONE
+            inputRow.visibility = View.GONE
+            actions.visibility = View.GONE
+        }
         return root
     }
 

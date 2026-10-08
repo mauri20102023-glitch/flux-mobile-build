@@ -141,7 +141,7 @@ export class EvolutionWorkspace {
     await this.changeMission(mission.id, { status: "running" });
     try {
       const context = await this.memoryContext(mission.objective);
-      const output = await this.generate(`Missão ${mission.kind}: ${mission.objective}\n${context}\nEntregue um resultado de texto verificável. Não declare envio, pesquisa online, execução de código ou ações externas. Em código, entregue código e como testar; em estudo, explique e proponha exercícios.`);
+      const output = await this.generate(`Missão ${mission.kind}: ${mission.objective}\n${context}\nEntregue o conteúdo solicitado. Não acrescente alegações de verificação, fontes consultadas, testes aprovados ou ausência de pendências: nenhum verificador externo foi executado. Não declare envio, pesquisa online, execução de código ou ações externas. Em código, entregue código e como testar; em estudo, explique e proponha exercícios.`);
       if (!output.trim()) throw new Error("empty");
       await this.changeMission(mission.id, { status: "completed", output });
     } catch { await this.changeMission(mission.id, { status: "failed", error: "A geração não terminou. Revise a conexão/créditos e crie uma nova tentativa." }); }
