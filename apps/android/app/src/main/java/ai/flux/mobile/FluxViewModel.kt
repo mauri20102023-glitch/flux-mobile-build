@@ -192,13 +192,14 @@ class FluxViewModel(
     }
 
     fun pairWithCode(value: String) {
+        if (_state.value.isConnecting) return
         val code = value.trim()
         if (!Regex("^[A-Za-z0-9_-]{32}$").matches(code)) {
             reportError("O código de pareamento tem 32 caracteres. Confira e tente novamente.")
             return
         }
+        _state.update { it.copy(isConnecting = true, error = null) }
         viewModelScope.launch {
-            _state.update { it.copy(isConnecting = true, error = null) }
             runCatching {
                 val paired = api.redeemPairingCode(code)
                 connectionSettings.updateAuthToken(paired.deviceToken)

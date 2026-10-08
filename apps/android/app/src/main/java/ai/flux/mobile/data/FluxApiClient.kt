@@ -49,6 +49,30 @@ class FluxApiClient(
     private val authToken: () -> String,
     private val deviceId: () -> String,
 ) {
+    suspend fun realtimeConfig(): JSONObject = withContext(Dispatchers.IO) {
+        executeWithRetry(request("/v1/live/ice-servers").get().build(), 2).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            JSONObject(raw)
+        }
+    }
+
+    suspend fun realtimeOffer(sdp: String): String = withContext(Dispatchers.IO) {
+        executeWithRetry(request("/v1/live/offer").post(sdp.toRequestBody("application/sdp".toMediaType())).build(), 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            raw
+        }
+    }
+
+    suspend fun analyzeImage(image: String, prompt: String): String = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("image", image).put("prompt", prompt)
+        executeWithRetry(request("/v1/vision").post(json(body)).build(), 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            JSONObject(raw).getString("content")
+        }
+    }
     suspend fun redeemPairingCode(code: String): PairResult = withContext(Dispatchers.IO) {
         val id = deviceId()
         val body = JSONObject().apply {
@@ -303,7 +327,7 @@ class FluxApiClient(
                 if (continuation.isActive) continuation.resumeWithException(exception)
             }
             override fun onResponse(call: Call, response: Response) {
-                continuation.resume(response)
+                if (continuation.isActive) continuation.resume(response) else response.close()
             }
         })
     }

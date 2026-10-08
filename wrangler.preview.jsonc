@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "flux-evolution-preview",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-15",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "FLUX_STATE",
+        "class_name": "FluxState"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "FluxState"
+      ]
+    }
+  ],
+  "vars": {}
+}

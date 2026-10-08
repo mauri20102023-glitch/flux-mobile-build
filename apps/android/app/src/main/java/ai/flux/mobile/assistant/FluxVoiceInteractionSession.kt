@@ -21,7 +21,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import ai.flux.mobile.audio.FluxVoiceBridge
-import ai.flux.mobile.audio.FluxConversationalVoice
+import ai.flux.mobile.audio.FluxRealtimeVoice
 
 /** Native bottom-sheet assistant, similar to Android's contextual assistant surface. */
 class FluxVoiceInteractionSession(
@@ -82,7 +82,7 @@ class FluxVoiceInteractionSession(
         screenshotReceived = screenshot != null
         if (screenshot != null) {
             screenshotView.setImageBitmap(screenshot)
-            screenshotView.visibility = View.VISIBLE
+            screenshotView.visibility = View.GONE
             if (visionRequested) {
                 visionSummaryRequested = true
                 voice().sendScreenFrame(
@@ -108,7 +108,7 @@ class FluxVoiceInteractionSession(
         super.onDestroy()
     }
 
-    private fun voice(): FluxVoiceBridge = controller ?: FluxConversationalVoice(
+    private fun voice(): FluxVoiceBridge = controller ?: FluxRealtimeVoice(
         context = context,
         onSessionChanged = { connected ->
             context.mainExecutor.execute {

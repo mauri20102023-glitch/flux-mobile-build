@@ -357,7 +357,7 @@ class MainActivity : ComponentActivity() {
      */
     @Suppress("UNCHECKED_CAST")
     private fun createVoiceController(): FluxVoiceBridge {
-        val implementation = Class.forName("ai.flux.mobile.audio.FluxConversationalVoice")
+        val implementation = Class.forName("ai.flux.mobile.audio.FluxRealtimeVoice")
         val callback = kotlin.jvm.functions.Function1::class.java
         val constructor = implementation.getConstructor(
             Context::class.java,

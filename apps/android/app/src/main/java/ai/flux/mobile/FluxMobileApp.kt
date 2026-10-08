@@ -851,6 +851,9 @@ private fun ControlScreen(
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
     var pairCode by remember { mutableStateOf("") }
+    LaunchedEffect(state.coreAuthConfigured, state.isConnecting, state.error) {
+        if (state.coreAuthConfigured && !state.isConnecting && state.error == null) pairCode = ""
+    }
 
     ScreenScroll("SISTEMA", "Conexão, inteligência, voz e privacidade.") {
         SectionLabel("STATUS AO VIVO")
@@ -914,13 +917,13 @@ private fun ControlScreen(
         )
         Spacer(Modifier.height(10.dp))
         PrimaryButton(if (state.coreAuthConfigured) "PAREAR NOVAMENTE" else "PAREAR APARELHO", Icons.Default.Link) {
-            onPairCode(pairCode)
+            if (!state.isConnecting) onPairCode(pairCode)
         }
 
         Spacer(Modifier.height(22.dp))
         SectionLabel("INTELIGÊNCIA E VOZ")
         Text(
-            "O Core usa a Inworld para inteligência e a voz FLUX 4. A conversa no Android é por turnos e reabre o microfone após cada resposta.",
+            "O Core usa a Inworld para inteligência e a voz FLUX 4. Esta versão de avaliação usa áudio WebRTC simultâneo. Interrupção por fala e cancelamento de eco precisam ser validados neste aparelho.",
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,

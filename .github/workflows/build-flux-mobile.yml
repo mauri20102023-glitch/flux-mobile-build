@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.8.0
+name: Build FLUX Mobile 1.9.0-preview
 
 on:
   workflow_dispatch:
@@ -25,6 +25,7 @@ jobs:
         run: |
           node --check web/flux-ath/app.js
           node --check web/flux-ath/sw.js
+          npm test
           npm run check
 
   signing-tools:
@@ -67,7 +68,9 @@ jobs:
       - name: Compile FLUX Voice APK
         working-directory: apps/android
         env:
-          FLUX_CORE_URL: "https://flux-mobile-build2.mauri20102023.workers.dev"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview"
+          FLUX_APP_LABEL: "FLUX Evolution"
+          FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Verify assistant recognition metadata in APK
@@ -87,30 +90,30 @@ jobs:
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.8.0.apk
-          sha256sum FLUX-Mobile-1.8.0.apk > FLUX-Mobile-1.8.0.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.0-preview.apk
+          sha256sum FLUX-Mobile-1.9.0-preview.apk > FLUX-Mobile-1.9.0-preview.sha256
 
       - name: Compile side-by-side APK for existing installs
         working-directory: apps/android
         env:
-          FLUX_CORE_URL: "https://flux-mobile-build2.mauri20102023.workers.dev"
-          FLUX_APPLICATION_ID: "ai.flux.mobile.next"
-          FLUX_APP_LABEL: "FLUX 1.8"
+          FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.next"
+          FLUX_APP_LABEL: "FLUX Evolution 2"
         run: ./gradlew :app:assembleRelease --rerun-tasks --stacktrace
 
       - name: Prepare side-by-side APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.8.0-lado-a-lado.apk
-          sha256sum FLUX-Mobile-1.8.0-lado-a-lado.apk > FLUX-Mobile-1.8.0-lado-a-lado.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.0-preview-lado-a-lado.apk
+          sha256sum FLUX-Mobile-1.9.0-preview-lado-a-lado.apk > FLUX-Mobile-1.9.0-preview-lado-a-lado.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.8.0
+          name: FLUX-Mobile-1.9.0-preview
           path: |
-            FLUX-Mobile-1.8.0.apk
-            FLUX-Mobile-1.8.0.sha256
-            FLUX-Mobile-1.8.0-lado-a-lado.apk
-            FLUX-Mobile-1.8.0-lado-a-lado.sha256
+            FLUX-Mobile-1.9.0-preview.apk
+            FLUX-Mobile-1.9.0-preview.sha256
+            FLUX-Mobile-1.9.0-preview-lado-a-lado.apk
+            FLUX-Mobile-1.9.0-preview-lado-a-lado.sha256
           if-no-files-found: error
           retention-days: 7
