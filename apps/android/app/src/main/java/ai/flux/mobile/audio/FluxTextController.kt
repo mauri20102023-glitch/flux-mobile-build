@@ -23,7 +23,7 @@ interface FluxTextBridge {
     fun destroy()
 }
 
-/** Text chat uses the protected personal Gemini key when available. */
+/** Text chat prefers FLUX Core and uses the personal Gemini key if unpaired. */
 class FluxTextController(
     context: Context,
     private val onResponse: (String) -> Unit,
@@ -41,7 +41,7 @@ class FluxTextController(
             sendMutex.withLock {
                 runCatching {
                     if (application.connectionSettings.authTokenConfigured()) {
-                        runCatching { api.chat(
+                        api.chat(
                             requestId = UUID.randomUUID().toString(),
                             conversationId = if (application.workspace.memoryEnabled())
                                 application.cache.conversationId() else UUID.randomUUID().toString(),
