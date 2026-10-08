@@ -22,7 +22,8 @@ Base preservada: main 815ca9297328fe46d01e993c320ac785632640de. Desenvolvimento 
 3. POST /v1/vision: imagem inline JPEG/PNG/WebP enviada à Inworld multimodal; sem URLs arbitrárias, limite de corpo, timeout e nenhuma persistência da imagem pelo Core. Provedor processa imagem conforme sua própria política. Não existe análise contínua de vídeo nesta entrega.
 4. Site: memória cloud, correção/exclusão, missões com resultado real e análise de arquivo/captura/câmera de uma imagem por vez no FLUX Lab. Saídas renderizadas como texto para evitar injeção HTML.
 5. Android preview: controlador WebRTC Inworld, áudio simultâneo, cancelamento de eco e ruído, VAD com interrupt_response, resposta visual via API e ferramentas para contexto local autorizado de clima/agenda. Controlador antigo preservado no código. Validação acústica requer aparelho real.
-6. Leitura JSON com limite, erro sem segredo, resposta OkHttp tardia fechada após cancelamento.
+6. Alternativa configurada explicitamente no preview: Cloudflare Llama 4 Scout para texto e Vision, após Inworld retornar 402. A voz não foi trocada; depende de créditos. Mission Control mostra o último resultado real e pendências.
+7. Leitura JSON com limite, erro sem segredo, resposta OkHttp tardia fechada após cancelamento.
 
 ## Limitações e riscos ainda abertos
 
@@ -33,3 +34,5 @@ A integração usa uma conta de proprietário, não identifica automaticamente q
 ## Revisão e recuperação
 
 Preview não deve substituir instalação estável. Para parar avaliação, fechar/desinstalar FLUX Evolution; app original e Core original continuam disponíveis. Para rollback do preview, redeploy do commit anterior com os mesmos bindings e secrets; não apagar namespaces. Merge e atualização da produção dependem de revisão explícita do resultado e validação no aparelho.
+
+A atualização de avaliação usa assinatura de build (debug) do runner. Assinatura estável de distribuição e processo de atualização de produção ainda precisam ser preparados antes de promover esta versão. Não confundir APK compilado com aplicativo validado em hardware.

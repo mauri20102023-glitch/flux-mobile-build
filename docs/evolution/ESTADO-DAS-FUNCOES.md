@@ -4,8 +4,8 @@ FUNCIONANDO exige evidência no ambiente indicado; implementação compilada nã
 
 | Função | Estado inicial | Falta / evidência necessária |
 |---|---|---|
-| Chat Inworld + identidade do criador | FUNCIONANDO na produção 1.8 | Respostas HTTP 200 já verificadas; preview retestar |
-| Voz FLUX 4 MP3 | FUNCIONANDO na produção 1.8 | Áudio MP3 200 já verificado; preview retestar |
+| Chat + identidade do criador | FUNCIONANDO no preview | Cloudflare Llama 4 Scout respondeu 200 e recuperou memória CIANO4827; Inworld atualmente HTTP 402 |
+| Voz FLUX 4 MP3 | PRECISA DA SUA AÇÃO | Inworld HTTP 402 no teste de 8/10. Conferir créditos em Billing e repetir teste de áudio |
 | Clima | FUNCIONANDO na produção 1.8 | API com coordenadas reais; autorizar localização no novo app |
 | Agenda Android | FUNCIONANDO na produção 1.8 | Nove eventos lidos no Core; autorizar calendário no preview |
 | Ativação pela palavra Flux | PRECISA DA SUA AÇÃO | Selecionar preview como assistente e testar Android em tela bloqueada/aberta |
@@ -14,10 +14,10 @@ FUNCIONANDO exige evidência no ambiente indicado; implementação compilada nã
 | Identidade vocal / consentimento / exclusão | EM DESENVOLVIMENTO | Nenhum cadastro biométrico implementado |
 | Face ID / biometria forte | EM DESENVOLVIMENTO | Implementar BiometricPrompt e fallback seguro |
 | Cofre / Autofill / backup criptografado | EM DESENVOLVIMENTO | Não guardar senhas na memória |
-| Análise de imagem e captura | EM DESENVOLVIMENTO | API multimodal implementada; executar teste real e validar captura Android |
+| Análise de imagem recebida | FUNCIONANDO no backend | Teste real leu 4827, calculou 12 e identificou círculo vermelho; captura Android ainda depende do aparelho |
 | MediaProjection fallback | EM DESENVOLVIMENTO | Consentimento por sessão e foreground service ainda não implementados |
 | Câmera | EM DESENVOLVIMENTO | Captura única web implementada; nativa e vídeo contínuo pendentes |
-| Gerar imagens | FUNCIONANDO na produção 1.8 | API retornou JPEG; novo teste com arquivo visualizável pendente |
+| Gerar imagens | FUNCIONANDO no preview | JPEG 1024 × 1024 criado por /v1/images, salvo e visualizado; ajuste para quatro passos após erro inicial |
 | Editar imagens / PDF | EM DESENVOLVIMENTO | Upload de imagem não é edição; PDF exige extração/renderização |
 | Gmail / Google Calendar OAuth / Drive / Docs / Sheets / Tasks | PRECISA DA SUA AÇÃO | Conta Google + projeto OAuth com permissões mínimas; conectores FLUX ainda precisam ser implementados |
 | WhatsApp | EM DESENVOLVIMENTO | Abertura de app não comprova leitura/envio; investigar conta e API oficial |
@@ -33,9 +33,9 @@ FUNCIONANDO exige evidência no ambiente indicado; implementação compilada nã
 | Handoff confirmado | EM DESENVOLVIMENTO | Memórias compartilhadas não equivalem à entrega confirmada de tarefas |
 | ClassApp / Geekie One | PRECISA DA SUA AÇÃO | Compartilhar material autorizado; APIs oficiais ainda precisam de investigação |
 | Study / mapas / quizzes / flashcards | EM DESENVOLVIMENTO | Missões produzem estudo textual; sem avaliação adaptativa ou renderer de mapas nesta fase |
-| Memória persistente / corrigir / esquecer | EM DESENVOLVIMENTO | Testes automatizados passaram; retestar em Cloudflare |
+| Memória persistente / corrigir / esquecer | FUNCIONANDO no backend | Criação 201, recuperação em nova conversa 200; testes locais de correção/exclusão/expiração passaram; teste de nuvem complementado em TESTES.md |
 | Time Machine / knowledge graph / separação de pessoas | EM DESENVOLVIMENTO | Sem índices/histórico completos |
-| Missões textuais | EM DESENVOLVIMENTO | Testes de fila/cancelamento/falha passaram; testar alarme real |
+| Missões textuais | FUNCIONANDO no backend | Alarme Cloudflare executou estudo real e registrou queued → running → completed; falha Inworld também registrada |
 | Builder / testes / PR / rollback pelo FLUX | EM DESENVOLVIMENTO | FLUX ainda não executa código ou altera repositório |
 | Creator / Dream Lab / Business | EM DESENVOLVIMENTO | Geração de textos/imagens; ações comerciais e exportações ainda incompletas |
 | Coach / Focus / Night Mode / Briefing | EM DESENVOLVIMENTO | Briefing local existe; agendamento e níveis de proatividade pendentes |

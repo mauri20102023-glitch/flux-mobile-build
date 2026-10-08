@@ -440,7 +440,8 @@ export class FluxState {
       capabilities.push({ id, label, state: evidence?.state ?? "EM_DESENVOLVIMENTO", evidence: evidence ?? null });
     }
     const memories = await this.evolution.memories(), missions = await this.evolution.missions();
-    capabilities.push({ id: "memory", label: "Memórias autorizadas", state: memories.length ? "FUNCIONANDO" : "EM_DESENVOLVIMENTO", evidence: { count: memories.length, scope: "Dispositivos pareados do proprietário; não é cofre." } });
+    const memoryEvidence = await this.state.storage.get<Record<string, unknown>>("evolution:memory-evidence");
+    capabilities.push({ id: "memory", label: "Memórias autorizadas", state: memoryEvidence?.state ?? "EM_DESENVOLVIMENTO", evidence: { ...memoryEvidence, count: memories.length, scope: "Dispositivos pareados do proprietário; não é cofre." } });
     const completed = missions.filter(item => item.status === "completed");
     capabilities.push({ id: "missions", label: "Missões textuais", state: completed.length ? "FUNCIONANDO" : "EM_DESENVOLVIMENTO", evidence: { completed: completed.length, failed: missions.filter(item => item.status === "failed").length, scope: "Geração de texto, sem ações externas." } });
     for (const label of ["Barge-in Android", "Biometria e cofre", "Identidade vocal", "Handoff confirmado", "Builder executor", "Automações de notificações"]) capabilities.push({ label, state: "EM_DESENVOLVIMENTO", evidence: null });
@@ -953,7 +954,7 @@ export class FluxState {
   ): Promise<string> {
     const model = this.env.WORKERS_AI_TEXT_MODEL ?? "@cf/openai/gpt-oss-20b";
     const messages = [
-      { role: "system", content: this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS },
+      { role: "system", content: (this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS) + `\nContexto do executor: esta resposta é gerada pelo modelo ${model} na Cloudflare Workers AI. A voz configurada é Inworld FLUX 4 e depende de saldo; você não pode afirmar que a voz está operacional apenas porque existe uma chave.` },
       ...history.map(({ role, content }) => ({ role, content })),
       { role: "user", content: message },
     ];

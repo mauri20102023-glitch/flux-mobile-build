@@ -54,8 +54,12 @@ export class EvolutionWorkspace {
   constructor(private storage: EvolutionStorage, private generate: (prompt: string) => Promise<string>) {}
   async memories(): Promise<Memory[]> {
     const now = Date.now();
-    return (await this.storage.get<Memory[]>("evolution:memories") ?? [])
-      .filter(item => !item.expiresAt || Date.parse(item.expiresAt) > now);
+    return await this.storage.transaction(async tx => {
+      const rows = await tx.get<Memory[]>("evolution:memories") ?? [];
+      const active = rows.filter(item => !item.expiresAt || Date.parse(item.expiresAt) > now);
+      if (active.length !== rows.length) await tx.put("evolution:memories", active);
+      return active;
+    });
   }
   async memoryContext(query: string): Promise<string> {
     const terms = query.toLocaleLowerCase("pt-BR").split(/[^\p{L}\p{N}]+/u).filter(word => word.length > 3);
@@ -81,7 +85,8 @@ export class EvolutionWorkspace {
     }
     let memory: Memory | undefined;
     await this.storage.transaction(async tx => {
-      const rows = await tx.get<Memory[]>("evolution:memories") ?? [];
+      const rows = (await tx.get<Memory[]>("evolution:memories") ?? [])
+        .filter(item => !item.expiresAt || Date.parse(item.expiresAt) > Date.now());
       const existing = id ? rows.find(row => row.id === id) : undefined;
       if (id && !existing) throw new EvolutionError(404, "Memória não encontrada.");
       if (!id && rows.length >= 200) throw new EvolutionError(409, "Limite de 200 memórias atingido.");
@@ -90,6 +95,7 @@ export class EvolutionWorkspace {
         createdAt: existing?.createdAt ?? now, updatedAt: now };
       await tx.put("evolution:memories", [...rows.filter(row => row.id !== memory!.id), memory]);
     });
+    await this.storage.put("evolution:memory-evidence", { state: "FUNCIONANDO", detail: id ? "Memória autorizada corrigida." : "Memória autorizada persistida.", at: new Date().toISOString() });
     return jsonResponse({ memory }, id ? 200 : 201);
   }
   async deleteMemory(id: string): Promise<Response> {
@@ -99,6 +105,7 @@ export class EvolutionWorkspace {
       // Erasure removes content; there is deliberately no content-bearing deletion log.
       await tx.put("evolution:memories", rows.filter(row => row.id !== id));
     });
+    await this.storage.put("evolution:memory-evidence", { state: "FUNCIONANDO", detail: "Conteúdo de memória excluído; registro de evidência não contém esse conteúdo.", at: new Date().toISOString() });
     return jsonResponse({ deleted: true });
   }
   async missions(): Promise<Mission[]> { return await this.storage.get<Mission[]>("evolution:missions") ?? []; }
@@ -112,7 +119,10 @@ export class EvolutionWorkspace {
     await this.storage.transaction(async tx => {
       const rows = await tx.get<Mission[]>("evolution:missions") ?? [];
       if (rows.filter(row => ["queued", "running"].includes(row.status)).length >= 5) throw new EvolutionError(429, "Aguarde as missões pendentes terminarem.");
-      await tx.put("evolution:missions", [...rows.slice(-99), mission]);
+      const pending = rows.filter(row => ["queued", "running"].includes(row.status));
+      const finished = rows.filter(row => !["queued", "running"].includes(row.status));
+      await tx.put("evolution:missions", [...pending, ...finished.slice(-(99 - pending.length)), mission]
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
       await tx.setAlarm(Date.now() + 1000);
     });
     return jsonResponse({ mission }, 202);

@@ -923,7 +923,7 @@ private fun ControlScreen(
         Spacer(Modifier.height(22.dp))
         SectionLabel("INTELIGÊNCIA E VOZ")
         Text(
-            "O Core usa a Inworld para inteligência e a voz FLUX 4. Esta versão de avaliação usa áudio WebRTC simultâneo. Interrupção por fala e cancelamento de eco precisam ser validados neste aparelho.",
+            "Esta avaliação usa Cloudflare Workers AI para texto e Vision e mantém a voz FLUX 4 na Inworld, que exige créditos. Esta versão de avaliação usa áudio WebRTC simultâneo. Interrupção por fala e cancelamento de eco precisam ser validados neste aparelho.",
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,
