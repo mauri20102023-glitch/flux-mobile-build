@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "embed:web": "node scripts/embed-web-assets.mjs",
     "deploy": "wrangler deploy",
-    "check": "wrangler deploy --dry-run"
+    "check": "wrangler deploy --dry-run",
+    "test": "node --experimental-transform-types test/inworld.test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

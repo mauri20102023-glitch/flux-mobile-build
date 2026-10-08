@@ -265,6 +265,24 @@ body::before { background-size:40px 40px; opacity:.42; background-image:linear-g
 .core-light { inset:4%; border-color:rgba(0,157,255,.12); box-shadow:0 0 33px rgba(17,125,255,.15); }
 .orb-lines { inset:0; border:0; box-shadow:inset 0 0 36px rgba(34,153,254,.13); }
 .core-f { color:#a7e7ff; font-size:25px; font-style:normal; text-shadow:0 0 13px #1dd4ff,0 0 34px #218eff; }
+.scene-feed { width:min(100%,330px); margin:15px auto 0; position:relative; z-index:5; }
+.scene-feed:empty,.chat-insights:empty { display:none; }
+.scene-card { position:relative; overflow:hidden; padding:15px 17px 13px; border:1px solid rgba(65,181,255,.56); border-radius:13px; background:linear-gradient(135deg,rgba(10,54,125,.95),rgba(4,22,62,.96)); box-shadow:0 0 0 1px rgba(11,109,255,.14),0 18px 38px rgba(0,5,28,.6),inset 0 0 25px rgba(15,125,255,.16); text-align:left; animation:scene-arrive .36s ease both; }
+.scene-card::before { content:""; position:absolute; inset:0 0 auto; height:2px; background:linear-gradient(90deg,transparent,#20d6ff,#2470ff,transparent); box-shadow:0 0 15px #12aaff; }
+.scene-card-head { display:flex; align-items:center; gap:8px; color:#76dfff; font-size:9px; font-weight:850; letter-spacing:.15em; }
+.scene-card-head .scene-icon { font-size:18px; line-height:1; }
+.scene-card-head i { margin-left:auto; color:#4beaff; font-size:7px; font-style:normal; white-space:nowrap; }
+.scene-card strong { display:block; margin:11px 0 4px; color:#f4fbff; font-size:19px; line-height:1.14; letter-spacing:-.035em; }
+.scene-card p { margin:0 0 10px; color:#c3dbfa; font-size:11px; line-height:1.4; }
+.scene-card small { color:#68a3df; font-size:8px; font-weight:800; letter-spacing:.12em; }
+.chat-stage { grid-template-rows:auto auto 1fr auto; }
+.chat-insights { display:flex; gap:10px; overflow-x:auto; padding:0 1px 14px; scrollbar-width:thin; }
+.chat-insights .scene-card { flex:0 0 min(260px,74vw); min-height:132px; }
+.chat-insights .scene-card strong { font-size:17px; }
+@keyframes scene-arrive { from { opacity:0; transform:translateY(12px) scale(.96); } }
+@media (max-width:1250px) { .scene-feed { max-width:290px; } .scene-card strong { font-size:17px; } }
+@media (max-width:760px) { .scene-feed { width:min(100%,320px); margin-top:13px; }.scene-card { padding:12px 14px; }.chat-insights { padding:0 2px 9px; } }
+@media (prefers-reduced-motion:reduce) { .scene-card { animation:none; } }
 @keyframes flow-a { to { transform:rotate(360deg) scale(1.035); } }
 @keyframes flow-b { to { transform:rotate(-360deg) scale(.97); } }
 @keyframes flow-c { to { transform:rotate(360deg) scale(1.065); } }

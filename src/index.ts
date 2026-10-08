@@ -1,3 +1,5 @@
+import { EMBEDDED_ASSETS } from "./embedded-assets.ts";
+
 type FluxMode = "FAST" | "STANDARD" | "DEEP";
 type StoredRole = "user" | "assistant";
 
@@ -69,6 +71,10 @@ export interface Env {
   FLUX_SECONDARY_ADMIN_TOKEN?: string;
   ELEVENLABS_API_KEY?: string;
   ELEVENLABS_VOICE_ID?: string;
+  INWORLD_API_KEY?: string;
+  INWORLD_VOICE_ID?: string;
+  INWORLD_TEXT_MODEL?: string;
+  INWORLD_REALTIME_MODEL?: string;
   FLUX_PAIRING_PUBLIC_KEY?: string;
   GEMINI_API_KEY?: string;
   GEMINI_LIVE_MODEL?: string;
@@ -110,6 +116,8 @@ Qualidade:
 - Não invente detalhes para parecer útil. Declare limitações com clareza e ofereça o próximo passo concreto.`;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const INWORLD_VOICE = "keen-koala-9724__design-voice-90827709";
+const INWORLD_API = "https://api.inworld.ai";
 
 class FluxHttpError extends Error {
   constructor(readonly status: number, message: string) {
@@ -150,6 +158,23 @@ function safeError(error: unknown): Response {
   return json({ error: "INTERNAL_ERROR", message: "O FLUX Core não conseguiu concluir a solicitação." }, 500, corsHeaders());
 }
 
+function serveEmbeddedAsset(request: Request): Response | null {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  const pathname = new URL(request.url).pathname;
+  const path = pathname === "/" ? "/index.html" : pathname;
+  const asset = EMBEDDED_ASSETS[path] ??
+    (request.headers.get("accept")?.includes("text/html") ? EMBEDDED_ASSETS["/index.html"] : undefined);
+  if (!asset) return null;
+  const bytes = Uint8Array.from(atob(asset.base64), character => character.charCodeAt(0));
+  return new Response(request.method === "HEAD" ? null : bytes, {
+    headers: {
+      "content-type": asset.mimeType,
+      "cache-control": path === "/index.html" || path === "/sw.js" ? "no-store" : "public, max-age=300",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -160,16 +185,17 @@ const worker = {
         service: "flux-core-edge",
         version: "1.8.0-flux-voice",
         features: {
-          chat: Boolean(env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.AI),
-          live: Boolean(env.GEMINI_API_KEY),
-          voice: Boolean(env.ELEVENLABS_API_KEY),
+          chat: Boolean(env.INWORLD_API_KEY || env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.AI),
+          live: Boolean(env.INWORLD_API_KEY || env.GEMINI_API_KEY),
+          realtimeProvider: env.INWORLD_API_KEY ? "inworld" : env.GEMINI_API_KEY ? "gemini" : "unavailable",
+          voice: Boolean(env.INWORLD_API_KEY || env.ELEVENLABS_API_KEY || env.GEMINI_API_KEY),
           weather: true,
           images: Boolean(env.AI),
         },
       }, 200, corsHeaders());
     }
     if (!url.pathname.startsWith("/v1/")) {
-      return env.ASSETS?.fetch(request) ?? new Response("FLUX", { status: 200 });
+      return serveEmbeddedAsset(request) ?? await env.ASSETS?.fetch(request) ?? new Response("FLUX", { status: 200 });
     }
     try {
       const stub = env.FLUX_STATE.getByName("primary-owner");
@@ -204,6 +230,8 @@ export class FluxState {
       if (request.method === "POST" && url.pathname === "/v1/chat") return await this.chat(request);
       if (request.method === "GET" && url.pathname === "/v1/weather") return await this.weather(request);
       if (request.method === "POST" && url.pathname === "/v1/tts") return await this.speak(request);
+      if (request.method === "GET" && url.pathname === "/v1/live/ice-servers") return await this.inworldIceServers();
+      if (request.method === "POST" && url.pathname === "/v1/live/offer") return await this.inworldOffer(request);
       if (url.pathname === "/v1/calendar" && request.method === "GET") return await this.readCalendar();
       if (url.pathname === "/v1/calendar" && request.method === "POST") return await this.updateCalendar(request);
       if (request.method === "POST" && url.pathname === "/v1/images") return await this.generateImage(request);
@@ -341,8 +369,8 @@ export class FluxState {
   }
 
   private diagnostics(): Response {
-    const aiReady = Boolean(this.env.GEMINI_API_KEY || this.env.OPENAI_API_KEY || this.env.AI);
-    const voiceReady = Boolean(this.env.ELEVENLABS_API_KEY || this.env.GEMINI_API_KEY);
+    const aiReady = Boolean(this.env.INWORLD_API_KEY || this.env.GEMINI_API_KEY || this.env.OPENAI_API_KEY || this.env.AI);
+    const voiceReady = Boolean(this.env.INWORLD_API_KEY || this.env.ELEVENLABS_API_KEY || this.env.GEMINI_API_KEY);
     return json({
       diagnostics: {
         core: "OK",
@@ -351,14 +379,15 @@ export class FluxState {
         glasses: "NOT_CONFIGURED",
         desktop: "NOT_CONFIGURED",
         tv: "NOT_CONFIGURED",
-        realtime: this.env.GEMINI_API_KEY ? "OK" : "NOT_CONFIGURED",
+        realtime: this.env.INWORLD_API_KEY || this.env.GEMINI_API_KEY ? "OK" : "NOT_CONFIGURED",
         memory: "CHAT_HISTORY_ONLY",
         authentication: "DEVICE_PAIRED",
         version: "1.8.0-flux-voice",
         checkedAt: new Date().toISOString(),
       },
       aiProfile: {
-        provider: this.env.AI ? "cloudflare-workers-ai"
+        provider: this.env.INWORLD_API_KEY ? "inworld-llm-router"
+          : this.env.AI ? "cloudflare-workers-ai"
           : this.env.OPENAI_API_KEY ? "openai"
           : this.env.GEMINI_API_KEY ? "google-gemini" : "unavailable",
         ready: aiReady,
@@ -371,12 +400,13 @@ export class FluxState {
         },
       },
       voiceProfile: {
-        provider: this.env.ELEVENLABS_API_KEY ? "elevenlabs-tts"
+        provider: this.env.INWORLD_API_KEY ? "inworld-tts"
+          : this.env.ELEVENLABS_API_KEY ? "elevenlabs-tts"
           : this.env.GEMINI_API_KEY ? "gemini-live" : "unavailable",
         official: voiceReady,
-        name: this.env.ELEVENLABS_API_KEY ? "FLUX Voice" : voiceReady ? "FLUX Live" : "unavailable",
-        model: this.env.ELEVENLABS_API_KEY ? "eleven_flash_v2_5" : voiceReady ? this.liveModel() : "unavailable",
-        voice: this.env.ELEVENLABS_API_KEY ? "FLUX" : voiceReady ? this.liveVoice() : "unavailable",
+        name: this.env.INWORLD_API_KEY ? "FLUX 4" : this.env.ELEVENLABS_API_KEY ? "FLUX Voice" : voiceReady ? "FLUX Live" : "unavailable",
+        model: this.env.INWORLD_API_KEY ? "inworld-tts-2-flash" : this.env.ELEVENLABS_API_KEY ? "eleven_flash_v2_5" : voiceReady ? this.liveModel() : "unavailable",
+        voice: this.env.INWORLD_API_KEY ? "flux 4" : this.env.ELEVENLABS_API_KEY ? "FLUX" : voiceReady ? this.liveVoice() : "unavailable",
       },
     });
   }
@@ -396,7 +426,7 @@ export class FluxState {
   }
 
   private async chat(request: Request): Promise<Response> {
-    if (!this.env.GEMINI_API_KEY && !this.env.OPENAI_API_KEY && !this.env.AI) {
+    if (!this.env.INWORLD_API_KEY && !this.env.GEMINI_API_KEY && !this.env.OPENAI_API_KEY && !this.env.AI) {
       throw new FluxHttpError(503, "A inteligência do FLUX ainda não foi ativada.");
     }
     const raw = await this.readObject(request);
@@ -514,6 +544,7 @@ export class FluxState {
   }
 
   private async speak(request: Request): Promise<Response> {
+    if (this.env.INWORLD_API_KEY) return this.speakWithInworld(request);
     const apiKey = this.env.ELEVENLABS_API_KEY?.trim();
     if (!apiKey) throw new FluxHttpError(503, "A voz FLUX ainda não está configurada no Core.");
     const raw = await this.readObject(request);
@@ -541,6 +572,84 @@ export class FluxState {
       "content-type": "audio/mpeg", "cache-control": "no-store",
       "x-flux-voice": "FLUX", "x-content-type-options": "nosniff",
     } });
+  }
+
+  private async speakWithInworld(request: Request): Promise<Response> {
+    const raw = await this.readObject(request);
+    const speech = this.requiredString(raw.text, "text", 1_000);
+    await this.voiceRateLimit(request);
+    const response = await fetch(`${INWORLD_API}/tts/v1/voice`, {
+      method: "POST",
+      headers: {
+        authorization: `Basic ${this.env.INWORLD_API_KEY!.trim()}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        text: speech,
+        voiceId: this.env.INWORLD_VOICE_ID || INWORLD_VOICE,
+        modelId: "inworld-tts-2-flash",
+        language: "pt-BR",
+        audioConfig: { audioEncoding: "MP3", bitRate: 64000 },
+      }),
+    });
+    if (!response.ok) {
+      if (response.status === 429) return json({ error: "VOICE_QUOTA", message: "O limite de voz da Inworld foi atingido." }, 429);
+      throw new FluxHttpError(503, `A voz da Inworld respondeu com erro ${response.status}.`);
+    }
+    const result = await response.json() as { audioContent?: string };
+    if (!result.audioContent || result.audioContent.length > 24_000_000) {
+      throw new FluxHttpError(503, "A Inworld não retornou áudio válido.");
+    }
+    const bytes = Uint8Array.from(atob(result.audioContent), (char) => char.charCodeAt(0));
+    return new Response(bytes, { headers: {
+      "content-type": "audio/mpeg", "cache-control": "no-store",
+      "x-flux-voice": "FLUX 4", "x-content-type-options": "nosniff",
+    } });
+  }
+
+  private async voiceRateLimit(request: Request): Promise<void> {
+    const device = (request.headers.get("x-flux-device-id") || "unknown").slice(0, 120);
+    const rateKey = `voice-rate:${device}:${new Date().toISOString().slice(0, 13)}`;
+    const count = (await this.state.storage.get<number>(rateKey) ?? 0) + 1;
+    await this.state.storage.put(rateKey, count);
+    if (count > 60) throw new FluxHttpError(429, "Limite de voz por hora atingido.");
+  }
+
+  private async inworldIceServers(): Promise<Response> {
+    const apiKey = this.env.INWORLD_API_KEY?.trim();
+    if (!apiKey) throw new FluxHttpError(503, "A conversa Inworld ainda não está configurada.");
+    const response = await fetch(`${INWORLD_API}/v1/realtime/ice-servers`, {
+      headers: { authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) throw new FluxHttpError(503, `A Inworld não forneceu a conexão de voz (${response.status}).`);
+    const result = await response.json() as { ice_servers?: unknown[] };
+    return json({
+      iceServers: Array.isArray(result.ice_servers) ? result.ice_servers : [],
+      model: this.env.INWORLD_REALTIME_MODEL || "openai/gpt-4o-mini",
+      voice: this.env.INWORLD_VOICE_ID || INWORLD_VOICE,
+      instructions: this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS,
+    });
+  }
+
+  private async inworldOffer(request: Request): Promise<Response> {
+    const apiKey = this.env.INWORLD_API_KEY?.trim();
+    if (!apiKey) throw new FluxHttpError(503, "A conversa Inworld ainda não está configurada.");
+    const sdp = await request.text();
+    if (!sdp.startsWith("v=0") || sdp.length > 100_000) throw new FluxHttpError(400, "Oferta de áudio inválida.");
+    const device = (request.headers.get("x-flux-device-id") || "unknown").slice(0, 120);
+    const rateKey = `live-rate:${device}:${new Date().toISOString().slice(0, 13)}`;
+    const count = (await this.state.storage.get<number>(rateKey) ?? 0) + 1;
+    await this.state.storage.put(rateKey, count);
+    if (count > 12) return json({ error: "VOICE_RATE_LIMITED", message: "Limite de sessões de voz por hora atingido." }, 429);
+    const response = await fetch(`${INWORLD_API}/v1/realtime/calls`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/sdp" },
+      body: sdp,
+    });
+    if (!response.ok) throw new FluxHttpError(503, `A Inworld recusou a sessão de voz (${response.status}).`);
+    const answer = await response.text();
+    if (!answer.startsWith("v=0")) throw new FluxHttpError(503, "A Inworld retornou uma resposta de áudio inválida.");
+    return new Response(answer, { headers: { "content-type": "application/sdp", "cache-control": "no-store" } });
   }
 
   private async generateImage(request: Request): Promise<Response> {
@@ -605,6 +714,7 @@ export class FluxState {
     message: string,
     requestId: string,
   ): Promise<string> {
+    if (this.env.INWORLD_API_KEY) return await this.generateWithInworld(mode, history, message);
     if (this.env.AI) {
       return await this.generateWithWorkersAi(mode, history, message);
     }
@@ -661,6 +771,32 @@ export class FluxState {
       }
     }
     throw new FluxHttpError(503, `A inteligência do FLUX está temporariamente indisponível (${lastError}).`);
+  }
+
+  private async generateWithInworld(
+    mode: FluxMode, history: StoredMessage[], message: string,
+  ): Promise<string> {
+    const response = await fetch(`${INWORLD_API}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        authorization: `Basic ${this.env.INWORLD_API_KEY!.trim()}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: this.env.INWORLD_TEXT_MODEL || "openai/gpt-4o-mini",
+        max_tokens: mode === "FAST" ? 400 : mode === "STANDARD" ? 900 : 1_800,
+        messages: [
+          { role: "system", content: this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS },
+          ...history.map(({ role, content }) => ({ role, content })),
+          { role: "user", content: message },
+        ],
+      }),
+    });
+    if (!response.ok) throw new FluxHttpError(503, `A Inworld não respondeu ao chat (${response.status}).`);
+    const result = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const content = result.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new FluxHttpError(503, "A Inworld retornou uma resposta vazia.");
+    return content;
   }
 
   private async generateWithGemini(

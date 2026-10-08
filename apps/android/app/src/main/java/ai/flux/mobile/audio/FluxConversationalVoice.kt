@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 
-/** Turn-based FLUX voice: Android speech input, Cloudflare reasoning, FLUX ElevenLabs voice. */
+/** Turn-based FLUX voice: Android speech input, Core reasoning, FLUX voice. */
 class FluxConversationalVoice(
     private val context: Context,
     private val onSessionChanged: (Boolean) -> Unit,
