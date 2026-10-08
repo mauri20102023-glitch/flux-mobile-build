@@ -661,7 +661,6 @@ export class FluxState {
     const result = await this.env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
       prompt,
       steps: 8,
-      seed: Math.floor(Math.random() * 2_147_483_647),
     }) as { image?: string };
     if (!result.image) throw new FluxHttpError(503, "O modelo de imagem não retornou uma criação válida.");
     return json({
@@ -784,7 +783,7 @@ export class FluxState {
       },
       body: JSON.stringify({
         model: this.env.INWORLD_TEXT_MODEL || "openai/gpt-4o-mini",
-        max_tokens: mode === "FAST" ? 400 : mode === "STANDARD" ? 900 : 1_800,
+        max_tokens: mode === "FAST" ? 400 : mode === "STANDARD" ? 900 : 1_000,
         messages: [
           { role: "system", content: this.env.FLUX_SYSTEM_PROMPT?.trim() || DEFAULT_INSTRUCTIONS },
           ...history.map(({ role, content }) => ({ role, content })),
