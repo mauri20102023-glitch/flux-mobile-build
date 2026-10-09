@@ -48,6 +48,9 @@
         android:theme="@style/Theme.Flux">
         <service android:name=".vision.FluxScreenCaptureService" android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+        <activity android:name=".vision.FluxCaptureTriggerActivity" android:exported="false"
+            android:noHistory="true" android:excludeFromRecents="true" android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <service
             android:name="io.livekit.android.room.track.screencapture.ScreenCaptureService"
             tools:node="remove" />

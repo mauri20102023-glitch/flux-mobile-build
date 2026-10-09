@@ -116,7 +116,9 @@ class FluxScreenCaptureService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_flux_app)
             .setContentTitle("FLUX Vision").setContentText(message).setContentIntent(open).setOngoing(true)
-        if (captureAvailable) builder.addAction(Notification.Action.Builder(null, "Analisar agora", action(CAPTURE, 11)).build())
+        if (captureAvailable) builder.addAction(Notification.Action.Builder(null, "Analisar agora",
+            PendingIntent.getActivity(this, 11, Intent(this, FluxCaptureTriggerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
         builder.addAction(Notification.Action.Builder(null, "Encerrar", action(STOP, 12)).build())
         return builder.build()
     }
@@ -145,7 +147,7 @@ class FluxScreenCaptureService : Service() {
     override fun onDestroy() { handler.removeCallbacksAndMessages(null); releaseCapture(); scope.cancel(); super.onDestroy() }
     companion object {
         const val START = "ai.flux.vision.START"
-        private const val CAPTURE = "ai.flux.vision.CAPTURE"
+        const val CAPTURE = "ai.flux.vision.CAPTURE"
         private const val STOP = "ai.flux.vision.STOP"
         private const val CHANNEL = "flux_vision"
         private const val ID = 4201
