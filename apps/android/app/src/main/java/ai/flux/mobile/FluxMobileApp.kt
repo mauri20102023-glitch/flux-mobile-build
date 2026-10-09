@@ -480,7 +480,7 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
     Box(Modifier.size(size).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.fillMaxSize().graphicsLayer {
             val scale = 0.94f + breath * if (active) 0.1f else 0.03f
-            scaleX = scale; scaleY = scale
+            scaleX = scale + state.audioLevel * .06f; scaleY = scale + state.audioLevel * .06f
         }.clip(CircleShape).background(Brush.radialGradient(listOf(
             accent.copy(alpha = .22f), accent.copy(alpha = .09f), Color.Transparent))))
         Canvas(Modifier.fillMaxSize(.88f)) {
@@ -492,7 +492,7 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
                 for (step in 0..150) {
                     val angle = step / 150f * 2f * Math.PI.toFloat()
                     val wave = sin(angle * (2.7f + line * .11f) + line * .86f + breath * .9f)
-                    val radius = base + wave * (6f + line * 1.2f)
+                    val radius = base + wave * (6f + line * 1.2f + state.audioLevel * 15f)
                     val x = centerX + cos(angle) * radius
                     val y = centerY + sin(angle) * radius * (.84f + line * .01f)
                     if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)

@@ -4,6 +4,9 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Path
+import kotlin.math.sin
+import kotlin.math.cos
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
@@ -14,6 +17,8 @@ class FluxEnergyOrbView(context: Context) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var pulse = 0f
     private var active = false
+    private var audioLevel=0f
+    fun setAudioLevel(value:Float){audioLevel=value.coerceIn(0f,1f);invalidate()}
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 1500L
         repeatCount = ValueAnimator.INFINITE
@@ -49,24 +54,34 @@ class FluxEnergyOrbView(context: Context) : View(context) {
         paint.shader = null
         paint.color = Color.argb((35 + pulse * 35).toInt(), Color.red(accent), Color.green(accent), Color.blue(accent))
         canvas.drawCircle(cx, cy, base * (1.45f + pulse * 0.15f), paint)
-        paint.shader = RadialGradient(
-            cx, cy, base,
-            intArrayOf(Color.WHITE, accent, darken(accent), Color.TRANSPARENT),
-            floatArrayOf(0f, .22f, .68f, 1f),
-            Shader.TileMode.CLAMP,
-        )
-        canvas.drawCircle(cx, cy, base * if (active) 1.08f else 0.96f, paint)
+        paint.shader = RadialGradient(cx,cy,base*1.3f,intArrayOf(Color.argb(45,Color.red(accent),Color.green(accent),Color.blue(accent)),Color.TRANSPARENT),null,Shader.TileMode.CLAMP)
+        canvas.drawCircle(cx,cy,base*1.3f,paint)
+        paint.shader=null
+        paint.style=Paint.Style.STROKE
+        repeat(8){line->
+            val path=Path()
+            for(step in 0..120){
+                val angle=step/120f*2f*Math.PI.toFloat()
+                val radius=base+sin(angle*(2.7f+line*.11f)+line*.86f+pulse)*base*(.08f+audioLevel*.10f)
+                val x=cx+cos(angle)*radius;val y=cy+sin(angle)*radius*(.84f+line*.015f)
+                if(step==0)path.moveTo(x,y)else path.lineTo(x,y)
+            }
+            paint.color=Color.argb(80+line*18,Color.red(accent),Color.green(accent),Color.blue(accent));paint.strokeWidth=resources.displayMetrics.density*(if(line%3==0)1.4f else .8f)
+            canvas.drawPath(path,paint)
+        }
+        paint.style=Paint.Style.FILL
         paint.shader = null
     }
 
     private fun accentColor(): Int = when (
         context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE)
-            .getString("accent_key", "red")
+            .getString("accent_key", "blue")
     ) {
+        "blue" -> Color.rgb(0, 183, 255)
         "cyan" -> Color.rgb(0, 229, 255)
         "purple" -> Color.rgb(123, 97, 255)
         "gold" -> Color.rgb(255, 184, 64)
-        else -> Color.rgb(255, 48, 74)
+        else -> Color.rgb(0, 183, 255)
     }
 
     private fun darken(color: Int): Int = Color.rgb(

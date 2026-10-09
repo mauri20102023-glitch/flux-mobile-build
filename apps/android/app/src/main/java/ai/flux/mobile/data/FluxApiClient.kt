@@ -127,7 +127,7 @@ class FluxApiClient(
             val voiceStatus = root.optString("voice")
             val aiReady = (responseBody.optJSONObject("aiProfile") ?: responseBody.optJSONObject("localAi"))?.optBoolean("ready")
                 ?: (root.optString("ai") == "OK")
-            val voiceConfigured = voiceStatus == "OK" || voiceStatus == "FALLBACK"
+            val voiceConfigured = voiceStatus == "OK" || voiceStatus == "FALLBACK" || voiceStatus == "CREDITS_REQUIRED"
             DiagnosticsResult(
                 coreOk = root.optString("core") == "OK",
                 aiReady = aiReady,

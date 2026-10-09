@@ -33,6 +33,10 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
     var query by remember(section) { mutableStateOf("") }
     var consent by remember(section) { mutableStateOf(false) }
     var editing by remember(section) { mutableStateOf<String?>(null) }
+    var providerRead by remember(section) { mutableStateOf<Pair<String,JSONObject>?>(null) }
+    var pendingAction by remember(section) { mutableStateOf<ConnectAction?>(null) }
+    var actionResult by remember(section) { mutableStateOf<JSONObject?>(null) }
+    var selectedDevice by remember(section) { mutableStateOf("") }
     var kind by remember { mutableStateOf("study") }
     val scope = rememberCoroutineScope()
     suspend fun load() {
@@ -67,6 +71,11 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
             delay(8000)
             if(!busy) try { load() } catch(e:Exception) { if(e is CancellationException)throw e;error=e.message }
         }
+    }
+    pendingAction?.let { action ->
+        AlertDialog(onDismissRequest={pendingAction=null},title={Text("Confirmar comando")},text={Text(action.label+"? O comando será enviado à conta autorizada.")},confirmButton={TextButton(onClick={pendingAction=null;execute{
+            actionResult=app.api.workspace("/v1/connect/${action.provider}/action",JSONObject().put("action",action.command).put("deviceId",action.deviceId).put("confirm",true))
+        }}){Text("Enviar comando")}},dismissButton={TextButton(onClick={pendingAction=null}){Text("Cancelar")}})
     }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text("Workspace", style=MaterialTheme.typography.headlineMedium, modifier=Modifier.padding(start=22.dp,top=22.dp))
@@ -156,11 +165,37 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
                             Row(Modifier.horizontalScroll(rememberScrollState())) {
                                 TextButton(enabled=!busy,onClick={execute{val r=app.api.workspace("/v1/connect/$id/start",JSONObject());context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(r.getString("url"))))}}){Text("Autorizar")}
                                 TextButton(enabled=!busy&&p.optBoolean("connected"),onClick={execute{app.api.workspace("/v1/connect/$id/test",JSONObject());load()}}){Text("Testar")}
-                                TextButton(enabled=!busy&&p.optBoolean("connected"),onClick={execute{val r=app.api.workspace("/v1/connect/$id/read",JSONObject().put("query",query));error=null;content=r.toString(2)}}){Text("Consultar")}
+                                TextButton(enabled=!busy&&p.optBoolean("connected"),onClick={execute{val r=app.api.workspace("/v1/connect/$id/read",JSONObject().put("query",query));error=null;providerRead=id to r;content=if(id=="smartthings")"" else r.toString(2)}}){Text("Consultar")}
                                 TextButton(enabled=!busy&&p.optBoolean("connected"),onClick={execute{app.api.workspace("/v1/connect/$id/revoke",JSONObject());load()}}){Text("Revogar")}
+                            }
+                            if(id=="spotify"&&p.optBoolean("connected")) {
+                                Row(Modifier.horizontalScroll(rememberScrollState())) {listOf("play" to "Retomar","pause" to "Pausar","next" to "Próxima","previous" to "Anterior").forEach{(command,label)->
+                                    OutlinedButton(enabled=!busy,onClick={pendingAction=ConnectAction(id,command,label)},modifier=Modifier.padding(end=6.dp)){Text(label)}
+                                }}
+                                Text("Controle exige conta compatível e um dispositivo de reprodução ativo.",fontSize=11.sp)
+                            }
+                            if(id=="smartthings"&&p.optBoolean("connected")) {
+                                val devices=providerRead?.takeIf{it.first==id}?.second?.optJSONArray("items")
+                                for(j in 0 until(devices?.length()?:0)) {
+                                    val device=devices!!.getJSONObject(j);val uuid=device.optString("deviceId");val label=device.optString("label",device.optString("name"))
+                                    FilterChip(selectedDevice==uuid,{selectedDevice=uuid},label={Text(label)})
+                                    if(selectedDevice==uuid) {
+                                        val components=device.optJSONArray("components")
+                                        val caps=mutableSetOf<String>()
+                                        for(k in 0 until(components?.length()?:0)){val c=components!!.getJSONObject(k);if(c.optString("id")=="main"){val rows=c.optJSONArray("capabilities");for(n in 0 until(rows?.length()?:0))caps.add(rows!!.getJSONObject(n).optString("id"))}}
+                                        Row(Modifier.horizontalScroll(rememberScrollState())) {
+                                            listOf(Triple("switch","on","Ligar"),Triple("switch","off","Desligar"),Triple("mediaPlayback","play","Reproduzir"),Triple("mediaPlayback","pause","Pausar")).filter{it.first in caps}.forEach{(_,command,title)->
+                                                OutlinedButton(enabled=!busy,onClick={pendingAction=ConnectAction(id,command,title+" "+label,uuid)},modifier=Modifier.padding(end=6.dp)){Text(title)}
+                                            }
+                                        }
+                                        if(caps.intersect(setOf("switch","mediaPlayback")).isEmpty())Text("Nenhum controle compatível anunciado pelo dispositivo.",fontSize=11.sp)
+                                    }
+                                }
+                                Text("Toque em Consultar para listar os dispositivos autorizados. Abrir vídeo do YouTube na TV ainda não é suportado por este conector.",fontSize=11.sp)
                             }
                         }
                     }
+                    actionResult?.let{WorkspaceCard("Resposta da API",it.optString("message")){Text(it.optJSONObject("verification")?.toString(2)?.take(6000) ?: "Verificação de estado indisponível; confira no dispositivo.",fontSize=12.sp)}}
                     if(content.isNotBlank()) Text(content.take(12000),fontSize=12.sp)
                     val alternatives=result?.optJSONArray("alternatives")
                     for(i in 0 until (alternatives?.length()?:0)){val a=alternatives!!.getJSONObject(i);WorkspaceCard(a.optString("id"),a.optString("state")+" · "+a.optString("method")) {}}
@@ -208,7 +243,18 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
                     }
                     Text("Nenhuma compra ou recarga automática. Câmbio, impostos e taxas dependem da sua forma de pagamento.",fontSize=12.sp)
                 }
-                "Sistema" -> result?.let { Text(it.toString(2),fontSize=12.sp,lineHeight=20.sp) }
+                "Sistema" -> {
+                    Text("Command Center",style=MaterialTheme.typography.titleLarge)
+                    result?.let{status->
+                        Text("Versão "+status.optString("version"),fontSize=12.sp)
+                        Text(status.optString("warning"),fontSize=12.sp)
+                        val caps=status.optJSONArray("capabilities")
+                        for(i in 0 until(caps?.length()?:0)){val c=caps!!.getJSONObject(i);WorkspaceCard(c.optString("label"),c.optString("state")){
+                            c.optJSONObject("evidence")?.let{e->if(e.optString("detail").isNotBlank())Text(e.optString("detail"),fontSize=12.sp);if(e.optString("at").isNotBlank())Text("Último teste: "+e.optString("at"),fontSize=11.sp)}
+                            if(c.optString("nextAction").isNotBlank())Text(c.optString("nextAction"),fontSize=12.sp)
+                        }}
+                    }
+                }
                 "Builder" -> {
                     Text("Builder Lab",style=MaterialTheme.typography.titleLarge)
                     Text("Crie uma proposta de código como missão. Execução de testes em repositórios e implantação pelo FLUX ainda não implementadas. Produção não pode ser alterada por este módulo.")
@@ -227,3 +273,5 @@ private fun WorkspaceCard(title:String,detail:String,content:@Composable ColumnS
         Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Text(title,fontWeight=FontWeight.SemiBold);Text(detail,color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp);content()}
     }
 }
+
+private data class ConnectAction(val provider:String,val command:String,val label:String,val deviceId:String="")

@@ -268,6 +268,7 @@ class FluxViewModel(
         reconnect(showFailure = false)
     }
 
+    fun setAudioLevel(value: Float) = _state.update { it.copy(audioLevel=value.coerceIn(0f,1f)) }
     fun setVoiceConnecting(value: Boolean) = _state.update { it.copy(voiceConnecting = value) }
     fun setListening(value: Boolean) = _state.update {
         it.copy(isListening = value, voiceConnecting = false, voiceVerified = it.voiceVerified || value)
@@ -353,7 +354,7 @@ class FluxViewModel(
     }
 
     fun setAccentKey(value: String) {
-        val clean = value.takeIf { it in setOf("red", "cyan", "purple", "gold") } ?: "red"
+        val clean = value.takeIf { it in setOf("blue", "red", "cyan", "purple", "gold") } ?: "blue"
         workspace.setAccentKey(clean)
         _state.update { it.copy(accentKey = clean) }
     }

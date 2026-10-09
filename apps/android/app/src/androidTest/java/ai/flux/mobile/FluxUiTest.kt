@@ -5,6 +5,9 @@ import android.graphics.Canvas
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.Path
 import android.graphics.Color
+import android.content.ContentValues
+import android.provider.MediaStore
+import ai.flux.mobile.audio.fluxMicLevel
 import android.os.Environment
 import android.view.WindowManager
 import androidx.compose.ui.test.*
@@ -27,7 +30,14 @@ class FluxUiTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     @get:Rule val permissions=GrantPermissionRule.grant(android.Manifest.permission.RECORD_AUDIO,android.Manifest.permission.POST_NOTIFICATIONS)
     private val device get()=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-    private fun evidence(name:String){val context=compose.activity;val dir=File(context.getExternalFilesDir(null),"evidence");dir.mkdirs();device.takeScreenshot(File(dir,"$name.png"))}
+    private fun exportEvidence(name:String,bitmap:Bitmap){
+        val resolver=compose.activity.contentResolver
+        val values=ContentValues().apply{put(MediaStore.Images.Media.DISPLAY_NAME,"$name.png");put(MediaStore.Images.Media.MIME_TYPE,"image/png");put(MediaStore.Images.Media.RELATIVE_PATH,"Pictures/FLUX-evidence");put(MediaStore.Images.Media.IS_PENDING,1)}
+        val uri=checkNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values))
+        checkNotNull(resolver.openOutputStream(uri)).use{Assert.assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))}
+        resolver.update(uri,ContentValues().apply{put(MediaStore.Images.Media.IS_PENDING,0)},null,null)
+    }
+    private fun evidence(name:String){val bitmap=checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot());try{exportEvidence(name,bitmap)}finally{bitmap.recycle()}}
     @Before fun dismissOnboarding(){
         compose.waitForIdle()
         if(compose.onAllNodesWithText("AGORA NÃO").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithText("AGORA NÃO").performClick()
@@ -37,7 +47,9 @@ class FluxUiTest {
         compose.onNodeWithContentDescription("Abrir ajustes").performClick()
         compose.onNodeWithText("SISTEMA").assertExists()
         compose.onNodeWithText("APARÊNCIA").performScrollTo()
-        compose.onNodeWithTag("accent-cyan").performClick()
+        compose.onNodeWithTag("accent-cyan").performScrollTo().assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.accentKey()=="cyan"}
         Assert.assertEquals("cyan",(compose.activity.application as FluxApplication).workspace.accentKey())
         evidence("settings")
         compose.onNode(hasText("Workspace") and hasClickAction()).performClick()
@@ -74,8 +86,13 @@ class FluxUiTest {
             adaptive.background.setBounds(-64,-64,320,320);adaptive.background.draw(c)
             adaptive.foreground.setBounds(-64,-64,320,320);adaptive.foreground.draw(c)
             Assert.assertNotEquals(Color.WHITE,bitmap.getPixel(128,250))
-            File(dir,"icon-$name.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()
+            exportEvidence("icon-$name",bitmap);bitmap.recycle()
         }
+    }
+    @Test fun microphoneMeterIsBoundedAndDoesNotRequireStoredAudio(){
+        Assert.assertEquals(0f,fluxMicLevel(ByteArray(100)),.0001f)
+        Assert.assertEquals(1f,fluxMicLevel(byteArrayOf(-1,127,-1,127)),.0001f)
+        Assert.assertTrue(fluxMicLevel(byteArrayOf(0,1,0,1)) in 0f..1f)
     }
     @Test fun vaultIsProtectedAndDoesNotStorePlaintext(){
         ActivityScenario.launch(FluxVaultActivity::class.java).use{scenario->scenario.onActivity{activity->

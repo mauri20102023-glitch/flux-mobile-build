@@ -1,8 +1,8 @@
 /** Official OAuth clients; credentials are encrypted and never returned to clients/models. */
 import { EvolutionError, readBoundedObject } from './evolution.ts';
 type Store = { get<T>(key:string):Promise<T|undefined>; put<T>(key:string,value:T):Promise<void>; delete(key:string):Promise<boolean>; transaction<T>(fn:(s:Store)=>Promise<T>):Promise<T> };
-export type ConnectEnv = { FLUX_CONNECT_KEY?:string; FLUX_PUBLIC_URL?:string; GOOGLE_CLIENT_ID?:string; GOOGLE_CLIENT_SECRET?:string; SPOTIFY_CLIENT_ID?:string; CANVA_CLIENT_ID?:string; CANVA_CLIENT_SECRET?:string; GITHUB_CLIENT_ID?:string; GITHUB_CLIENT_SECRET?:string; BRAVE_API_KEY?:string };
-type Provider={id:string;name:string;authorize:string;token:string;scope:string;client:string;secret?:string;basic?:boolean;test:string;revoke?:string};
+export type ConnectEnv = { FLUX_CONNECT_KEY?:string; FLUX_PUBLIC_URL?:string; GOOGLE_CLIENT_ID?:string; GOOGLE_CLIENT_SECRET?:string; SPOTIFY_CLIENT_ID?:string; CANVA_CLIENT_ID?:string; CANVA_CLIENT_SECRET?:string; GITHUB_CLIENT_ID?:string; GITHUB_CLIENT_SECRET?:string; BRAVE_API_KEY?:string; MERCADOLIVRE_CLIENT_ID?:string; MERCADOLIVRE_CLIENT_SECRET?:string; SMARTTHINGS_CLIENT_ID?:string; SMARTTHINGS_CLIENT_SECRET?:string };
+type Provider={id:string;name:string;authorize:string;token:string;scope:string;client:string;secret?:string;basic?:boolean;pkce?:boolean;test:string;revoke?:string};
 const google=(id:string,name:string,scope:string,test:string):Provider=>({id,name,authorize:'https://accounts.google.com/o/oauth2/v2/auth',token:'https://oauth2.googleapis.com/token',scope,client:'GOOGLE_CLIENT_ID',secret:'GOOGLE_CLIENT_SECRET',test,revoke:'https://oauth2.googleapis.com/revoke'});
 export const CONNECTORS:Provider[]=[
  google('gmail','Gmail','https://www.googleapis.com/auth/gmail.readonly','https://gmail.googleapis.com/gmail/v1/users/me/profile'),
@@ -12,6 +12,8 @@ export const CONNECTORS:Provider[]=[
  google('youtube','YouTube','https://www.googleapis.com/auth/youtube.readonly','https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true'),
  {id:'spotify',name:'Spotify',authorize:'https://accounts.spotify.com/authorize',token:'https://accounts.spotify.com/api/token',scope:'user-read-private user-read-playback-state user-modify-playback-state playlist-read-private',client:'SPOTIFY_CLIENT_ID',test:'https://api.spotify.com/v1/me'},
  {id:'canva',name:'Canva',authorize:'https://www.canva.com/api/oauth/authorize',token:'https://api.canva.com/rest/v1/oauth/token',scope:'profile:read design:meta:read design:content:read',client:'CANVA_CLIENT_ID',secret:'CANVA_CLIENT_SECRET',basic:true,test:'https://api.canva.com/rest/v1/users/me'},
+ {id:'mercadolivre',name:'Mercado Livre',authorize:'https://auth.mercadolivre.com.br/authorization',token:'https://api.mercadolibre.com/oauth/token',scope:'read offline_access',client:'MERCADOLIVRE_CLIENT_ID',secret:'MERCADOLIVRE_CLIENT_SECRET',test:'https://api.mercadolibre.com/users/me'},
+ {id:'smartthings',name:'Samsung / SmartThings',authorize:'https://api.smartthings.com/oauth/authorize',token:'https://api.smartthings.com/oauth/token',scope:'r:devices:* x:devices:*',client:'SMARTTHINGS_CLIENT_ID',secret:'SMARTTHINGS_CLIENT_SECRET',basic:true,pkce:false,test:'https://api.smartthings.com/v1/devices'},
  {id:'github',name:'GitHub',authorize:'https://github.com/login/oauth/authorize',token:'https://github.com/login/oauth/access_token',scope:'read:user',client:'GITHUB_CLIENT_ID',secret:'GITHUB_CLIENT_SECRET',test:'https://api.github.com/user'},
 ];
 const out=(body:unknown,status=200)=>Response.json(body,{status,headers:{'cache-control':'no-store'}});
@@ -36,7 +38,7 @@ export class FluxConnect {
   if(u.pathname===base && request.method==='GET'){
    const providers=[];
    for(const p of CONNECTORS){const grant=await this.store.get('connect:grant:'+p.id);const evidence=await this.store.get('connect:evidence:'+p.id);const missing=[p.client,...(p.secret?[p.secret]:[]),'FLUX_CONNECT_KEY'].filter(k=>!this.value(k));providers.push({id:p.id,name:p.name,scope:p.scope,redirectUri:this.callback(p.id),state:grant?(evidence?'FUNCIONANDO':'PREPARADO'):'PREPARADO',connected:Boolean(grant),missing,evidence:evidence||null});}
-   return out({providers,alternatives:[{id:'whatsapp',state:'PREPARADO',method:'Android ACTION_SEND/wa.me; usuário confirma envio. API Business exige conta empresarial e configuração própria.'},{id:'instagram',state:'PREPARADO',method:'Compartilhamento oficial Android. Publicação automatizada exige conta profissional e revisão Meta; cliente API ainda em desenvolvimento.'},{id:'facebook',state:'EM DESENVOLVIMENTO',method:'Publicação via API exige página, OAuth e aprovação Meta.'},{id:'mercadolivre',state:'EM DESENVOLVIMENTO',method:'Cliente vendedor e OAuth ainda não implementados.'},{id:'cloudflare',state:'EM DESENVOLVIMENTO',method:'Builder deve usar executor com escopo e revisão; plugin do Codex não autoriza o FLUX.'},{id:'samsung',state:'EM DESENVOLVIMENTO',method:'Modelo/SmartThings e capacidades precisam ser identificados.'},{id:'health',state:'EM DESENVOLVIMENTO',method:'Health Connect ainda não implementado; relógio deve sincronizar dados autorizados.'}]});
+   return out({providers,alternatives:[{id:'whatsapp',state:'PREPARADO',method:'Android ACTION_SEND/wa.me; usuário confirma envio. API Business exige conta empresarial e configuração própria.'},{id:'instagram',state:'PREPARADO',method:'Compartilhamento oficial Android. Publicação automatizada exige conta profissional e revisão Meta; cliente API ainda em desenvolvimento.'},{id:'facebook',state:'EM DESENVOLVIMENTO',method:'Publicação via API exige página, OAuth e aprovação Meta.'},{id:'cloudflare',state:'EM DESENVOLVIMENTO',method:'Builder deve usar executor com escopo e revisão; plugin do Codex não autoriza o FLUX.'},{id:'health',state:'EM DESENVOLVIMENTO',method:'Health Connect ainda não implementado; relógio deve sincronizar dados autorizados.'}]});
   }
   const match=u.pathname.match(/^\/v1\/connect\/([a-z]+)\/(start|test|read|action|revoke)$/);
   if(!match || request.method!=='POST')return null;
@@ -45,7 +47,8 @@ export class FluxConnect {
    const missing=[p.client,...(p.secret?[p.secret]:[])].filter(k=>!this.value(k));if(missing.length)throw new EvolutionError(503,'Cadastre o aplicativo OAuth e configure no servidor: '+missing.join(', ')+'. Não envie segredos pelo chat.');
    await this.key();
    const state=random(),verifier=random();await this.store.put('connect:state:'+await digest(state),await this.encrypt('state',{provider:p.id,verifier,expires:Date.now()+600000}));
-   const authorize=new URL(p.authorize);authorize.search=new URLSearchParams({client_id:this.value(p.client),response_type:'code',redirect_uri:this.callback(p.id),scope:p.scope,state,code_challenge:await digest(verifier),code_challenge_method:'S256'}).toString();
+   const authorize=new URL(p.authorize);authorize.search=new URLSearchParams({client_id:this.value(p.client),response_type:'code',redirect_uri:this.callback(p.id),scope:p.scope,state}).toString();
+   if(p.pkce!==false){authorize.searchParams.set('code_challenge',await digest(verifier));authorize.searchParams.set('code_challenge_method','S256');}
    if(p.client==='GOOGLE_CLIENT_ID'){authorize.searchParams.set('access_type','offline');authorize.searchParams.set('prompt','consent');}
    return out({url:authorize.toString(),expiresIn:600});
   }
@@ -72,7 +75,7 @@ export class FluxConnect {
   if(pending.provider!==p.id||pending.expires<Date.now())throw new EvolutionError(400,'Autorização expirada ou de outro serviço.');
   if(u.searchParams.has('error'))throw new EvolutionError(400,'A autorização foi recusada no provedor. Nenhuma conta foi conectada.');
   const code=u.searchParams.get('code');if(!code||code.length>4096)throw new EvolutionError(400,'Código OAuth ausente.');
-  const grant=await this.exchange(p,{grant_type:'authorization_code',code,redirect_uri:this.callback(p.id),code_verifier:pending.verifier});await this.save(p.id,grant);
+  const grant=await this.exchange(p,{grant_type:'authorization_code',code,redirect_uri:this.callback(p.id),...(p.pkce!==false?{code_verifier:pending.verifier}:{})});await this.save(p.id,grant);
   return new Response('<!doctype html><meta name="viewport" content="width=device-width"><title>FLUX Connect</title><body style="background:#080d14;color:#e9f3fa;font:18px system-ui;padding:32px"><h1>Autorização recebida</h1><p>Volte ao FLUX e toque em Testar conexão. A conta só será marcada como validada depois da resposta real da API.</p></body>',{headers:{'content-type':'text/html;charset=utf-8','cache-control':'no-store','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'"}});
  }
  private async exchange(p:Provider,fields:Record<string,string>):Promise<Grant>{
@@ -100,12 +103,24 @@ export class FluxConnect {
    case 'youtube':return this.get('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q='+encodeURIComponent(query),token);
    case 'tasks':return this.get('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?maxResults=20',token);
    case 'github':return this.get('https://api.github.com/user/repos?per_page=10',token);
+   case 'smartthings':return this.get('https://api.smartthings.com/v1/devices',token);
+   case 'mercadolivre':return this.get('https://api.mercadolibre.com/users/me',token);
    case 'canva':return this.get('https://api.canva.com/rest/v1/designs',token);
    default:throw new EvolutionError(400,'Leitura não disponível.');
   }
  }
  private async action(p:Provider,token:string,body:Record<string,unknown>){
   if(body.confirm!==true)throw new EvolutionError(403,'Confirme explicitamente a ação antes de executá-la.');
+  if(p.id==='smartthings'){
+   const deviceId=String(body.deviceId||'');if(!/^[0-9a-f-]{36}$/i.test(deviceId))throw new EvolutionError(400,'Selecione um dispositivo válido retornado pelo SmartThings.');
+   const commands:Record<string,{capability:string;command:string}>={on:{capability:'switch',command:'on'},off:{capability:'switch',command:'off'},play:{capability:'mediaPlayback',command:'play'},pause:{capability:'mediaPlayback',command:'pause'}};
+   const selected=commands[String(body.action)];if(!selected)throw new EvolutionError(400,'Comando de dispositivo inválido.');
+   const device=await this.get('https://api.smartthings.com/v1/devices/'+deviceId,token);
+   if(!device.components?.some((c:{id:string;capabilities?:Array<{id:string}>})=>c.id==='main'&&c.capabilities?.some(cap=>cap.id===selected.capability)))throw new EvolutionError(409,'O dispositivo não anunciou esta capacidade; comando não enviado.');
+   const response=await this.network('https://api.smartthings.com/v1/devices/'+deviceId+'/commands',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({commands:[{component:'main',capability:selected.capability,command:selected.command,arguments:[]}]}),signal:AbortSignal.timeout(15000)});
+   if(!response.ok)throw new EvolutionError(502,`Comando não confirmado pelo SmartThings (${response.status}).`);
+   return {accepted:true,providerHttpStatus:response.status,deviceId,verification:await this.get('https://api.smartthings.com/v1/devices/'+deviceId+'/status',token).catch(()=>null),message:'API aceitou o comando. O estado retornado deve confirmar o resultado; não comprova exibição física de vídeo.'};
+  }
   if(p.id!=='spotify')throw new EvolutionError(400,'Ações externas deste serviço ainda não implementadas.');
   const op=String(body.action),allowed:Record<string,string>={pause:'pause',play:'play',next:'next',previous:'previous'};
   if(!allowed[op])throw new EvolutionError(400,'Comando de reprodução inválido.');

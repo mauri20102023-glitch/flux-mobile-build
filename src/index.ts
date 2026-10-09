@@ -457,15 +457,28 @@ export class FluxState {
     const capabilities: Array<Record<string, unknown>> = [];
     for (const [id, label] of [["text", "Chat"], ["vision", "Análise de imagem recebida"], ["image", "Geração de imagem"], ["voice", "Voz FLUX 4"]]) {
       const evidence = await this.state.storage.get<Record<string, unknown>>(`evolution:${id}-evidence`);
-      capabilities.push({ id, label, state: evidence?.state ?? "EM_DESENVOLVIMENTO", evidence: evidence ?? null });
+      capabilities.push({ id, label, state: evidence?.state === "PRECISA_DA_SUA_ACAO" ? "PREPARADO" : evidence?.state ?? "PREPARADO", evidence: evidence ?? null });
     }
     const memories = await this.evolution.memories(), missions = await this.evolution.missions();
     const memoryEvidence = await this.state.storage.get<Record<string, unknown>>("evolution:memory-evidence");
     capabilities.push({ id: "memory", label: "Memórias autorizadas", state: memoryEvidence?.state ?? "EM_DESENVOLVIMENTO", evidence: { ...memoryEvidence, count: memories.length, scope: "Dispositivos pareados do proprietário; não é cofre." } });
     const completed = missions.filter(item => item.status === "completed");
     capabilities.push({ id: "missions", label: "Missões textuais", state: completed.length ? "FUNCIONANDO" : "EM_DESENVOLVIMENTO", evidence: { completed: completed.length, failed: missions.filter(item => item.status === "failed").length, scope: "Geração de texto, sem ações externas." } });
-    for (const label of ["Barge-in Android", "Biometria e cofre", "Identidade vocal", "Handoff confirmado", "Builder executor", "Automações de notificações"]) capabilities.push({ label, state: "EM_DESENVOLVIMENTO", evidence: null });
-    for (const label of ["Google OAuth", "Spotify", "TV Samsung", "Relógio", "ClassApp / Geekie One"]) capabilities.push({ label, state: "PRECISA_DA_SUA_ACAO", evidence: null, nextAction: "Consultar matriz em docs/evolution; conector e teste real ainda pendentes." });
+    const catalog = await (await this.connect.route(new Request('https://flux.local/v1/connect'))!).json() as {providers:Array<Record<string,unknown>>};
+    for(const provider of catalog.providers)capabilities.push({id:provider.id,label:provider.name,state:provider.state,evidence:provider.evidence,nextAction:provider.connected?'Execute a leitura ou ação desejada e confira o resultado.':'Cadastre cliente OAuth no provedor, configure os segredos no servidor e autorize a conta no aplicativo.',missing:provider.missing});
+    for (const [label,detail] of [
+      ['Barge-in Android','WebRTC com AEC, VAD e interrupt_response preparado. Repetição acústica depende de créditos e aparelho físico.'],
+      ['Biometria e cofre','AES-256-GCM local, chave Android Keystore autenticada por operação. Teste com bloqueio/biometria real pendente; backup e autofill incompletos.'],
+      ['Imagem, PDF e câmera','Foto individual e primeiras três páginas de PDF. Análise do provedor testada; seleção e captura nativas precisam de teste no aparelho.'],
+      ['Research','Cliente Brave Search e limite persistente implementados. Falta chave e resposta real do serviço.'],
+      ['Captura MediaProjection','Uma captura por autorização, expiração e encerramento implementados; teste de consentimento físico pendente.']
+    ]) capabilities.push({label,state:'PREPARADO',evidence:null,nextAction:detail});
+    for (const [label,detail] of [
+      ['Identidade vocal','Cadastro e reconhecimento de locutor não implementados.'],['Handoff confirmado','Transferência com recebimento confirmado ainda não implementada.'],
+      ['Builder executor','Missões geram propostas de código; não executam repositórios, testes ou deployments.'],['Automações de notificações','Agendamento persistente e entrega de notificações ainda não implementados.'],
+      ['Relógio / Health Connect','Conector de saúde ainda não implementado; nenhum dado de saúde foi consultado.'],['ClassApp / Geekie One','Materiais autorizados podem ser compartilhados em Analisar. Sem login, leitura automática ou API escolar.'],
+      ['Visão contínua','Tela/câmera em quadros individuais; sem transmissão e compreensão contínua de vídeo.']
+    ])capabilities.push({label,state:'EM_DESENVOLVIMENTO',evidence:null,nextAction:detail});
     return json({ version: "2.0.0-professional-preview", checkedAt: new Date().toISOString(), capabilities, warning: "Evidência refere-se ao último teste, não garante disponibilidade futura. Nunca equivale a teste em dispositivo físico." });
   }
 

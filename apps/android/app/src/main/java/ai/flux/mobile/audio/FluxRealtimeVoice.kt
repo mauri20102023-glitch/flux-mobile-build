@@ -48,6 +48,9 @@ class FluxRealtimeVoice(
     private var pendingText: String? = null
     private var currentImage: String? = null
     private var contextNote = ""
+    private var levelListener: ((Float)->Unit)? = null
+    private var lastLevelAt=0L
+    override fun setAudioLevelListener(listener:(Float)->Unit) {levelListener=listener}
 
     override fun startSession() {
         if (active) return
@@ -72,7 +75,15 @@ class FluxRealtimeVoice(
                     }
                 }
                 audioModule = JavaAudioDeviceModule.builder(context.applicationContext)
-                    .setUseHardwareAcousticEchoCanceler(true).setUseHardwareNoiseSuppressor(true).createAudioDeviceModule()
+                    .setUseHardwareAcousticEchoCanceler(true).setUseHardwareNoiseSuppressor(true)
+                    .setSamplesReadyCallback { samples ->
+                        val now=android.os.SystemClock.elapsedRealtime()
+                        if(now-lastLevelAt>=100 && samples.audioFormat==android.media.AudioFormat.ENCODING_PCM_16BIT){
+                            lastLevelAt=now
+                            val level=fluxMicLevel(samples.data)
+                            scope.launch {if(active&&sessionEpoch==epoch)levelListener?.invoke(level)}
+                        }
+                    }.createAudioDeviceModule()
                 factory = PeerConnectionFactory.builder().setAudioDeviceModule(audioModule).createPeerConnectionFactory()
                 val ice = mutableListOf<PeerConnection.IceServer>()
                 val servers = config.optJSONArray("iceServers") ?: JSONArray()
@@ -235,6 +246,7 @@ class FluxRealtimeVoice(
         if (local) connection.setLocalDescription(callback, sdp) else connection.setRemoteDescription(callback, sdp)
     }
     override fun endSession() {
+        levelListener?.invoke(0f)
         active = false; ready = false; ++epoch
         connectionJob?.cancel(); visionJob?.cancel(); pendingText = null; currentImage = null; contextNote = ""
         channel?.unregisterObserver(); channel?.close(); channel?.dispose(); channel = null

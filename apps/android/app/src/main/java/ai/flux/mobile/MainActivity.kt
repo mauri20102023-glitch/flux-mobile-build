@@ -398,7 +398,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun voiceController(): FluxVoiceBridge = voice ?: createVoiceController().also { voice = it }
+    private fun voiceController(): FluxVoiceBridge = voice ?: createVoiceController().also { it.setAudioLevelListener(viewModel::setAudioLevel); voice = it }
 
     /**
      * O controlador de voz é carregado ao tocar no microfone, para que uma

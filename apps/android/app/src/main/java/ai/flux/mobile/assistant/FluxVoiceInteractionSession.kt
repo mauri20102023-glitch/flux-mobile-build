@@ -132,7 +132,7 @@ class FluxVoiceInteractionSession(
                 transcript.text = message
             }
         },
-    ).also { controller = it }
+    ).also { controller = it; it.setAudioLevelListener { level -> orb.setAudioLevel(level) } }
 
     private fun updateVisionState() {
         if (!visionRequested) return
@@ -305,12 +305,13 @@ class FluxVoiceInteractionSession(
     }
 
     private fun accentColor(): Int = when (
-        context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE).getString("accent_key", "red")
+        context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE).getString("accent_key", "blue")
     ) {
+        "blue" -> Color.rgb(0, 183, 255)
         "cyan" -> Color.rgb(0, 229, 255)
         "purple" -> Color.rgb(123, 97, 255)
         "gold" -> Color.rgb(255, 184, 64)
-        else -> Color.rgb(255, 48, 74)
+        else -> Color.rgb(0, 183, 255)
     }
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
