@@ -69,7 +69,8 @@ class FluxScreenCaptureService : Service() {
     }
 
     private fun capture() {
-        if (analyzing || reader == null) return
+        if (analyzing) return
+        if(reader==null){stopSelf();return}
         analyzing = true
         getSystemService(NotificationManager::class.java).notify(ID, notification("Capturando um quadro e analisando…", false))
         // Let the notification shade close before selecting the next real frame.

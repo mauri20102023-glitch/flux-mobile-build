@@ -244,6 +244,7 @@ class FluxApiClient(
         message: String,
         voice: Boolean,
         onDelta: (String) -> Unit,
+        mode: String = "STANDARD",
     ): ChatResult = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("conversationId", conversationId)

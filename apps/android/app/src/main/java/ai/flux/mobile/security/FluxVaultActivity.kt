@@ -4,6 +4,9 @@ import android.app.KeyguardManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import androidx.lifecycle.Lifecycle
 import android.os.CancellationSignal
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -32,6 +35,10 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** Local-only vault. Each decryption/encryption requires an authenticated Keystore operation. */
 class FluxVaultActivity : ComponentActivity() {
+    private val lockHandler=Handler(Looper.getMainLooper())
+    private val idleLock=Runnable { lock() }
+    private var authentication: CancellationSignal?=null
+    private var authEpoch=0
     private var entries by mutableStateOf<JSONArray?>(null)
     private var notice by mutableStateOf("Bloqueado. Autentique-se pelo Android.")
     private var service by mutableStateOf("")
@@ -94,9 +101,15 @@ class FluxVaultActivity : ComponentActivity() {
         val builder=BiometricPrompt.Builder(this).setTitle("FLUX Vault").setSubtitle("Autorize esta operação protegida no aparelho")
         if(Build.VERSION.SDK_INT>=30) builder.setAllowedAuthenticators(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG or android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
         else builder.setNegativeButton("Cancelar",mainExecutor){_,_->lock()}
-        builder.build().authenticate(BiometricPrompt.CryptoObject(cipher),CancellationSignal(),mainExecutor,object:BiometricPrompt.AuthenticationCallback(){
-            override fun onAuthenticationSucceeded(result:BiometricPrompt.AuthenticationResult){try{action(result.cryptoObject!!.cipher!!)}catch(e:Exception){lock();notice="A operação criptográfica falhou. Não remova o cofre se precisar recuperar seus dados."}}
-            override fun onAuthenticationError(code:Int,message:CharSequence){notice="Operação não autorizada: $message"}
+        authentication?.cancel()
+        val epoch=++authEpoch
+        val signal=CancellationSignal();authentication=signal
+        builder.build().authenticate(BiometricPrompt.CryptoObject(cipher),signal,mainExecutor,object:BiometricPrompt.AuthenticationCallback(){
+            override fun onAuthenticationSucceeded(result:BiometricPrompt.AuthenticationResult){
+                if(epoch!=authEpoch||!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))return
+                authentication=null
+                try{action(result.cryptoObject!!.cipher!!);armIdleLock()}catch(e:Exception){lock();notice="A operação criptográfica falhou. Não remova o cofre se precisar recuperar seus dados."}}
+            override fun onAuthenticationError(code:Int,message:CharSequence){if(epoch==authEpoch){authentication=null;notice="Operação não autorizada: $message"}}
         })
     }
     private fun unlock(){try{
@@ -115,6 +128,10 @@ class FluxVaultActivity : ComponentActivity() {
             entries=next;service="";username="";password="";notice="Credenciais guardadas de forma criptografada neste aparelho."
         }finally{plaintext.fill(0)}}
     }catch(e:Exception){notice="Não foi possível preparar a gravação criptografada."}}
-    private fun lock(){entries=null;service="";username="";password="";notice="Cofre bloqueado."}
-    override fun onStop(){lock();super.onStop()}
+    private fun armIdleLock(){lockHandler.removeCallbacks(idleLock);if(entries!=null)lockHandler.postDelayed(idleLock,60000)}
+    private fun clearPlaintext(){entries=null;service="";username="";password="";notice="Cofre bloqueado.";lockHandler.removeCallbacks(idleLock)}
+    private fun lock(){authEpoch++;authentication?.cancel();authentication=null;clearPlaintext()}
+    override fun onUserInteraction(){super.onUserInteraction();armIdleLock()}
+    override fun onStop(){clearPlaintext();super.onStop()}
+    override fun onDestroy(){lock();super.onDestroy()}
 }

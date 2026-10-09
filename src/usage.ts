@@ -1,7 +1,7 @@
 import { EvolutionError, readBoundedObject } from './evolution.ts';
 type Store={get<T>(key:string):Promise<T|undefined>;put<T>(key:string,value:T):Promise<void>;transaction<T>(fn:(s:Store)=>Promise<T>):Promise<T>};
-type Unit='textRequests'|'imageRequests'|'visionRequests'|'ttsCharacters'|'voiceOffers';
-const LIMITS:Record<Unit,number>={textRequests:3000,imageRequests:300,visionRequests:1000,ttsCharacters:1200000,voiceOffers:180};
+type Unit='textRequests'|'imageRequests'|'visionRequests'|'ttsCharacters'|'voiceOffers'|'searchRequests';
+const LIMITS:Record<Unit,number>={textRequests:3000,imageRequests:300,visionRequests:1000,ttsCharacters:1200000,voiceOffers:180,searchRequests:300};
 export class FluxUsage {
  constructor(private store:Store){}
  private month(){return new Date().toISOString().slice(0,7);}
@@ -28,9 +28,9 @@ export class FluxUsage {
   return Response.json({month:this.month(),budgetBrl:200,settings,estimateBrl:Math.round(estimateBrl*100)/100,
    alert:estimateBrl>200?'ESTIMATIVA ACIMA DO ORÇAMENTO':estimateBrl>160?'ATENÇÃO: reserva próxima ao orçamento':'ESTIMATIVA DENTRO DO ORÇAMENTO',
    observedGatewayAttempts:counts,routeLimits:LIMITS,
-   planning:{dailyConversationMinutes:60,days:30,assistantSpeakingFraction:.5,charactersPerSpeakingMinute:900,ttsCharacters:tts,inworldEstimatedUseUsd,inworldCreatorSubscriptionUsd:25,includedCreditUsd:25,cloudflareReserveUsd:7},
+   planning:{dailyConversationMinutes:60,days:30,assistantSpeakingFraction:.5,charactersPerSpeakingMinute:900,ttsCharacters:tts,inworldEstimatedUseUsd,inworldCreatorSubscriptionUsd:25,includedCreditUsd:25,cloudflareReserveUsd:7,braveSearchRequests:300,braveGrossUsd:1.5,braveIncludedMonthlyCreditUsd:5,braveNetPlanningUsd:0},
    hardCapGuaranteed:false,providerInvoiceAvailable:false,
    warning:'Contadores registram tentativas no Core, incluindo falhas. Não equivalem a fatura. WebRTC usa STT/TTS/LLM diretamente na Inworld, sem medição exata pelo Core. Os limites de rota não garantem teto de R$200. Desative auto-reload no provedor e confira Billing.',
-   priceDate:'2026-10-08',sources:['https://inworld.ai/pricing','https://inworld.ai/models','https://developers.cloudflare.com/workers-ai/platform/pricing/','https://ptax.bcb.gov.br/ptax_internet/consultarTodasAsMoedas.do?method=consultaTodasMoedas']},{headers:{'cache-control':'no-store'}});
+   priceDate:'2026-10-08',sources:['https://inworld.ai/pricing','https://inworld.ai/models','https://brave.com/search/api/','https://developers.cloudflare.com/workers-ai/platform/pricing/','https://ptax.bcb.gov.br/ptax_internet/consultarTodasAsMoedas.do?method=consultaTodasMoedas']},{headers:{'cache-control':'no-store'}});
  }
 }

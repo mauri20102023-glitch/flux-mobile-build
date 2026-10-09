@@ -1,3 +1,4 @@
+import { FluxResearch } from './research.ts';
 import { modelText } from './model-response.ts';
 import { FluxUsage } from "./usage.ts";
 import { FluxConnect, type ConnectEnv } from "./connect.ts";
@@ -234,8 +235,10 @@ export class FluxState {
   private readonly evolution: EvolutionWorkspace;
   private readonly connect: FluxConnect;
   private readonly usage: FluxUsage;
+  private readonly research: FluxResearch;
   constructor(private readonly state: DurableObjectState, private readonly env: Env) {
     this.usage = new FluxUsage(state.storage);
+    this.research = new FluxResearch(env.BRAVE_API_KEY, () => this.usage.reserve("searchRequests"));
     this.connect = new FluxConnect(state.storage, env);
     this.evolution = new EvolutionWorkspace(state.storage, prompt => this.generate("DEEP", [], prompt, crypto.randomUUID()));
   }
@@ -255,6 +258,8 @@ export class FluxState {
       if (!(await this.isAuthorized(request))) return json({ error: "UNAUTHORIZED" }, 401);
       const usageResponse = await this.usage.route(request);
       if (usageResponse) return usageResponse;
+      const researchResponse = await this.research.route(request);
+      if (researchResponse) return researchResponse;
       const connectResponse = await this.connect.route(request);
       if (connectResponse) return connectResponse;
       const evolutionResponse = await this.evolution.route(request);

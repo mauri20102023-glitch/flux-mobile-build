@@ -40,6 +40,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
         val loaded = when (requestedSection) {
             "Memória" -> app.api.workspace("/v1/memories")
             "Missões", "Estudar" -> app.api.workspace("/v1/missions")
+            "Pesquisar" -> app.api.workspace("/v1/research")
             "Conexões" -> app.api.workspace("/v1/connect")
             "Sistema" -> app.api.workspace("/v1/status")
             "Consumo" -> app.api.workspace("/v1/usage")
@@ -56,7 +57,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
     }
     LaunchedEffect(section, state.coreAuthConfigured) {
         result=null;error=null
-        if(section !in listOf("Criar","Segurança","Builder")) {
+        if(section !in listOf("Criar","Analisar","Segurança","Builder")) {
             if(!state.coreAuthConfigured) error="Pareie o aparelho em Ajustes para acessar este módulo."
             else try { busy=true; load() } catch(e:Exception) { if(e is CancellationException)throw e;error=e.message } finally {busy=false}
         }
@@ -71,7 +72,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
         Text("Workspace", style=MaterialTheme.typography.headlineMedium, modifier=Modifier.padding(start=22.dp,top=22.dp))
         Text("Suas ferramentas, um só lugar.", color=MaterialTheme.colorScheme.onSurfaceVariant, modifier=Modifier.padding(start=22.dp,top=4.dp,bottom=16.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=18.dp), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            listOf("Criar","Estudar","Memória","Missões","Conexões","Segurança","Consumo","Sistema","Builder").forEach {
+            listOf("Criar","Analisar","Estudar","Pesquisar","Memória","Missões","Conexões","Segurança","Consumo","Sistema","Builder").forEach {
                 FilterChip(selected=section==it,onClick={section=it},enabled=!busy,label={Text(it)})
             }
         }
@@ -80,6 +81,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
         if(section=="Criar") { LabScreen(state,onGenerate); return@Column }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(22.dp), verticalArrangement=Arrangement.spacedBy(14.dp)) {
             when(section) {
+                "Analisar" -> FluxAnalysisScreen()
                 "Memória" -> {
                     Text("Memórias autorizadas",style=MaterialTheme.typography.titleLarge)
                     Text("Armazenamento do proprietário pareado. Perfis de outras pessoas ainda não são suportados. Não guarde senhas aqui.",fontSize=12.sp)
@@ -122,6 +124,20 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
                             if(m.has("output")) Text(m.getString("output"),lineHeight=22.sp)
                             if(m.optString("status") in listOf("queued","running")) TextButton(enabled=!busy,onClick={execute{app.api.workspace("/v1/missions/"+m.getString("id")+"/cancel",JSONObject());load()}}){Text("Cancelar")}
                             if(m.has("error"))Text(m.optString("error"),color=MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+                "Pesquisar" -> {
+                    Text("Research",style=MaterialTheme.typography.titleLarge)
+                    Text("Pesquise informações atuais e veja as fontes. Os trechos são resultados do índice; não equivalem à leitura integral das páginas.",fontSize=12.sp)
+                    result?.optJSONArray("required")?.let{if(it.length()>0)Text("Ativação pendente no servidor: "+it.toString(),fontSize=12.sp)}
+                    OutlinedTextField(query,{query=it},label={Text("O que pesquisar?")},modifier=Modifier.fillMaxWidth())
+                    Button(enabled=query.isNotBlank()&&!busy,onClick={execute{result=app.api.workspace("/v1/research",JSONObject().put("query",query))}}){Text("Pesquisar com fontes")}
+                    val rows=result?.optJSONArray("results")
+                    for(i in 0 until(rows?.length()?:0)) {
+                        val r=rows!!.getJSONObject(i)
+                        WorkspaceCard(r.getString("title"),r.optString("excerpt")) {
+                            TextButton(onClick={context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(r.getString("url"))))}){Text("Abrir fonte")}
                         }
                     }
                 }
@@ -183,7 +199,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
                         val counts=usage.optJSONObject("observedGatewayAttempts") ?: JSONObject()
                         val limits=usage.optJSONObject("routeLimits") ?: JSONObject()
                         WorkspaceCard("Uso registrado no Core",usage.optString("month")) {
-                            listOf("textRequests" to "Respostas de texto","imageRequests" to "Imagens","visionRequests" to "Análises de tela","ttsCharacters" to "Caracteres de voz","voiceOffers" to "Sessões de voz").forEach{(key,label)->
+                            listOf("textRequests" to "Respostas de texto","imageRequests" to "Imagens","visionRequests" to "Análises de tela","ttsCharacters" to "Caracteres de voz","voiceOffers" to "Sessões de voz","searchRequests" to "Pesquisas").forEach{(key,label)->
                                 Text(label+": "+counts.optLong(key)+" / "+limits.optLong(key),fontSize=13.sp)
                                 LinearProgressIndicator(progress={ (counts.optDouble(key,0.0)/limits.optDouble(key,1.0)).toFloat().coerceIn(0f,1f) },modifier=Modifier.fillMaxWidth())
                             }
