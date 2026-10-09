@@ -192,13 +192,14 @@ class FluxViewModel(
     }
 
     fun pairWithCode(value: String) {
+        if (_state.value.isConnecting) return
         val code = value.trim()
         if (!Regex("^[A-Za-z0-9_-]{32}$").matches(code)) {
             reportError("O código de pareamento tem 32 caracteres. Confira e tente novamente.")
             return
         }
+        _state.update { it.copy(isConnecting = true, error = null) }
         viewModelScope.launch {
-            _state.update { it.copy(isConnecting = true, error = null) }
             runCatching {
                 val paired = api.redeemPairingCode(code)
                 connectionSettings.updateAuthToken(paired.deviceToken)
@@ -267,6 +268,7 @@ class FluxViewModel(
         reconnect(showFailure = false)
     }
 
+    fun setAudioLevel(value: Float) = _state.update { it.copy(audioLevel=value.coerceIn(0f,1f)) }
     fun setVoiceConnecting(value: Boolean) = _state.update { it.copy(voiceConnecting = value) }
     fun setListening(value: Boolean) = _state.update {
         it.copy(isListening = value, voiceConnecting = false, voiceVerified = it.voiceVerified || value)
@@ -352,7 +354,7 @@ class FluxViewModel(
     }
 
     fun setAccentKey(value: String) {
-        val clean = value.takeIf { it in setOf("red", "cyan", "purple", "gold") } ?: "red"
+        val clean = value.takeIf { it in setOf("blue", "red", "cyan", "purple", "gold") } ?: "blue"
         workspace.setAccentKey(clean)
         _state.update { it.copy(accentKey = clean) }
     }
@@ -479,6 +481,7 @@ class FluxViewModel(
                         else java.util.UUID.randomUUID().toString(),
                     message = pending.content,
                     voice = pending.voice,
+                    mode = workspace.intelligenceMode(),
                 )
             }.onSuccess { result ->
                 pendingChats.removeAll { it.messageId == pending.messageId }

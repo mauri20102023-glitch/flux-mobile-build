@@ -1,13 +1,13 @@
 {
   "name": "flux-core-edge",
-  "version": "1.8.0",
+  "version": "2.0.0-preview",
   "private": true,
   "type": "module",
   "scripts": {
     "embed:web": "node scripts/embed-web-assets.mjs",
     "deploy": "wrangler deploy",
     "check": "wrangler deploy --dry-run",
-    "test": "node --experimental-transform-types test/inworld.test.mjs"
+    "test": "node --experimental-transform-types --test test/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

@@ -31,10 +31,11 @@ android {
     defaultConfig {
         applicationId = System.getenv("FLUX_APPLICATION_ID").orEmpty().ifBlank { "ai.flux.mobile" }
         manifestPlaceholders["fluxAppLabel"] = System.getenv("FLUX_APP_LABEL").orEmpty().ifBlank { "FLUX" }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 28
         targetSdk = 35
-        versionCode = 37
-        versionName = "1.8.0"
+        versionCode = 40
+        versionName = "2.0.0-preview"
 
         buildConfigField("String", "FLUX_CORE_URL", buildConfigString(fluxCoreUrl))
     }
@@ -87,6 +88,7 @@ android {
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
+    androidTestImplementation(composeBom)
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
@@ -97,5 +99,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("io.github.webrtc-sdk:android:150.7871.01")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
 }

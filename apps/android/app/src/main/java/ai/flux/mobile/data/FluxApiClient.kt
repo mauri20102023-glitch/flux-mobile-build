@@ -49,6 +49,41 @@ class FluxApiClient(
     private val authToken: () -> String,
     private val deviceId: () -> String,
 ) {
+    suspend fun workspace(path: String, body: JSONObject? = null, method: String = if (body == null) "GET" else "POST"): JSONObject = withContext(Dispatchers.IO) {
+        require(path.startsWith("/v1/"))
+        val builder = request(path)
+        if (method == "GET") builder.get() else builder.method(method, if (method == "DELETE") null else json(body ?: JSONObject()))
+        executeWithRetry(builder.build(), 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            JSONObject(raw)
+        }
+    }
+
+    suspend fun realtimeConfig(): JSONObject = withContext(Dispatchers.IO) {
+        executeWithRetry(request("/v1/live/ice-servers").get().build(), 2).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            JSONObject(raw)
+        }
+    }
+
+    suspend fun realtimeOffer(sdp: String): String = withContext(Dispatchers.IO) {
+        executeWithRetry(request("/v1/live/offer").post(sdp.toRequestBody("application/sdp".toMediaType())).build(), 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            raw
+        }
+    }
+
+    suspend fun analyzeImage(image: String, prompt: String): String = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("image", image).put("prompt", prompt)
+        executeWithRetry(request("/v1/vision").post(json(body)).build(), 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            JSONObject(raw).getString("content")
+        }
+    }
     suspend fun redeemPairingCode(code: String): PairResult = withContext(Dispatchers.IO) {
         val id = deviceId()
         val body = JSONObject().apply {
@@ -92,7 +127,7 @@ class FluxApiClient(
             val voiceStatus = root.optString("voice")
             val aiReady = (responseBody.optJSONObject("aiProfile") ?: responseBody.optJSONObject("localAi"))?.optBoolean("ready")
                 ?: (root.optString("ai") == "OK")
-            val voiceConfigured = voiceStatus == "OK" || voiceStatus == "FALLBACK"
+            val voiceConfigured = voiceStatus == "OK" || voiceStatus == "FALLBACK" || voiceStatus == "CREDITS_REQUIRED"
             DiagnosticsResult(
                 coreOk = root.optString("core") == "OK",
                 aiReady = aiReady,
@@ -130,6 +165,7 @@ class FluxApiClient(
         message: String,
         voice: Boolean,
         context: String = "",
+        mode: String = "STANDARD",
     ): ChatResult = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("requestId", requestId)
@@ -137,6 +173,7 @@ class FluxApiClient(
             put("message", message)
             put("deviceId", deviceId())
             put("modality", if (voice) "VOICE" else "TEXT")
+            put("mode", mode)
             if (context.isNotBlank()) put("context", context.take(3_000))
         }
         val response = executeWithRetry(request("/v1/chat").post(json(body)).build(), maxAttempts = 4)
@@ -207,12 +244,14 @@ class FluxApiClient(
         message: String,
         voice: Boolean,
         onDelta: (String) -> Unit,
+        mode: String = "STANDARD",
     ): ChatResult = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("conversationId", conversationId)
             put("message", message)
             put("deviceId", deviceId())
             put("modality", if (voice) "VOICE" else "TEXT")
+            put("mode", mode)
         }
         val response = execute(request("/v1/chat/stream").post(json(body)).build())
         response.use {
@@ -303,7 +342,7 @@ class FluxApiClient(
                 if (continuation.isActive) continuation.resumeWithException(exception)
             }
             override fun onResponse(call: Call, response: Response) {
-                continuation.resume(response)
+                if (continuation.isActive) continuation.resume(response) else response.close()
             }
         })
     }

@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.8.0
+name: Build FLUX Mobile 2.0.0-preview
 
 on:
   workflow_dispatch:
@@ -25,6 +25,7 @@ jobs:
         run: |
           node --check web/flux-ath/app.js
           node --check web/flux-ath/sw.js
+          npm test
           npm run check
 
   signing-tools:
@@ -67,7 +68,9 @@ jobs:
       - name: Compile FLUX Voice APK
         working-directory: apps/android
         env:
-          FLUX_CORE_URL: "https://flux-mobile-build2.mauri20102023.workers.dev"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro"
+          FLUX_APP_LABEL: "FLUX"
+          FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Verify assistant recognition metadata in APK
@@ -87,30 +90,73 @@ jobs:
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.8.0.apk
-          sha256sum FLUX-Mobile-1.8.0.apk > FLUX-Mobile-1.8.0.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.0-preview.apk
+          sha256sum FLUX-Mobile-2.0.0-preview.apk > FLUX-Mobile-2.0.0-preview.sha256
 
       - name: Compile side-by-side APK for existing installs
         working-directory: apps/android
         env:
-          FLUX_CORE_URL: "https://flux-mobile-build2.mauri20102023.workers.dev"
-          FLUX_APPLICATION_ID: "ai.flux.mobile.next"
-          FLUX_APP_LABEL: "FLUX 1.8"
+          FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro.next"
+          FLUX_APP_LABEL: "FLUX"
         run: ./gradlew :app:assembleRelease --rerun-tasks --stacktrace
 
       - name: Prepare side-by-side APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.8.0-lado-a-lado.apk
-          sha256sum FLUX-Mobile-1.8.0-lado-a-lado.apk > FLUX-Mobile-1.8.0-lado-a-lado.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.0-preview-lado-a-lado.apk
+          sha256sum FLUX-Mobile-2.0.0-preview-lado-a-lado.apk > FLUX-Mobile-2.0.0-preview-lado-a-lado.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.8.0
+          name: FLUX-Mobile-2.0.0-preview
           path: |
-            FLUX-Mobile-1.8.0.apk
-            FLUX-Mobile-1.8.0.sha256
-            FLUX-Mobile-1.8.0-lado-a-lado.apk
-            FLUX-Mobile-1.8.0-lado-a-lado.sha256
+            FLUX-Mobile-2.0.0-preview.apk
+            FLUX-Mobile-2.0.0-preview.sha256
+            FLUX-Mobile-2.0.0-preview-lado-a-lado.apk
+            FLUX-Mobile-2.0.0-preview-lado-a-lado.sha256
           if-no-files-found: error
+          retention-days: 7
+
+  android-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro"
+      FLUX_APP_LABEL: "FLUX"
+      FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Compile instrumentation tests
+        working-directory: apps/android
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Boot and exercise Android UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/test-android-emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FLUX-Android-UI-evidence
+          path: |
+            android-evidence
+            apps/android/app/build/reports/androidTests
+            apps/android/app/build/outputs/androidTest-results
+          if-no-files-found: warn
           retention-days: 7

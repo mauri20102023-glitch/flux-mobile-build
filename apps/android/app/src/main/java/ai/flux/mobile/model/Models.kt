@@ -35,6 +35,7 @@ data class FluxUiState(
     val isResponding: Boolean = false,
     val isListening: Boolean = false,
     val voiceConnecting: Boolean = false,
+    val audioLevel: Float = 0f,
     val voiceVerified: Boolean = false,
     val networkAvailable: Boolean = true,
     val coreOnline: Boolean = false,

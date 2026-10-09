@@ -1,8 +1,23 @@
 package ai.flux.mobile
 
+import android.content.Intent
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -63,10 +78,10 @@ private val PulseRed: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 private val PulseRedDark: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.secondary
-private val Ink = Color(0xFF050B1B)
-private val Panel = Color(0xFF0B1630)
-private val PanelRaised = Color(0xFF122044)
-private val Line = Color(0xFF234574)
+private val Ink = Color(0xFF06090E)
+private val Panel = Color(0xFF10161F)
+private val PanelRaised = Color(0xFF192330)
+private val Line = Color(0xFF293744)
 private val White = Color(0xFFF4F6FA)
 private val Muted = Color(0xFF9BA2AD)
 private val Green = Color(0xFF52D27F)
@@ -77,7 +92,7 @@ private enum class FluxTab(val label: String, val icon: ImageVector) {
     CHAT("Chat", Icons.Default.ChatBubbleOutline),
     AGENDA("Planos", Icons.Default.CheckCircleOutline),
     DEVICES("Dispositivos", Icons.Default.Devices),
-    LAB("Laboratório", Icons.Default.Build),
+    LAB("Workspace", Icons.Default.Build),
     CONTROL("Ajustes", Icons.Default.Settings),
 }
 
@@ -105,7 +120,7 @@ fun FluxTheme(accentKey: String = "blue", content: @Composable () -> Unit) {
             error = Color(0xFFFF7D88),
         ),
         typography = Typography(
-            headlineLarge = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Black),
+            headlineLarge = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.SemiBold),
             headlineMedium = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             titleLarge = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             bodyLarge = MaterialTheme.typography.bodyLarge.copy(lineHeight = 23.sp),
@@ -159,16 +174,18 @@ fun FluxMobileApp(
 
     Scaffold(
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         bottomBar = { PulseNavigation(selected, {
             if (state.isListening || state.voiceConnecting) onStop() else onVoice()
         }) { selectedName = it.name } },
     ) { padding ->
         Box(
             Modifier.fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFF0A265D), Ink, Color(0xFF030716))))
+                .background(Brush.verticalGradient(listOf(Color(0xFF0B141C), Ink, Color(0xFF080B10))))
                 .padding(padding),
         ) {
-            when (selected) {
+            AnimatedContent(targetState = selected, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "Navegação") { currentTab ->
+            when (currentTab) {
                 FluxTab.HOME -> PulseHome(
                     state = state,
                     onVoice = { if (state.isListening || state.voiceConnecting) onStop() else onVoice() },
@@ -178,6 +195,7 @@ fun FluxMobileApp(
                     onStudio = { selectedName = FluxTab.LAB.name },
                     onDevices = { selectedName = FluxTab.DEVICES.name },
                     onSettings = { selectedName = FluxTab.CONTROL.name },
+                    onVision = onOpenVision,
                 )
                 FluxTab.CHAT -> PulseChat(state, onSend, onVoice, onStop) {
                     selectedName = FluxTab.CONTROL.name
@@ -188,13 +206,14 @@ fun FluxMobileApp(
                     onOpenInstagram, onOpenEmail, onOpenCalendar, onOpenCanva, onOpenDrive, onOpenYouTube,
                     onOpenSmartThings,
                 )
-                FluxTab.LAB -> LabScreen(state, onGenerateImage)
+                FluxTab.LAB -> FluxWorkspaceScreen(state, onGenerateImage) { message -> onSend(message); selectedName = FluxTab.CHAT.name }
                 FluxTab.CONTROL -> ControlScreen(
                     state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
                     onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
                     onGeminiKeyChange, onGeminiKeyClear,
                 )
+            }
             }
             AnimatedVisibility(
                 visible = state.error != null,
@@ -212,7 +231,7 @@ fun FluxMobileApp(
 
 @Composable
 private fun PulseNavigation(selected: FluxTab, onVoice: () -> Unit, onSelect: (FluxTab) -> Unit) {
-    NavigationBar(containerColor = Color(0xF2081532), tonalElevation = 0.dp) {
+    NavigationBar(containerColor = Color(0xF2091017), tonalElevation = 0.dp) {
         listOf(FluxTab.HOME, FluxTab.CHAT).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
         NavigationBarItem(
             selected = false,
@@ -223,12 +242,12 @@ private fun PulseNavigation(selected: FluxTab, onVoice: () -> Unit, onSelect: (F
                         Brush.radialGradient(listOf(Color(0xFFB7EFFF), PulseRed, Color(0xFF061A4D))), CircleShape,
                     ).border(1.dp, Color(0xFF54DCFF).copy(alpha = 0.65f), CircleShape),
                     contentAlignment = Alignment.Center,
-                ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.Black) }
+                ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.SemiBold) }
             },
             label = { Text("Voz", fontSize = 10.sp) },
             colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent, unselectedTextColor = Muted),
         )
-        listOf(FluxTab.AGENDA, FluxTab.CONTROL).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
+        listOf(FluxTab.LAB, FluxTab.CONTROL).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
     }
 }
 
@@ -248,113 +267,74 @@ private fun RowScope.PulseNavItem(selected: FluxTab, tab: FluxTab, onSelect: (Fl
 
 @Composable
 private fun PulseHome(
-    state: FluxUiState,
-    onVoice: () -> Unit,
-    onBriefing: () -> Unit,
-    onChat: () -> Unit,
-    onPlans: () -> Unit,
-    onStudio: () -> Unit,
-    onDevices: () -> Unit,
-    onSettings: () -> Unit,
+    state: FluxUiState, onVoice: () -> Unit, onBriefing: () -> Unit, onChat: () -> Unit,
+    onPlans: () -> Unit, onStudio: () -> Unit, onDevices: () -> Unit, onSettings: () -> Unit,
+    onVision: () -> Unit,
 ) {
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
-    LaunchedEffect(Unit) { while (true) { delay(30_000); now = LocalDateTime.now() } }
-    val online = state.coreOnline && state.coreAuthConfigured
-    val greeting = when (now.hour) { in 0..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
-    val lastReply = state.messages.lastOrNull { it.role == Role.FLUX }?.content
-    Column(
-        Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 18.dp),
-    ) {
+    val now = LocalDateTime.now()
+    val accent = MaterialTheme.colorScheme.primary
+    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())
+        .padding(horizontal = 24.dp, vertical = 22.dp).testTag("flux-home")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(43.dp).clip(RoundedCornerShape(13.dp))
-                    .background(Brush.linearGradient(listOf(PulseRed, PulseRedDark))),
-                contentAlignment = Alignment.Center,
-            ) { Text("F", fontSize = 24.sp, fontWeight = FontWeight.Black, color = White) }
-            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("SISTEMA PESSOAL", color = PulseRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.7.sp)
-                Text("Olá, Maurício", fontSize = 22.sp, fontWeight = FontWeight.Black)
+                Text("F L U X", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 6.sp)
+                Text("EXTREME INTELLIGENCE", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
             }
-            Box(Modifier.clickable(onClick = onSettings)) {
-                StatusPill(if (online) "ONLINE" else "CONECTAR", if (online) Green else Amber)
+            IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Abrir ajustes", tint = Muted) }
+        }
+        Spacer(Modifier.height(32.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(now.format(DateTimeFormatter.ofPattern("EEEE, dd MMM", Locale("pt", "BR"))).uppercase(), color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
+            Text(if (state.coreOnline && state.coreAuthConfigured) "● CORE CONECTADO" else "○ PAREAMENTO", color = if (state.coreOnline && state.coreAuthConfigured) accent else Amber, fontSize = 10.sp)
+        }
+        Spacer(Modifier.height(26.dp))
+        Text("Seu universo.\nUma inteligência.", fontSize = 35.sp, lineHeight = 40.sp, fontWeight = FontWeight.Light, letterSpacing = (-1).sp)
+        Text("Boa ${if (now.hour < 12) "manhã" else if (now.hour < 18) "tarde" else "noite"}, Maurício.", color = Muted, modifier = Modifier.padding(top = 12.dp))
+        Box(Modifier.fillMaxWidth().height(285.dp), contentAlignment = Alignment.Center) {
+            FluxOrb(state, 270.dp, onVoice)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            StatusPill(presenceLabel(state), accent)
+        }
+        Text("Voz FLUX 4 · ativa após liberação de créditos", color = Muted, fontSize = 11.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 24.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            HomeQuickAction(Icons.Default.ChatBubbleOutline, "Conversar", onChat, Modifier.weight(1f))
+            HomeQuickAction(Icons.Default.CenterFocusStrong, "Ver tela", onVision, Modifier.weight(1f))
+            HomeQuickAction(Icons.Default.AutoAwesome, "Criar", onStudio, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(28.dp))
+        SectionLabel("SEU DIA, COM CLAREZA")
+        HomeAction(Icons.Default.WbSunny, "Briefing pessoal", "Agenda, clima e seus próximos passos", onBriefing)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Surface(Modifier.weight(1f).clickable(onClick = onPlans), color = Panel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Line)) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("${state.tasks.count { !it.completed }}", fontSize = 32.sp, fontWeight = FontWeight.Light, color = accent)
+                    Text("Tarefas abertas", color = Muted, fontSize = 12.sp)
+                }
+            }
+            Surface(Modifier.weight(1f).clickable(onClick = onDevices), color = Panel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Line)) {
+                Column(Modifier.padding(18.dp)) { Icon(Icons.Default.Devices, null, tint = accent); Spacer(Modifier.height(10.dp)); Text("Conexões", color = Muted, fontSize = 12.sp) }
             }
         }
         Spacer(Modifier.height(18.dp))
-        Surface(
-            color = Panel,
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, Line),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                Modifier.background(Brush.linearGradient(listOf(Color(0xFF0A2C73), Panel, Color(0xFF091029))))
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(if (state.voiceVerified) "●  FLUX LIVE" else "●  FLUX",
-                    color = if (state.voiceVerified) Green else PulseRed,
-                    fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
-                Spacer(Modifier.height(16.dp))
-                Text("$greeting, Maurício.", color = White, fontSize = 30.sp,
-                    lineHeight = 34.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    when {
-                        state.voiceConfigured && state.wakeWordEnabled -> "Diga ‘Flux’ ou toque no núcleo para conversar."
-                        state.voiceConfigured -> "Toque no núcleo para conversar por voz."
-                        else -> "Configure a voz nos Ajustes para conversar."
-                    },
-                    color = Muted, textAlign = TextAlign.Center, lineHeight = 20.sp,
-                )
-                Spacer(Modifier.height(24.dp))
-                FluxOrb(state, 224.dp, onVoice)
-                Spacer(Modifier.height(15.dp))
-                Text(presenceLabel(state).uppercase(), color = Muted,
-                    fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
-                Spacer(Modifier.height(22.dp))
-                Button(
-                    onClick = onBriefing,
-                    shape = RoundedCornerShape(13.dp),
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                ) { Text("✦   ME ATUALIZE AGORA", fontWeight = FontWeight.Black, letterSpacing = 1.sp) }
-                Spacer(Modifier.height(10.dp))
-                OutlinedAction("ABRIR CHAT", Icons.Default.ChatBubbleOutline, onChat)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        HomePanel("PANORAMA DO DIA", "O que importa agora") {
-            Text("${state.tasks.count { !it.completed }} tarefas em aberto", color = White, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(5.dp))
-            Text(state.calendarHeadline, color = Muted, fontSize = 12.sp)
-            Text(state.weatherHeadline, color = Muted, fontSize = 12.sp)
-            Spacer(Modifier.height(12.dp))
-            HomeAction(Icons.Default.CheckCircleOutline, "Ouvir seu resumo", "Tarefas e projetos, com dados reais", onBriefing)
-        }
-        Spacer(Modifier.height(12.dp))
-        HomePanel("AGORA", "Seu centro de comando") {
-            Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), fontSize = 39.sp, fontWeight = FontWeight.Light)
-            Text(now.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale("pt", "BR"))), color = Muted)
-            Text("${state.tasks.count { !it.completed }} tarefa(s) em aberto", color = Muted, fontSize = 12.sp)
-            Spacer(Modifier.height(12.dp))
-            HomeAction(Icons.Default.CheckCircleOutline, "Planos", "Organize suas tarefas", onPlans)
-        }
-        Spacer(Modifier.height(12.dp))
-        HomePanel("CONVERSA", "Último contato") {
-            Text(if (lastReply == null) "Nenhuma conversa ainda."
-                 else "“${lastReply.take(160)}${if (lastReply.length > 160) "…" else ""}”",
-                fontSize = 18.sp, lineHeight = 25.sp)
-            Spacer(Modifier.height(12.dp))
-            HomeAction(Icons.Default.ChatBubbleOutline, "Ver chat", "Continue a conversa", onChat)
-        }
-        Spacer(Modifier.height(12.dp))
-        HomePanel("ECOSSISTEMA", "Presença FLUX") {
-            HomeAction(Icons.Default.PhoneAndroid, "Este dispositivo", if (online) "Conectado ao Core" else "Configure a conexão", onDevices)
-            Spacer(Modifier.height(8.dp))
-            HomeAction(Icons.Default.Image, "FLUX Studio", "Criar imagens pelo Core", onStudio)
+        state.messages.lastOrNull { it.role == Role.FLUX }?.let {
+            Text("CONTINUE DE ONDE PAROU", color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
+            Text(it.content.take(160), color = White, fontSize = 14.sp, lineHeight = 22.sp,
+                modifier = Modifier.padding(top = 8.dp).clickable(onClick = onChat))
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun HomeQuickAction(icon: ImageVector, title: String, onClick: () -> Unit, modifier: Modifier) {
+    Surface(modifier.clickable(onClick = onClick), color = PanelRaised, shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Line)) {
+        Column(Modifier.padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
+            Text(title, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }
 
@@ -395,6 +375,8 @@ private fun PulseChat(
     onStop: () -> Unit,
     onActivate: () -> Unit,
 ) {
+    val app=LocalContext.current.applicationContext as FluxApplication
+    var mode by remember { mutableStateOf(app.workspace.intelligenceMode()) }
     var draft by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
     val focus = LocalFocusManager.current
@@ -403,6 +385,11 @@ private fun PulseChat(
     }
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         PulseHeader(state)
+        Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            listOf("FAST" to "Rápido","STANDARD" to "Padrão","DEEP" to "Profundo").forEach{(id,label)->
+                FilterChip(selected=mode==id,onClick={mode=id;app.workspace.setIntelligenceMode(id)},enabled=!state.isResponding,label={Text(label)})
+            }
+        }
         if (state.activationRequired && state.coreOnline) ActivationStrip(onActivate)
         if (state.messages.isEmpty()) {
             EmptyPulse(state, onVoice, onStop, Modifier.weight(1f))
@@ -446,10 +433,10 @@ private fun PulseHeader(state: FluxUiState) {
             Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
                 .background(Brush.linearGradient(listOf(PulseRed, PulseRedDark))),
             contentAlignment = Alignment.Center,
-        ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.Black) }
+        ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.SemiBold) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Olá, Maurício", fontSize = 21.sp, fontWeight = FontWeight.Black)
+            Text("Olá, Maurício", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
             Text("FLUX • ${BuildConfig.VERSION_NAME}", fontSize = 10.sp, color = Muted, letterSpacing = 1.2.sp)
         }
         StatusPill(
@@ -490,13 +477,13 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
         label = "Respiração",
     )
     val active = state.isListening || state.voiceConnecting || state.isResponding
-    val accent = if (!state.networkAvailable) Muted else Color(0xFF169FFF)
+    val accent = if (!state.networkAvailable) Muted else MaterialTheme.colorScheme.primary
     Box(Modifier.size(size).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.fillMaxSize().graphicsLayer {
             val scale = 0.94f + breath * if (active) 0.1f else 0.03f
-            scaleX = scale; scaleY = scale
+            scaleX = scale + state.audioLevel * .06f; scaleY = scale + state.audioLevel * .06f
         }.clip(CircleShape).background(Brush.radialGradient(listOf(
-            Color(0xFF135EFF).copy(alpha = .34f), accent.copy(alpha = .09f), Color.Transparent))))
+            accent.copy(alpha = .22f), accent.copy(alpha = .09f), Color.Transparent))))
         Canvas(Modifier.fillMaxSize(.88f)) {
             val centerX = this.size.width / 2f
             val centerY = this.size.height / 2f
@@ -506,12 +493,12 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
                 for (step in 0..150) {
                     val angle = step / 150f * 2f * Math.PI.toFloat()
                     val wave = sin(angle * (2.7f + line * .11f) + line * .86f + breath * .9f)
-                    val radius = base + wave * (6f + line * 1.2f)
+                    val radius = base + wave * (6f + line * 1.2f + state.audioLevel * 15f)
                     val x = centerX + cos(angle) * radius
                     val y = centerY + sin(angle) * radius * (.84f + line * .01f)
                     if (step == 0) path.moveTo(x, y) else path.lineTo(x, y)
                 }
-                drawPath(path, color = Color(0xFF13A7FF).copy(alpha = .24f + line * .046f),
+                drawPath(path, color = accent.copy(alpha = .24f + line * .046f),
                     style = Stroke(width = if (line % 3 == 0) 2.4f else 1.2f))
             }
         }
@@ -592,7 +579,7 @@ private fun MessageBubble(message: UiMessage) {
 private fun ThinkingBubble() {
     Surface(color = PanelRaised, shape = RoundedCornerShape(5.dp, 18.dp, 18.dp, 18.dp), border = BorderStroke(1.dp, Line)) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("FLUX", color = PulseRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            Text("FLUX", color = PulseRed, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.width(10.dp))
             Text("Pensando…", color = Muted)
         }
@@ -613,7 +600,7 @@ private fun Composer(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag("chat-input"),
             enabled = enabled,
             placeholder = { Text("Fale com o FLUX…", color = Muted) },
             maxLines = 4,
@@ -776,7 +763,25 @@ private fun DevicesScreen(
 }
 
 @Composable
-private fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
+internal fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
+    val context=LocalContext.current
+    val scope=rememberCoroutineScope()
+    var exportBusy by remember { mutableStateOf(false) }
+    var exportNotice by remember { mutableStateOf<String?>(null) }
+    var pendingExport by remember { mutableStateOf<String?>(null) }
+    val saveImage=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        val encoded=pendingExport;pendingExport=null
+        if(uri!=null&&encoded!=null)scope.launch {
+            exportBusy=true
+            try { withContext(Dispatchers.IO) {
+                val bytes=Base64.decode(encoded,Base64.DEFAULT)
+                val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size) ?: error("Imagem inválida")
+                try { context.contentResolver.openOutputStream(uri)?.use{check(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))} ?: error("Destino indisponível") } finally {bitmap.recycle()}
+            };exportNotice="Imagem salva no local escolhido." }
+            catch(e:Exception){if(e is kotlinx.coroutines.CancellationException)throw e;exportNotice="Não foi possível salvar a imagem."}
+            finally {exportBusy=false}
+        }
+    }
     var imagePrompt by rememberSaveable { mutableStateOf("") }
     val generated = remember(state.generatedImageBase64) {
         state.generatedImageBase64?.let { encoded ->
@@ -802,11 +807,11 @@ private fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
             if (state.imageGenerating) {
                 CircularProgressIndicator(Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
                 Spacer(Modifier.width(9.dp))
-                Text("CRIANDO…", fontWeight = FontWeight.Black)
+                Text("CRIANDO…", fontWeight = FontWeight.SemiBold)
             } else {
                 Icon(Icons.Default.Image, null)
                 Spacer(Modifier.width(9.dp))
-                Text("GERAR IMAGEM", fontWeight = FontWeight.Black)
+                Text("GERAR IMAGEM", fontWeight = FontWeight.SemiBold)
             }
         }
         generated?.let { image ->
@@ -820,6 +825,27 @@ private fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
                 )
             }
         }
+        if(generated!=null) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(enabled=!exportBusy,onClick={pendingExport=state.generatedImageBase64;saveImage.launch("FLUX-"+System.currentTimeMillis()+".png")},modifier=Modifier.weight(1f)) { Text("Salvar imagem") }
+                OutlinedButton(enabled=!exportBusy,onClick={
+                    val encoded=state.generatedImageBase64 ?: return@OutlinedButton
+                    scope.launch { exportBusy=true; try {
+                        val file=withContext(Dispatchers.IO){
+                            val dir=File(context.cacheDir,"creations").apply{mkdirs()}
+                            dir.listFiles()?.filter{System.currentTimeMillis()-it.lastModified()>86400000}?.forEach{it.delete()}
+                            val bytes=Base64.decode(encoded,Base64.DEFAULT);val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size) ?: error("Imagem inválida")
+                            val f=File(dir,"FLUX-"+System.currentTimeMillis()+".png")
+                            try{f.outputStream().use{check(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))}}finally{bitmap.recycle()};f
+                        }
+                        val uri=FileProvider.getUriForFile(context,context.packageName+".files",file)
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM,uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),"Compartilhar criação"))
+                        exportNotice="Escolha o aplicativo e confirme o compartilhamento."
+                    }catch(e:Exception){if(e is kotlinx.coroutines.CancellationException)throw e;exportNotice="Não foi possível preparar o compartilhamento."}finally{exportBusy=false} }
+                },modifier=Modifier.weight(1f)) { Text("Compartilhar") }
+            }
+        }
+        exportNotice?.let{Text(it,color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=10.dp))}
         Spacer(Modifier.height(24.dp))
         SectionLabel("DIAGNÓSTICO")
         SystemStatus("FLUX Core", state.coreOnline, if (state.coreOnline) "Diagnóstico respondeu" else "Conecte em Ajustes")
@@ -851,6 +877,9 @@ private fun ControlScreen(
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
     var pairCode by remember { mutableStateOf("") }
+    LaunchedEffect(state.coreAuthConfigured, state.isConnecting, state.error) {
+        if (state.coreAuthConfigured && !state.isConnecting && state.error == null) pairCode = ""
+    }
 
     ScreenScroll("SISTEMA", "Conexão, inteligência, voz e privacidade.") {
         SectionLabel("STATUS AO VIVO")
@@ -914,13 +943,13 @@ private fun ControlScreen(
         )
         Spacer(Modifier.height(10.dp))
         PrimaryButton(if (state.coreAuthConfigured) "PAREAR NOVAMENTE" else "PAREAR APARELHO", Icons.Default.Link) {
-            onPairCode(pairCode)
+            if (!state.isConnecting) onPairCode(pairCode)
         }
 
         Spacer(Modifier.height(22.dp))
         SectionLabel("INTELIGÊNCIA E VOZ")
         Text(
-            "O Core usa a Inworld para inteligência e a voz FLUX 4. A conversa no Android é por turnos e reabre o microfone após cada resposta.",
+            "Esta avaliação usa Cloudflare Workers AI para texto e Vision e mantém a voz FLUX 4 na Inworld, que exige créditos. Esta versão de avaliação usa áudio WebRTC simultâneo. Interrupção por fala e cancelamento de eco precisam ser validados neste aparelho.",
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,
@@ -1003,7 +1032,7 @@ private fun SystemStatus(name: String, online: Boolean, detail: String) {
             Text(name, fontWeight = FontWeight.Bold)
             Text(detail, color = Muted, fontSize = 12.sp)
         }
-        Text(if (online) "OK" else "PENDENTE", color = if (online) Green else PulseRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Text(if (online) "OK" else "PENDENTE", color = if (online) Green else PulseRed, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -1087,7 +1116,7 @@ private fun AccentSelector(selected: String, onSelect: (String) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         accents.forEach { (key, color) ->
             Box(
-                Modifier.size(52.dp)
+                Modifier.size(52.dp).testTag("accent-" + key)
                     .clip(CircleShape)
                     .background(color)
                     .border(if (selected == key) 4.dp else 1.dp, if (selected == key) White else Line, CircleShape)
@@ -1172,7 +1201,7 @@ private fun StatusPill(label: String, color: Color) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(7.dp).background(color, CircleShape))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = color, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text(label, color = color, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

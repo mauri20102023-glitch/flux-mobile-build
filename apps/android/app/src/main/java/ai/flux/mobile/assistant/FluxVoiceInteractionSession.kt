@@ -21,7 +21,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import ai.flux.mobile.audio.FluxVoiceBridge
-import ai.flux.mobile.audio.FluxConversationalVoice
+import ai.flux.mobile.audio.FluxRealtimeVoice
 
 /** Native bottom-sheet assistant, similar to Android's contextual assistant surface. */
 class FluxVoiceInteractionSession(
@@ -82,7 +82,7 @@ class FluxVoiceInteractionSession(
         screenshotReceived = screenshot != null
         if (screenshot != null) {
             screenshotView.setImageBitmap(screenshot)
-            screenshotView.visibility = View.VISIBLE
+            screenshotView.visibility = View.GONE
             if (visionRequested) {
                 visionSummaryRequested = true
                 voice().sendScreenFrame(
@@ -108,7 +108,7 @@ class FluxVoiceInteractionSession(
         super.onDestroy()
     }
 
-    private fun voice(): FluxVoiceBridge = controller ?: FluxConversationalVoice(
+    private fun voice(): FluxVoiceBridge = controller ?: FluxRealtimeVoice(
         context = context,
         onSessionChanged = { connected ->
             context.mainExecutor.execute {
@@ -128,15 +128,16 @@ class FluxVoiceInteractionSession(
         onError = { message ->
             context.mainExecutor.execute {
                 status.text = "Falha de conexão"
+                if (!visionRequested) transcript.visibility = View.VISIBLE
                 transcript.text = message
             }
         },
-    ).also { controller = it }
+    ).also { controller = it; it.setAudioLevelListener { level -> orb.setAudioLevel(level) } }
 
     private fun updateVisionState() {
         if (!visionRequested) return
         status.text = when {
-            screenshotReceived -> "Imagem capturada • contexto visual disponível"
+            screenshotReceived -> "Captura recebida • análise ainda não confirmada"
             visibleText.isNotBlank() -> "Texto da tela recebido • pode perguntar"
             else -> "Aguardando conteúdo da tela…"
         }
@@ -239,6 +240,21 @@ class FluxVoiceInteractionSession(
             else voice().sendUserMessage("Traduza para português brasileiro o texto visível nesta tela.")
         }, weighted())
         panel.addView(actions, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(10) })
+        if (!visionRequested) {
+            // Wake activation displays only the sphere; Vision keeps its compact action sheet.
+            root.setBackgroundColor(Color.TRANSPARENT)
+            panel.background = null
+            panel.gravity = Gravity.CENTER
+            top.gravity = Gravity.CENTER
+            orb.layoutParams = LinearLayout.LayoutParams(dp(144), dp(144))
+            orb.contentDescription = "FLUX ativo. Toque para fechar."
+            orb.setOnClickListener { hide() }
+            titleBox.visibility = View.GONE
+            close.visibility = View.GONE
+            transcript.visibility = View.GONE
+            inputRow.visibility = View.GONE
+            actions.visibility = View.GONE
+        }
         return root
     }
 
@@ -289,12 +305,13 @@ class FluxVoiceInteractionSession(
     }
 
     private fun accentColor(): Int = when (
-        context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE).getString("accent_key", "red")
+        context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE).getString("accent_key", "blue")
     ) {
+        "blue" -> Color.rgb(0, 183, 255)
         "cyan" -> Color.rgb(0, 229, 255)
         "purple" -> Color.rgb(123, 97, 255)
         "gold" -> Color.rgb(255, 184, 64)
-        else -> Color.rgb(255, 48, 74)
+        else -> Color.rgb(0, 183, 255)
     }
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()

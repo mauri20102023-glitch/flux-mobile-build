@@ -62,6 +62,9 @@ class FluxLocalWorkspace(context: Context) {
         preferences.edit().putString("projects", array.toString()).apply()
     }
 
+    fun intelligenceMode(): String = preferences.getString("intelligence_mode", "STANDARD").orEmpty().takeIf { it in listOf("FAST","STANDARD","DEEP") } ?: "STANDARD"
+    fun setIntelligenceMode(mode: String) { require(mode in listOf("FAST","STANDARD","DEEP")); preferences.edit().putString("intelligence_mode",mode).apply() }
+
     fun memoryEnabled(): Boolean = preferences.getBoolean("memory_enabled", true)
     fun moderateProactivity(): Boolean = preferences.getBoolean("moderate_proactivity", true)
     // Hands-free is the primary FLUX experience. The first launch asks for the
