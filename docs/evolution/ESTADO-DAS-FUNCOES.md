@@ -1,61 +1,69 @@
-# Estado das funções — FLUX Evolution
+# Estado das funções — FLUX 2.0 profissional
 
-FUNCIONANDO exige evidência no ambiente indicado; implementação compilada não comprova hardware. Esta matriz inicial será complementada pelos resultados reais em TESTES.md.
+8/10/2026, horário de São Paulo. FUNCIONANDO só vale para o escopo e ambiente descritos. PREPARADO significa código compilado/testado localmente aguardando configuração ou validação real; não equivale a integração externa validada. EM DESENVOLVIMENTO contém trabalho técnico restante. Não há declaração de entrega integral.
 
-| Função | Estado inicial | Falta / evidência necessária |
+| Requisito | Estado | Escopo e limite |
 |---|---|---|
-| Chat + identidade do criador | FUNCIONANDO no preview | Cloudflare Llama 4 Scout respondeu 200 e recuperou memória CIANO4827; Inworld atualmente HTTP 402 |
-| Voz FLUX 4 MP3 | PRECISA DA SUA AÇÃO | Inworld HTTP 402 no teste de 8/10. Conferir créditos em Billing e repetir teste de áudio |
-| Clima | FUNCIONANDO na produção 1.8 | API com coordenadas reais; autorizar localização no novo app |
-| Agenda Android | FUNCIONANDO na produção 1.8 | Nove eventos lidos no Core; autorizar calendário no preview |
-| Ativação pela palavra Flux | PRECISA DA SUA AÇÃO | Selecionar preview como assistente e testar Android em tela bloqueada/aberta |
-| Conversa contínua / barge-in / eco | EM DESENVOLVIMENTO | Novo controlador WebRTC; testar interrupções repetidas no aparelho |
-| Recuperação automática de áudio | EM DESENVOLVIMENTO | Erro explícito e reinício manual; reconexão contínua ainda incompleta |
-| Identidade vocal / consentimento / exclusão | EM DESENVOLVIMENTO | Nenhum cadastro biométrico implementado |
-| Face ID / biometria forte | EM DESENVOLVIMENTO | Implementar BiometricPrompt e fallback seguro |
-| Cofre / Autofill / backup criptografado | EM DESENVOLVIMENTO | Não guardar senhas na memória |
-| Análise de imagem recebida | FUNCIONANDO no backend | Teste real leu 4827, calculou 12 e identificou círculo vermelho; captura Android ainda depende do aparelho |
-| MediaProjection fallback | EM DESENVOLVIMENTO | Consentimento por sessão e foreground service ainda não implementados |
-| Câmera | EM DESENVOLVIMENTO | Captura única web implementada; nativa e vídeo contínuo pendentes |
-| Gerar imagens | FUNCIONANDO no preview | JPEG 1024 × 1024 criado por /v1/images, salvo e visualizado; ajuste para quatro passos após erro inicial |
-| Editar imagens / PDF | EM DESENVOLVIMENTO | Upload de imagem não é edição; PDF exige extração/renderização |
-| Gmail / Google Calendar OAuth / Drive / Docs / Sheets / Tasks | PRECISA DA SUA AÇÃO | Conta Google + projeto OAuth com permissões mínimas; conectores FLUX ainda precisam ser implementados |
-| WhatsApp | EM DESENVOLVIMENTO | Abertura de app não comprova leitura/envio; investigar conta e API oficial |
-| Spotify | PRECISA DA SUA AÇÃO | Conta e OAuth de app; conector e testes de reprodução pendentes |
-| YouTube / Maps | EM DESENVOLVIMENTO | Abrir URL local disponível; pesquisa/verificação remota ainda incompletas |
-| GitHub / Cloudflare no FLUX Builder | EM DESENVOLVIMENTO | Codex consegue operar conectores, mas isso não os disponibiliza automaticamente ao FLUX |
-| Canva / Instagram / Facebook / Mercado Livre / contatos | EM DESENVOLVIMENTO | Sem executor autenticado testado |
-| ElevenLabs | PRECISA DA SUA AÇÃO | Provedor opcional; a voz preservada é Inworld e não se exige migração |
-| Chromebook | PRECISA DA SUA AÇÃO | Abrir preview HTTPS e parear navegador próprio; PWA disponível |
-| TV Samsung | PRECISA DA SUA AÇÃO | Informar modelo e autorizar SmartThings; transporte/ACK de vídeo ainda ausentes |
-| Relógio / saúde / sono | PRECISA DA SUA AÇÃO | Informar modelo e aplicativo; conector e consentimento Health Connect pendentes |
-| Glasses / Bluetooth | EM DESENVOLVIMENTO | Áudio depende do sistema; não há conector visual |
-| Handoff confirmado | EM DESENVOLVIMENTO | Memórias compartilhadas não equivalem à entrega confirmada de tarefas |
-| ClassApp / Geekie One | PRECISA DA SUA AÇÃO | Compartilhar material autorizado; APIs oficiais ainda precisam de investigação |
-| Study / mapas / quizzes / flashcards | EM DESENVOLVIMENTO | Missões produzem estudo textual; sem avaliação adaptativa ou renderer de mapas nesta fase |
-| Memória persistente / corrigir / esquecer | FUNCIONANDO no backend | Criação 201, recuperação em nova conversa 200; testes locais de correção/exclusão/expiração passaram; teste de nuvem complementado em TESTES.md |
-| Time Machine / knowledge graph / separação de pessoas | EM DESENVOLVIMENTO | Sem índices/histórico completos |
-| Missões textuais | FUNCIONANDO no backend | Alarme Cloudflare executou estudo real e registrou queued → running → completed; falha Inworld também registrada |
-| Builder / testes / PR / rollback pelo FLUX | EM DESENVOLVIMENTO | FLUX ainda não executa código ou altera repositório |
-| Creator / Dream Lab / Business | EM DESENVOLVIMENTO | Geração de textos/imagens; ações comerciais e exportações ainda incompletas |
-| Coach / Focus / Night Mode / Briefing | EM DESENVOLVIMENTO | Briefing local existe; agendamento e níveis de proatividade pendentes |
-| Debate / Simulation | EM DESENVOLVIMENTO | Conversa possível; rubricas e acompanhamento não implementados |
-| News Radar / Research | EM DESENVOLVIMENTO | Sem pesquisa/fonte confiável conectada ao Core |
-| Music DJ | EM DESENVOLVIMENTO | Depende de Spotify autenticado e executor |
-| Context Fusion / Quick Actions | EM DESENVOLVIMENTO | Clima/agenda/imagem pontual; combinação e sugestões completas pendentes |
-| Digital Workspace / Skills / Multi-agent Studio | EM DESENVOLVIMENTO | Estrutura parcial; sem agentes especializados executores |
-| Automações / notificações persistentes | EM DESENVOLVIMENTO | Alarmes de missões não notificam compromissos |
-| Command Center / Mission Control / Privacy Center | EM DESENVOLVIMENTO | Painéis parciais; logs/consumo/biometria/sessões não centralizados |
-| Offline | EM DESENVOLVIMENTO | Shell web e tarefas locais; sem IA/voz offline completas |
-| Segurança / autonomia quatro níveis | EM DESENVOLVIMENTO | Autenticação bearer e consentimento; sem autorização granular/biometria completa |
+| Identidade, criador, empresas, personalidade | FUNCIONANDO no Core | Instruções preservadas; Maurício/ChatGPT/Mauright/Automobili. Humor contextual por instrução, não motor de humor independente |
+| Chat contextual / rápido / padrão / profundo | FUNCIONANDO no Core | Três modelos Workers AI responderam HTTP 200; modo nativo persistente |
+| Voz FLUX 4 | PREPARADO | Configuração preservada; teste real Inworld HTTP 402 por créditos |
+| Wake word Flux | PREPARADO | Serviço Android com reconhecimento local quando disponível; validação física pendente |
+| Conversação contínua / barge-in / eco / streaming | PREPARADO | WebRTC full duplex, VAD/AEC/NS; não validado acusticamente no aparelho |
+| Reconexão automática / retomada de sessão de voz | EM DESENVOLVIMENTO | Falhas visíveis e reinício; backoff/retomada contínua incompletos |
+| Horários de silêncio / níveis de proatividade | EM DESENVOLVIMENTO | Controles persistentes e gatilhos contextuais ainda incompletos |
+| Voice Identity / consentimento / perfis | EM DESENVOLVIMENTO | Sem cadastro biométrico vocal; voz não autoriza segredos |
+| Face ID / biometria Android | PREPARADO | Cofre usa Keystore autenticado; modalidade depende de biometria forte do aparelho; teste físico pendente |
+| Vault local / geração de senha / bloqueio | PREPARADO | AES-256-GCM, autenticação por operação, FLAG_SECURE, bloqueio ao sair/60s; teste cripto físico pendente |
+| Vault senha principal / backup / sync / autofill | EM DESENVOLVIMENTO | Não implementados; não usar como única cópia |
+| Vision análise de imagem real | FUNCIONANDO no Core | Fixture real com retângulo vermelho e 4827 identificada pelo modelo |
+| MediaProjection / aba inferior | PREPARADO | Captura individual autorizada, encerramento/expiração; validar no Android físico |
+| Vision PDF / câmera | PREPARADO | Foto individual pelo app de câmera, PDFs primeiras três páginas renderizadas; consentimento antes do envio |
+| Vision Live vídeo contínuo | EM DESENVOLVIMENTO | Não há streaming contínuo de câmera/tela |
+| Esfera / estados / cores / navegação | PREPARADO | Nova implementação nativa compilada, filamentos e RMS; teste de navegação em emulador em execução |
+| Ícone adaptive / foreground / background / monochrome | FUNCIONANDO nos testes de recurso | Máscaras círculo/quadrado arredondado/squircle aprovadas; captura launcher instalado pendente |
+| Mood / Easter Eggs | EM DESENVOLVIMENTO | Sem motor de reações/easter eggs configurável |
+| Chat texto / histórico / contexto | FUNCIONANDO no Core | API e memória validadas; teste nativo pareado completo pendente |
+| Anexos imagem / PDF | PREPARADO | Tela Analisar; sem continuidade de documentos completos no histórico do Chat |
+| Creator gerar imagem | FUNCIONANDO no Core | JPEG real 1024 × 1024 gerado, salvo e aberto |
+| Creator salvar / compartilhar | PREPARADO | CreateDocument e FileProvider implementados; seleção/compartilhamento físicos pendentes |
+| Creator editar / remover fundo / substituir objetos | EM DESENVOLVIMENTO | Modelo/API de edição ainda não integrados |
+| Gmail | PREPARADO | OAuth + teste + até 5 mensagens/corpo texto simples + resumo autorizado; falta cadastro e teste da conta |
+| Gmail enviar / organizar / responder | EM DESENVOLVIMENTO | Escopo atual somente leitura; nenhum e-mail enviado |
+| Calendar / Drive / Tasks / YouTube | PREPARADO | OAuth/leitura; falta cadastro Google e validação real; escrita de docs/eventos não implementada |
+| WhatsApp pessoal | PREPARADO para abertura/compartilhamento | Envio exige usuário; sem leitura privada, resumo automático ou API pessoal de mensagens |
+| Spotify / Music DJ | PREPARADO para pesquisa/controle | OAuth PKCE e comandos com confirmação; conta/dispositivo e teste real pendentes; playlists próprias incompletas |
+| Canva | PREPARADO para consulta | OAuth e designs; criação/edição de apresentações ainda não implementadas |
+| GitHub | PREPARADO para consulta | OAuth e repositórios públicos; sem executor/PR autônomo do FLUX |
+| Cloudflare pelo FLUX | EM DESENVOLVIMENTO | Backend hospedado não equivale a integração administrativa do assistente |
+| Mercado Livre | PREPARADO para perfil | OAuth PKCE; sem anúncios, vendas ou pedidos implementados |
+| Instagram / Facebook | EM DESENVOLVIMENTO | Abrir/compartilhar no Android não é integração autenticada Meta |
+| TV Samsung / SmartThings | PREPARADO para capacidades permitidas | OAuth, lista e switch/mediaPlayback; sem abertura de vídeos/ACK físico; modelo/conta pendentes |
+| Chromebook / PWA / Handoff | EM DESENVOLVIMENTO | Interface web existe; recebimento confirmado/extension companion não implementados |
+| Relógio / Health Connect / sono | EM DESENVOLVIMENTO | Sem conector; nenhum dado de saúde consultado |
+| Glasses / Bluetooth | EM DESENVOLVIMENTO | Áudio do sistema possível; sem protocolo visual/glasses validado |
+| ClassApp / Geekie One | PREPARADO para material compartilhado | Analisar material autorizado; sem acesso automático/login/API escolar |
+| Study explicação / resumo / flashcards / simulado | FUNCIONANDO para geração textual no Core | Missão de estudo executada e persistida; sem acompanhamento adaptativo completo |
+| Mapas mentais visuais / gráficos / animações | EM DESENVOLVIMENTO | Mapa textual; renderer educativo e exercícios interativos ausentes |
+| Learning / Study Battle / Challenge | EM DESENVOLVIMENTO | Sem pontuação/avaliação persistente/adaptação de aprendizagem |
+| Pesquisa de videoaulas / envio para TV | PREPARADO para busca YouTube | OAuth/busca preparada; avaliação/reprodução remota/handoff incompletos |
+| Memory CRUD / consentimento / recuperação | FUNCIONANDO no Core | Nuvem e testes: criar, recuperar, corrigir, excluir e expirar |
+| Memory múltiplas pessoas / todas camadas / graph / Time Machine | EM DESENVOLVIMENTO | Workspace do proprietário; sem grafo/histórico completo/perfis separados |
+| Missions textuais | FUNCIONANDO no Core | Fila/alarme persistente, erro/cancelamento, geração verdadeira; sem executor de ações externas |
+| Builder / Test Lab / branch / PR / build pelo FLUX | EM DESENVOLVIMENTO | Propostas textuais de código, sem acesso executável ao repositório |
+| Detective / Recovery / Quality / Security Sentinel | EM DESENVOLVIMENTO | Diagnóstico parcial; sem rollback automático ou verificador independente completo |
+| Creator / Dream Lab / Business | FUNCIONANDO para propostas textuais | Não publica anúncios, movimenta dinheiro ou executa negócio; dashboards específicos incompletos |
+| Coach / Focus / Night / Daily Briefing | EM DESENVOLVIMENTO | Tarefas/briefing local parcial; agenda persistente e cronômetro completos pendentes |
+| Debate / Simulation | EM DESENVOLVIMENTO como módulos | Pedidos textuais possíveis; sem rubricas e progresso especializado |
+| Research com fontes | PREPARADO | Brave Search, limite e links seguros; falta chave e teste real |
+| News Radar | EM DESENVOLVIMENTO | Sem monitoramento/agendamento persistente |
+| Context Fusion / Quick Actions | EM DESENVOLVIMENTO | Contexto pontual; fusão autorizada ampla/sugestões ainda incompletas |
+| Digital Workspace | PREPARADO | Novas telas memória/missões/análise/conexões/consumo/sistema; organização de todos arquivos incompleta |
+| Multi-Agent Studio / Skills | EM DESENVOLVIMENTO | Sem coordenador de executores/agentes especializados |
+| Automations / notificações persistentes | EM DESENVOLVIMENTO | Alarmes de missões não equivalem a lembretes/automações |
+| Command Center / Mission Control / consumo | PREPARADO | Estados reais, quotas/estimativas; sem telemetria completa de fatura/hardware |
+| Privacy Center / revogação | PREPARADO parcial | Memórias e conexões revogáveis; registro central de sessões sensíveis incompleto |
+| Offline | EM DESENVOLVIMENTO | Tarefas/configurações locais; sem IA/voz offline completas |
+| Autonomia quatro níveis / permissões granulares | EM DESENVOLVIMENTO | Confirmação de controles, auth, consentimento; política transversal ainda incompleta |
+| Orçamento R$200 | PREPARADO como planejamento | Cenário R$176,42, alertas e contadores; teto rígido não garantido |
 
-Nenhuma função está classificada NÃO SUPORTADO por suposição. Isso requer demonstração da limitação no dispositivo/conta concreta.
-
-## Pendências que dependem do proprietário
-
-- Android: instalar APK preview lado a lado, conceder microfone, selecionar como assistente se desejar wake/Vision; verificar uma conversa com três interrupções e captura real. Não instalar sobre o app estável.
-- Google: futura autorização OAuth na tela oficial; não enviar senha ou token no chat. Verificação: listar dados autorizados e revogar acesso.
-- Spotify: futura autorização oficial da conta; teste: pausar música no dispositivo ativo e confirmar mudança real.
-- TV/relógio: informar modelos e apps já usados. Verificação: executar tarefa e receber confirmação do dispositivo, não só abrir app.
-- Material escolar: compartilhar arquivo/captura autorizados. Verificação: resposta cita o exercício realmente fornecido.
-- Contas/cloud: nenhum segredo deve ser enviado em mensagem. Configurar apenas campos de segredo do provedor ou fluxo seguro de autorização.
+Não há classificação NÃO SUPORTADO por suposição de hardware/conta. Limitações oficiais são explicadas no escopo; o modelo/conta concretos precisam de validação. Sem compra ou publicação comercial realizada. ATIVACAO.md descreve ações do proprietário; linhas EM DESENVOLVIMENTO exigem engenharia adicional, não apenas pagamento.

@@ -64,9 +64,16 @@ class FluxUiTest {
         compose.onNodeWithText("Abrir cofre seguro").assertExists();evidence("privacy")
         compose.onNodeWithText("Chat").performClick()
         compose.onNodeWithTag("chat-input").assertExists()
+    }
+    @Test fun installedIconAppearsOnLauncher(){
         device.pressHome()
-        device.swipe(device.displayWidth/2,device.displayHeight*4/5,device.displayWidth/2,device.displayHeight/5,30)
-        val icon=device.wait(Until.findObject(By.text("FLUX")),5000)
+        device.waitForIdle()
+        android.os.SystemClock.sleep(800)
+        device.swipe(device.displayWidth/2,device.displayHeight*9/10,device.displayWidth/2,device.displayHeight/4,50)
+        device.waitForIdle()
+        evidence("launcher-before-search")
+        var icon=device.wait(Until.findObject(By.text("FLUX")),5000)
+        if(icon==null){device.swipe(device.displayWidth/2,device.displayHeight*4/5,device.displayWidth/2,device.displayHeight/5,50);device.waitForIdle();icon=device.wait(Until.findObject(By.text("FLUX")),5000);evidence("launcher-after-scroll")}
         Assert.assertNotNull("Installed FLUX icon must appear in launcher app drawer",icon)
         evidence("launcher-installed-drawer")
         icon!!.drag(Point(device.displayWidth/2,device.displayHeight/2),500)
