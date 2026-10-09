@@ -96,7 +96,21 @@ export class FluxConnect {
  private async get(url:string,token:string){const r=await this.network(url,{headers:{authorization:'Bearer '+token,accept:'application/json','user-agent':'FLUX-AI'},signal:AbortSignal.timeout(20000)});if(!r.ok)throw new EvolutionError(r.status===429?429:502,`A API respondeu ${r.status}; operação não confirmada. Confira escopo, conta e limites.`);return r.status===204?{playback:null}:this.boundedJson(r);}
  private async read(p:Provider,token:string,query:string){
   switch(p.id){
-   case 'gmail':return this.get('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q='+encodeURIComponent(query||'in:inbox'),token);
+   case 'gmail':{
+    const listing=await this.get('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&q='+encodeURIComponent(query||'in:inbox'),token);
+    const rows=Array.isArray(listing.messages)?listing.messages.slice(0,5):[];
+    const messages=await Promise.all(rows.map(async(row:{id:string})=>{
+     if(!/^[A-Za-z0-9_-]{1,120}$/.test(row.id))throw new EvolutionError(502,'Identificador de mensagem inválido.');
+     const mail=await this.get('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+row.id+'?format=full',token);
+     const headers:Array<{name:string;value:string}>=mail.payload?.headers||[];
+     const header=(name:string)=>headers.find(h=>h.name?.toLowerCase()===name)?.value?.slice(0,300)||'';
+     const texts:string[]=[];
+     const walk=(part:{mimeType?:string;body?:{data?:string};parts?:unknown[]},depth=0)=>{if(depth>8||texts.join('').length>12000)return;if(part.mimeType==='text/plain'&&part.body?.data){try{texts.push(new TextDecoder().decode(unb64(part.body.data)).slice(0,12000));}catch{/* Unsupported part encoding is not fabricated. */}}for(const child of (part.parts||[]).slice(0,20))walk(child as typeof part,depth+1);};
+     if(mail.payload)walk(mail.payload);
+     return {id:row.id,subject:header('subject'),from:header('from'),date:header('date'),snippet:String(mail.snippet||'').slice(0,1000),text:texts.join('\n').slice(0,12000),attachmentsLoaded:false};
+    }));
+    return {messages,scope:'up to five messages; plaintext body only; attachments not fetched'};
+   }
    case 'calendar':return this.get('https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=20&timeMin='+encodeURIComponent(new Date().toISOString()),token);
    case 'drive':return this.get('https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,mimeType,webViewLink)&q='+encodeURIComponent("trashed = false"+(query?" and name contains '"+query.replaceAll("'", "\\'")+"'":'')),token);
    case 'spotify':return this.get(query?'https://api.spotify.com/v1/search?type=track&limit=5&q='+encodeURIComponent(query):'https://api.spotify.com/v1/me/player',token);

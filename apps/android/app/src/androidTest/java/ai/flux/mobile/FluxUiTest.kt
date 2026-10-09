@@ -37,7 +37,7 @@ class FluxUiTest {
         checkNotNull(resolver.openOutputStream(uri)).use{Assert.assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))}
         resolver.update(uri,ContentValues().apply{put(MediaStore.Images.Media.IS_PENDING,0)},null,null)
     }
-    private fun evidence(name:String){val bitmap=checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot());try{exportEvidence(name,bitmap)}finally{bitmap.recycle()}}
+    private fun evidence(name:String){compose.waitForIdle(); device.waitForIdle(); android.os.SystemClock.sleep(400); val bitmap=checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot());try{exportEvidence(name,bitmap)}finally{bitmap.recycle()}}
     @Before fun dismissOnboarding(){
         compose.waitForIdle()
         if(compose.onAllNodesWithText("AGORA NÃO").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithText("AGORA NÃO").performClick()
@@ -53,12 +53,13 @@ class FluxUiTest {
         Assert.assertEquals("cyan",(compose.activity.application as FluxApplication).workspace.accentKey())
         evidence("settings")
         compose.onNode(hasText("Workspace") and hasClickAction()).performClick()
-        compose.onNodeWithText("Memória").performClick()
+        compose.onNodeWithText("Memória").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("Memórias autorizadas").assertExists()
         compose.onNodeWithText("Pareie o aparelho em Ajustes para acessar este módulo.").assertExists()
         evidence("memory-unpaired")
-        compose.onNodeWithText("Conexões").performClick()
-        compose.onNodeWithText("FLUX Connect").assertExists();evidence("connect-unpaired")
+        compose.onNodeWithText("Conexões").performScrollTo().assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("FLUX Connect").assertIsDisplayed();evidence("connect-unpaired")
         compose.onNodeWithText("Segurança").performScrollTo().performClick()
         compose.onNodeWithText("Abrir cofre seguro").assertExists();evidence("privacy")
         compose.onNodeWithText("Chat").performClick()

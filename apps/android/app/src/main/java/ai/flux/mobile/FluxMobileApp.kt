@@ -174,6 +174,7 @@ fun FluxMobileApp(
 
     Scaffold(
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         bottomBar = { PulseNavigation(selected, {
             if (state.isListening || state.voiceConnecting) onStop() else onVoice()
         }) { selectedName = it.name } },
@@ -205,7 +206,7 @@ fun FluxMobileApp(
                     onOpenInstagram, onOpenEmail, onOpenCalendar, onOpenCanva, onOpenDrive, onOpenYouTube,
                     onOpenSmartThings,
                 )
-                FluxTab.LAB -> FluxWorkspaceScreen(state, onGenerateImage, onSend)
+                FluxTab.LAB -> FluxWorkspaceScreen(state, onGenerateImage) { message -> onSend(message); selectedName = FluxTab.CHAT.name }
                 FluxTab.CONTROL -> ControlScreen(
                     state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
