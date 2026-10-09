@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.9.1-preview
+name: Build FLUX Mobile 2.0.0-preview
 
 on:
   workflow_dispatch:
@@ -68,8 +68,8 @@ jobs:
       - name: Compile FLUX Voice APK
         working-directory: apps/android
         env:
-          FLUX_APPLICATION_ID: "ai.flux.mobile.preview"
-          FLUX_APP_LABEL: "FLUX Evolution"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro"
+          FLUX_APP_LABEL: "FLUX"
           FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
         run: ./gradlew :app:assembleRelease --stacktrace
 
@@ -90,30 +90,81 @@ jobs:
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.1-preview.apk
-          sha256sum FLUX-Mobile-1.9.1-preview.apk > FLUX-Mobile-1.9.1-preview.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.0-preview.apk
+          sha256sum FLUX-Mobile-2.0.0-preview.apk > FLUX-Mobile-2.0.0-preview.sha256
 
       - name: Compile side-by-side APK for existing installs
         working-directory: apps/android
         env:
           FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
-          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.next"
-          FLUX_APP_LABEL: "FLUX Evolution 2"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro.next"
+          FLUX_APP_LABEL: "FLUX"
         run: ./gradlew :app:assembleRelease --rerun-tasks --stacktrace
 
       - name: Prepare side-by-side APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.1-preview-lado-a-lado.apk
-          sha256sum FLUX-Mobile-1.9.1-preview-lado-a-lado.apk > FLUX-Mobile-1.9.1-preview-lado-a-lado.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.0-preview-lado-a-lado.apk
+          sha256sum FLUX-Mobile-2.0.0-preview-lado-a-lado.apk > FLUX-Mobile-2.0.0-preview-lado-a-lado.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.9.1-preview
+          name: FLUX-Mobile-2.0.0-preview
           path: |
-            FLUX-Mobile-1.9.1-preview.apk
-            FLUX-Mobile-1.9.1-preview.sha256
-            FLUX-Mobile-1.9.1-preview-lado-a-lado.apk
-            FLUX-Mobile-1.9.1-preview-lado-a-lado.sha256
+            FLUX-Mobile-2.0.0-preview.apk
+            FLUX-Mobile-2.0.0-preview.sha256
+            FLUX-Mobile-2.0.0-preview-lado-a-lado.apk
+            FLUX-Mobile-2.0.0-preview-lado-a-lado.sha256
           if-no-files-found: error
+          retention-days: 7
+
+  android-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro"
+      FLUX_APP_LABEL: "FLUX"
+      FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Compile instrumentation tests
+        working-directory: apps/android
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Boot and exercise Android UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            cd apps/android
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace
+            mkdir -p ../../android-evidence
+            adb pull /sdcard/Android/data/ai.flux.mobile.preview.pro/files/evidence ../../android-evidence/ || true
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
+            adb shell input keyevent KEYCODE_MENU
+            adb shell screencap -p /sdcard/flux-launcher.png
+            adb pull /sdcard/flux-launcher.png ../../android-evidence/launcher.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FLUX-Android-UI-evidence
+          path: |
+            android-evidence
+            apps/android/app/build/reports/androidTests
+            apps/android/app/build/outputs/androidTest-results
+          if-no-files-found: warn
           retention-days: 7

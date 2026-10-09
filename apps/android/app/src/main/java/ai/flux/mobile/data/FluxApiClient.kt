@@ -49,6 +49,17 @@ class FluxApiClient(
     private val authToken: () -> String,
     private val deviceId: () -> String,
 ) {
+    suspend fun workspace(path: String, body: JSONObject? = null, method: String = if (body == null) "GET" else "POST"): JSONObject = withContext(Dispatchers.IO) {
+        require(path.startsWith("/v1/"))
+        val builder = request(path)
+        if (method == "GET") builder.get() else builder.method(method, if (method == "DELETE") null else json(body ?: JSONObject()))
+        executeWithRetry(builder.build(), 1).use {
+            val raw = it.body?.string().orEmpty()
+            if (!it.isSuccessful) throw apiFailure(it.code, raw)
+            JSONObject(raw)
+        }
+    }
+
     suspend fun realtimeConfig(): JSONObject = withContext(Dispatchers.IO) {
         executeWithRetry(request("/v1/live/ice-servers").get().build(), 2).use {
             val raw = it.body?.string().orEmpty()

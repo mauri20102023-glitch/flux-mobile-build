@@ -114,7 +114,7 @@ class FluxScreenCaptureService : Service() {
     private fun notification(message: String, captureAvailable: Boolean): Notification {
         val open = PendingIntent.getActivity(this, 10, Intent(this, MainActivity::class.java).putExtra("vision_result", true),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val builder = Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_flux_app)
+        val builder = Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_flux_notification)
             .setContentTitle("FLUX Vision").setContentText(message).setContentIntent(open).setOngoing(true)
         if (captureAvailable) builder.addAction(Notification.Action.Builder(null, "Analisar agora",
             PendingIntent.getActivity(this, 11, Intent(this, FluxCaptureTriggerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -130,7 +130,7 @@ class FluxScreenCaptureService : Service() {
         pendingResult = result.take(16000)
         stopForeground(STOP_FOREGROUND_REMOVE)
         getSystemService(NotificationManager::class.java).notify(RESULT_ID,
-            Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_flux_app).setContentTitle("FLUX Vision")
+            Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_flux_notification).setContentTitle("FLUX Vision")
                 .setContentText("Análise disponível. Toque para abrir no FLUX.").setAutoCancel(true)
                 .setContentIntent(PendingIntent.getActivity(this, 10,
                     Intent(this, MainActivity::class.java).putExtra("vision_result", true),
