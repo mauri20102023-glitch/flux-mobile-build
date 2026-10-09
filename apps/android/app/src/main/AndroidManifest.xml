@@ -47,6 +47,10 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Flux">
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/share_paths" />
+        </provider>
         <activity android:name=".security.FluxVaultActivity" android:exported="false" />
         <service android:name=".vision.FluxScreenCaptureService" android:exported="false"
             android:foregroundServiceType="mediaProjection" />

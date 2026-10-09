@@ -480,6 +480,7 @@ class FluxViewModel(
                         else java.util.UUID.randomUUID().toString(),
                     message = pending.content,
                     voice = pending.voice,
+                    mode = workspace.intelligenceMode(),
                 )
             }.onSuccess { result ->
                 pendingChats.removeAll { it.messageId == pending.messageId }

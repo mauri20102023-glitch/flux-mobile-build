@@ -28,15 +28,16 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
     var result by remember { mutableStateOf<JSONObject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
-    var query by remember { mutableStateOf("") }
-    var consent by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<String?>(null) }
+    var title by remember(section) { mutableStateOf("") }
+    var content by remember(section) { mutableStateOf("") }
+    var query by remember(section) { mutableStateOf("") }
+    var consent by remember(section) { mutableStateOf(false) }
+    var editing by remember(section) { mutableStateOf<String?>(null) }
     var kind by remember { mutableStateOf("study") }
     val scope = rememberCoroutineScope()
     suspend fun load() {
-        result = when (section) {
+        val requestedSection = section
+        val loaded = when (requestedSection) {
             "Memória" -> app.api.workspace("/v1/memories")
             "Missões", "Estudar" -> app.api.workspace("/v1/missions")
             "Conexões" -> app.api.workspace("/v1/connect")
@@ -44,6 +45,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
             "Consumo" -> app.api.workspace("/v1/usage")
             else -> null
         }
+        if(section == requestedSection) result=loaded
     }
     fun execute(action: suspend ()->Unit) {
         if(busy) return
@@ -70,7 +72,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
         Text("Suas ferramentas, um só lugar.", color=MaterialTheme.colorScheme.onSurfaceVariant, modifier=Modifier.padding(start=22.dp,top=4.dp,bottom=16.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=18.dp), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("Criar","Estudar","Memória","Missões","Conexões","Segurança","Consumo","Sistema","Builder").forEach {
-                FilterChip(selected=section==it,onClick={section=it},label={Text(it)})
+                FilterChip(selected=section==it,onClick={section=it},enabled=!busy,label={Text(it)})
             }
         }
         if(busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal=22.dp))
@@ -157,7 +159,37 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: 
                 "Consumo" -> {
                     Text("Orçamento de R$ 200/mês",style=MaterialTheme.typography.titleLarge)
                     Text("Estimativas de operação, não uma fatura. Realtime pode consumir diretamente no provedor; consulte Billing para o total real.",fontSize=12.sp)
-                    result?.let{Text(it.toString(2),fontSize=12.sp,lineHeight=20.sp)}
+                    result?.let { usage ->
+                        val settings=usage.optJSONObject("settings") ?: JSONObject()
+                        val planning=usage.optJSONObject("planning") ?: JSONObject()
+                        WorkspaceCard("Estimativa mensal",usage.optString("alert")) {
+                            Text("R$ %.2f".format(java.util.Locale("pt","BR"),usage.optDouble("estimateBrl")),fontSize=34.sp,fontWeight=FontWeight.SemiBold)
+                            Text("Referência: 60 minutos de conversa/dia. Metade do tempo com o FLUX falando.",fontSize=12.sp)
+                        }
+                        WorkspaceCard("Reserva por serviço","Preços em dólares; créditos não são contratados pelo aplicativo.") {
+                            Text("Inworld Creator: US$ "+planning.optInt("inworldCreatorSubscriptionUsd")+"/mês · US$ "+planning.optInt("includedCreditUsd")+" em créditos")
+                            Text("Cloudflare: reserva de US$ "+planning.optInt("cloudflareReserveUsd")+"/mês")
+                            Text("Uso Inworld estimado: US$ %.2f".format(planning.optDouble("inworldEstimatedUseUsd")))
+                        }
+                        var fx by remember(settings.toString()) { mutableStateOf(settings.optString("usdBrl")) }
+                        var fees by remember(settings.toString()) { mutableStateOf(settings.optString("feesPercent")) }
+                        OutlinedTextField(fx,{fx=it},label={Text("Dólar em reais")},modifier=Modifier.fillMaxWidth())
+                        OutlinedTextField(fees,{fees=it},label={Text("Reserva de taxas (%)")},modifier=Modifier.fillMaxWidth())
+                        Button(enabled=!busy,onClick={execute{
+                            val rate=fx.replace(',','.').toDoubleOrNull() ?: error("Informe um câmbio válido.")
+                            val fee=fees.replace(',','.').toDoubleOrNull() ?: error("Informe uma porcentagem válida.")
+                            app.api.workspace("/v1/usage",JSONObject().put("usdBrl",rate).put("feesPercent",fee));load()
+                        }}) { Text("Atualizar estimativa") }
+                        val counts=usage.optJSONObject("observedGatewayAttempts") ?: JSONObject()
+                        val limits=usage.optJSONObject("routeLimits") ?: JSONObject()
+                        WorkspaceCard("Uso registrado no Core",usage.optString("month")) {
+                            listOf("textRequests" to "Respostas de texto","imageRequests" to "Imagens","visionRequests" to "Análises de tela","ttsCharacters" to "Caracteres de voz","voiceOffers" to "Sessões de voz").forEach{(key,label)->
+                                Text(label+": "+counts.optLong(key)+" / "+limits.optLong(key),fontSize=13.sp)
+                                LinearProgressIndicator(progress={ (counts.optDouble(key,0.0)/limits.optDouble(key,1.0)).toFloat().coerceIn(0f,1f) },modifier=Modifier.fillMaxWidth())
+                            }
+                        }
+                        Text(usage.optString("warning"),fontSize=12.sp)
+                    }
                     Text("Nenhuma compra ou recarga automática. Câmbio, impostos e taxas dependem da sua forma de pagamento.",fontSize=12.sp)
                 }
                 "Sistema" -> result?.let { Text(it.toString(2),fontSize=12.sp,lineHeight=20.sp) }

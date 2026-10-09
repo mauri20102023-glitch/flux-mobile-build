@@ -49,7 +49,13 @@ export class FluxConnect {
    if(p.client==='GOOGLE_CLIENT_ID'){authorize.searchParams.set('access_type','offline');authorize.searchParams.set('prompt','consent');}
    return out({url:authorize.toString(),expiresIn:600});
   }
-  if(op==='revoke'){const grant=await this.load(p.id);let providerRevoked=false;if(grant&&p.revoke){const r=await this.network(p.revoke,{method:'POST',body:new URLSearchParams({token:grant.refresh||grant.access}),signal:AbortSignal.timeout(15000)});providerRevoked=r.ok;}await this.store.delete('connect:grant:'+p.id);await this.store.delete('connect:evidence:'+p.id);return out({localRevoked:true,providerRevoked,message:providerRevoked?'Acesso revogado no provedor.':'Credencial excluída do FLUX. Revogue também na página de aplicativos conectados do provedor.'});}
+  if(op==='revoke'){
+   const grant=await this.load(p.id);let providerRevoked=false;
+   try { if(grant&&p.revoke){const r=await this.network(p.revoke,{method:'POST',body:new URLSearchParams({token:grant.refresh||grant.access}),signal:AbortSignal.timeout(15000)});providerRevoked=r.ok;} }
+   catch { /* Local revocation must succeed even when the provider is unavailable. */ }
+   finally {await this.store.delete('connect:grant:'+p.id);await this.store.delete('connect:evidence:'+p.id);}
+   return out({localRevoked:true,providerRevoked,message:providerRevoked?'Acesso revogado no provedor.':'Credencial excluída do FLUX. Revogue também na página de aplicativos conectados do provedor.'});
+  }
   const token=await this.access(p);
   if(op==='test'){await this.get(p.test,token);const evidence={at:new Date().toISOString(),operation:'official API connection test',httpStatus:200};await this.store.put('connect:evidence:'+p.id,evidence);return out({connected:true,evidence});}
   const body=await readBoundedObject(request);
@@ -73,11 +79,18 @@ export class FluxConnect {
   const form=new URLSearchParams({...fields,client_id:this.value(p.client)}),headers:Record<string,string>={'accept':'application/json','content-type':'application/x-www-form-urlencoded','user-agent':'FLUX-AI'};
   if(p.secret){if(p.basic)headers.authorization='Basic '+btoa(this.value(p.client)+':'+this.value(p.secret));else form.set('client_secret',this.value(p.secret));}
   const r=await this.network(p.token,{method:'POST',headers,body:form,signal:AbortSignal.timeout(20000)});if(!r.ok)throw new EvolutionError(r.status===429?429:502,'O provedor recusou a autorização. Confira cadastro OAuth, callback e permissões.');
-  const data=await r.json() as Record<string,unknown>;if(typeof data.access_token!=='string'||data.error)throw new EvolutionError(502,'O provedor não retornou uma credencial válida.');
-  const seconds=Math.min(86400,Math.max(60,Number(data.expires_in)||3600));return {access:data.access_token,refresh:typeof data.refresh_token==='string'?data.refresh_token:undefined,expires:Date.now()+seconds*1000,scope:String(data.scope||p.scope)};
+  const data=await this.boundedJson(r) as Record<string,unknown>;if(typeof data.access_token!=='string'||data.error)throw new EvolutionError(502,'O provedor não retornou uma credencial válida.');
+  const seconds=p.id==='github'&&!data.expires_in?31536000:Math.min(86400,Math.max(60,Number(data.expires_in)||3600));return {access:data.access_token,refresh:typeof data.refresh_token==='string'?data.refresh_token:undefined,expires:Date.now()+seconds*1000,scope:String(data.scope||p.scope)};
  }
  private async access(p:Provider){const old=await this.load(p.id);if(!old)throw new EvolutionError(409,'Autorize esta conta antes de executar a operação.');if(old.expires>Date.now()+30000)return old.access;if(!old.refresh)throw new EvolutionError(409,'A sessão do provedor expirou. Reconecte a conta.');const next=await this.exchange(p,{grant_type:'refresh_token',refresh_token:old.refresh});next.refresh ||= old.refresh;await this.save(p.id,next);return next.access;}
- private async get(url:string,token:string){const r=await this.network(url,{headers:{authorization:'Bearer '+token,accept:'application/json','user-agent':'FLUX-AI'},signal:AbortSignal.timeout(20000)});if(!r.ok)throw new EvolutionError(r.status===429?429:502,`A API respondeu ${r.status}; operação não confirmada. Confira escopo, conta e limites.`);return r.status===204?{playback:null}:r.json();}
+ private async boundedJson(response:Response){
+  const reader=response.body?.getReader();if(!reader)throw new EvolutionError(502,'Resposta vazia do provedor.');
+  let length=0,text='';const decoder=new TextDecoder();
+  try{while(true){const part=await reader.read();if(part.done)break;length+=part.value.byteLength;if(length>1000000){await reader.cancel();throw new EvolutionError(502,'Resposta do provedor acima do limite seguro.');}text+=decoder.decode(part.value,{stream:true});}text+=decoder.decode();}
+  finally{reader.releaseLock();}
+  try{return JSON.parse(text);}catch{throw new EvolutionError(502,'Formato de resposta inválido do provedor.');}
+ }
+ private async get(url:string,token:string){const r=await this.network(url,{headers:{authorization:'Bearer '+token,accept:'application/json','user-agent':'FLUX-AI'},signal:AbortSignal.timeout(20000)});if(!r.ok)throw new EvolutionError(r.status===429?429:502,`A API respondeu ${r.status}; operação não confirmada. Confira escopo, conta e limites.`);return r.status===204?{playback:null}:this.boundedJson(r);}
  private async read(p:Provider,token:string,query:string){
   switch(p.id){
    case 'gmail':return this.get('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q='+encodeURIComponent(query||'in:inbox'),token);

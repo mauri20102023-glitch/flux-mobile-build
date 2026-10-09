@@ -165,6 +165,7 @@ class FluxApiClient(
         message: String,
         voice: Boolean,
         context: String = "",
+        mode: String = "STANDARD",
     ): ChatResult = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("requestId", requestId)
@@ -172,6 +173,7 @@ class FluxApiClient(
             put("message", message)
             put("deviceId", deviceId())
             put("modality", if (voice) "VOICE" else "TEXT")
+            put("mode", mode)
             if (context.isNotBlank()) put("context", context.take(3_000))
         }
         val response = executeWithRetry(request("/v1/chat").post(json(body)).build(), maxAttempts = 4)
@@ -248,6 +250,7 @@ class FluxApiClient(
             put("message", message)
             put("deviceId", deviceId())
             put("modality", if (voice) "VOICE" else "TEXT")
+            put("mode", mode)
         }
         val response = execute(request("/v1/chat/stream").post(json(body)).build())
         response.use {

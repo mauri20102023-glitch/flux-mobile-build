@@ -1,5 +1,14 @@
 package ai.flux.mobile
 
+import android.content.Intent
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
@@ -365,6 +374,8 @@ private fun PulseChat(
     onStop: () -> Unit,
     onActivate: () -> Unit,
 ) {
+    val app=LocalContext.current.applicationContext as FluxApplication
+    var mode by remember { mutableStateOf(app.workspace.intelligenceMode()) }
     var draft by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
     val focus = LocalFocusManager.current
@@ -373,6 +384,11 @@ private fun PulseChat(
     }
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         PulseHeader(state)
+        Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            listOf("FAST" to "Rápido","STANDARD" to "Padrão","DEEP" to "Profundo").forEach{(id,label)->
+                FilterChip(selected=mode==id,onClick={mode=id;app.workspace.setIntelligenceMode(id)},enabled=!state.isResponding,label={Text(label)})
+            }
+        }
         if (state.activationRequired && state.coreOnline) ActivationStrip(onActivate)
         if (state.messages.isEmpty()) {
             EmptyPulse(state, onVoice, onStop, Modifier.weight(1f))
@@ -747,6 +763,24 @@ private fun DevicesScreen(
 
 @Composable
 internal fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
+    val context=LocalContext.current
+    val scope=rememberCoroutineScope()
+    var exportBusy by remember { mutableStateOf(false) }
+    var exportNotice by remember { mutableStateOf<String?>(null) }
+    var pendingExport by remember { mutableStateOf<String?>(null) }
+    val saveImage=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        val encoded=pendingExport;pendingExport=null
+        if(uri!=null&&encoded!=null)scope.launch {
+            exportBusy=true
+            try { withContext(Dispatchers.IO) {
+                val bytes=Base64.decode(encoded,Base64.DEFAULT)
+                val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size) ?: error("Imagem inválida")
+                try { context.contentResolver.openOutputStream(uri)?.use{check(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))} ?: error("Destino indisponível") } finally {bitmap.recycle()}
+            };exportNotice="Imagem salva no local escolhido." }
+            catch(e:Exception){if(e is kotlinx.coroutines.CancellationException)throw e;exportNotice="Não foi possível salvar a imagem."}
+            finally {exportBusy=false}
+        }
+    }
     var imagePrompt by rememberSaveable { mutableStateOf("") }
     val generated = remember(state.generatedImageBase64) {
         state.generatedImageBase64?.let { encoded ->
@@ -790,6 +824,27 @@ internal fun LabScreen(state: FluxUiState, onGenerateImage: (String) -> Unit) {
                 )
             }
         }
+        if(generated!=null) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(enabled=!exportBusy,onClick={pendingExport=state.generatedImageBase64;saveImage.launch("FLUX-"+System.currentTimeMillis()+".png")},modifier=Modifier.weight(1f)) { Text("Salvar imagem") }
+                OutlinedButton(enabled=!exportBusy,onClick={
+                    val encoded=state.generatedImageBase64 ?: return@OutlinedButton
+                    scope.launch { exportBusy=true; try {
+                        val file=withContext(Dispatchers.IO){
+                            val dir=File(context.cacheDir,"creations").apply{mkdirs()}
+                            dir.listFiles()?.filter{System.currentTimeMillis()-it.lastModified()>86400000}?.forEach{it.delete()}
+                            val bytes=Base64.decode(encoded,Base64.DEFAULT);val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size) ?: error("Imagem inválida")
+                            val f=File(dir,"FLUX-"+System.currentTimeMillis()+".png")
+                            try{f.outputStream().use{check(bitmap.compress(Bitmap.CompressFormat.PNG,100,it))}}finally{bitmap.recycle()};f
+                        }
+                        val uri=FileProvider.getUriForFile(context,context.packageName+".files",file)
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM,uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),"Compartilhar criação"))
+                        exportNotice="Escolha o aplicativo e confirme o compartilhamento."
+                    }catch(e:Exception){if(e is kotlinx.coroutines.CancellationException)throw e;exportNotice="Não foi possível preparar o compartilhamento."}finally{exportBusy=false} }
+                },modifier=Modifier.weight(1f)) { Text("Compartilhar") }
+            }
+        }
+        exportNotice?.let{Text(it,color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=10.dp))}
         Spacer(Modifier.height(24.dp))
         SectionLabel("DIAGNÓSTICO")
         SystemStatus("FLUX Core", state.coreOnline, if (state.coreOnline) "Diagnóstico respondeu" else "Conecte em Ajustes")

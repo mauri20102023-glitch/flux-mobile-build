@@ -149,15 +149,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            cd apps/android
-            ./gradlew :app:connectedDebugAndroidTest --stacktrace
-            mkdir -p ../../android-evidence
-            adb pull /sdcard/Android/data/ai.flux.mobile.preview.pro/files/evidence ../../android-evidence/ || true
-            adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
-            adb shell input keyevent KEYCODE_MENU
-            adb shell screencap -p /sdcard/flux-launcher.png
-            adb pull /sdcard/flux-launcher.png ../../android-evidence/launcher.png
+          script: bash scripts/test-android-emulator.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

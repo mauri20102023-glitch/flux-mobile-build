@@ -12,6 +12,9 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
+import android.graphics.Point
 import androidx.test.uiautomator.UiDevice
 import androidx.test.core.app.ActivityScenario
 import ai.flux.mobile.security.FluxVaultActivity
@@ -44,10 +47,19 @@ class FluxUiTest {
         evidence("memory-unpaired")
         compose.onNodeWithText("Conexões").performClick()
         compose.onNodeWithText("FLUX Connect").assertExists();evidence("connect-unpaired")
-        compose.onNodeWithText("Segurança").performClick()
+        compose.onNodeWithText("Segurança").performScrollTo().performClick()
         compose.onNodeWithText("Abrir cofre seguro").assertExists();evidence("privacy")
         compose.onNodeWithText("Chat").performClick()
         compose.onNodeWithTag("chat-input").assertExists()
+        device.pressHome()
+        device.swipe(device.displayWidth/2,device.displayHeight*4/5,device.displayWidth/2,device.displayHeight/5,30)
+        val icon=device.wait(Until.findObject(By.text("FLUX")),5000)
+        Assert.assertNotNull("Installed FLUX icon must appear in launcher app drawer",icon)
+        evidence("launcher-installed-drawer")
+        icon!!.drag(Point(device.displayWidth/2,device.displayHeight/2),500)
+        device.pressHome()
+        device.waitForIdle()
+        evidence("launcher-home")
     }
     @Test fun adaptiveIconMasks(){
         val context=compose.activity
