@@ -19,8 +19,8 @@
 | MediaProjection / aba inferior | PREPARADO | Captura individual autorizada, encerramento/expiração; validar no Android físico |
 | Vision PDF / câmera | PREPARADO | Foto individual pelo app de câmera, PDFs primeiras três páginas renderizadas; consentimento antes do envio |
 | Vision Live vídeo contínuo | EM DESENVOLVIMENTO | Não há streaming contínuo de câmera/tela |
-| Esfera / estados / cores / navegação | PREPARADO | Nova implementação nativa compilada, filamentos e RMS; teste de navegação em emulador em execução |
-| Ícone adaptive / foreground / background / monochrome | FUNCIONANDO nos testes de recurso | Máscaras círculo/quadrado arredondado/squircle aprovadas; captura launcher instalado pendente |
+| Esfera / estados / cores / navegação | FUNCIONANDO no emulador | Filamentos, navegação e cor persistente validados; reação acústica ao áudio ainda exige aparelho |
+| Ícone adaptive / foreground / background / monochrome | FUNCIONANDO nos testes de recurso | Máscaras círculo/quadrado arredondado/squircle aprovadas; capturas reais do ícone instalado na gaveta e tela inicial conferidas |
 | Mood / Easter Eggs | EM DESENVOLVIMENTO | Sem motor de reações/easter eggs configurável |
 | Chat texto / histórico / contexto | FUNCIONANDO no Core | API e memória validadas; teste nativo pareado completo pendente |
 | Anexos imagem / PDF | PREPARADO | Tela Analisar; sem continuidade de documentos completos no histórico do Chat |
