@@ -33,8 +33,8 @@ android {
         manifestPlaceholders["fluxAppLabel"] = System.getenv("FLUX_APP_LABEL").orEmpty().ifBlank { "FLUX" }
         minSdk = 28
         targetSdk = 35
-        versionCode = 38
-        versionName = "1.9.0-preview"
+        versionCode = 39
+        versionName = "1.9.1-preview"
 
         buildConfigField("String", "FLUX_CORE_URL", buildConfigString(fluxCoreUrl))
     }

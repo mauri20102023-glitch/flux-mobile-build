@@ -147,10 +147,11 @@ class FluxRealtimeVoice(
                 onUserTranscript(it); currentImage?.let { image -> analyze(image, it) }
             }
             "response.function_call_arguments.done" -> if (event.optString("name") == "get_local_context") scope.launch {
+                val callEpoch = epoch
                 val callId = event.optString("call_id")
                 val question = runCatching { JSONObject(event.optString("arguments")).optString("question") }.getOrDefault("").take(1000)
                 val output = runCatching { FluxLocalContext.collect(context, app.api, question).context }.getOrElse { "Consulta indisponível; não invente dados." }
-                if (active && callId.isNotBlank()) send(JSONObject().put("type", "conversation.item.create")
+                if (active && callEpoch == epoch && callId.isNotBlank()) send(JSONObject().put("type", "conversation.item.create")
                     .put("item", JSONObject().put("type", "function_call_output").put("call_id", callId).put("output", output.ifBlank { "Dados não autorizados ou indisponíveis." })))
             }
             "response.output_audio_transcript.delta", "response.output_text.delta", "response.audio_transcript.delta" -> transcript.append(event.optString("delta"))
@@ -186,14 +187,15 @@ class FluxRealtimeVoice(
     }
     private fun analyze(image: String, prompt: String) {
         visionJob?.cancel()
+        val analysisEpoch = epoch
         visionJob = scope.launch {
             try {
                 val result = app.api.analyzeImage(image, prompt)
-                if (!active) return@launch
+                if (!active || analysisEpoch != epoch) return@launch
                 onAgentResponse(result)
                 if (ready) send(JSONObject().put("type", "response.speak").put("text", result.take(1000)))
             } catch (failure: Exception) {
-                if (failure !is CancellationException && active) onError(failure.message ?: "Não consegui analisar a captura.")
+                if (failure !is CancellationException && active && analysisEpoch == epoch) onError(failure.message ?: "Não consegui analisar a captura.")
             }
         }
     }

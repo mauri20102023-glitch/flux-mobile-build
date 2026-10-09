@@ -12,3 +12,14 @@
 Google/Spotify/TV/relógio/ClassApp/Geekie One ainda precisam de conectores, modelos/contas e autorizações. Não são serviços prontos nesta entrega. Cofre e biometria ainda não existem. Não inserir credenciais em memórias.
 
 Para parar a avaliação, feche/desinstale FLUX Evolution e selecione novamente seu assistente anterior. Seu FLUX estável e Core original não foram substituídos. Revisão está em PR #16; não fazer merge/deploy de produção sem validar os itens pendentes.
+
+
+## Incremento Android 1.9.1-preview — captura autorizada
+
+No botão Vision, escolha “Capturar tela com autorização do Android”. Autorize a tela ou o aplicativo no diálogo oficial. Abra o conteúdo desejado e, na notificação FLUX Vision, toque em “Analisar agora”. Uma captura JPEG é enviada ao Core e ao provedor configurado; a projeção é encerrada antes da requisição de análise. Abra o resultado pela notificação. “Encerrar” cancela a sessão e qualquer análise pendente. A espera pela captura expira após 60 segundos.
+
+Esta opção não depende da conexão de voz Inworld. Não grava vídeo, áudio ou capturas em arquivos; mantém o resultado apenas na memória do processo até sua leitura. Se o Android encerrar o processo, o resultado pode ser perdido. Telas protegidas podem retornar vazias; não há tentativa de contornar a proteção. Não é Vision Live contínuo.
+
+Validação física pendente: aceitar e negar consentimento; selecionar app e tela inteira; analisar texto e imagem conhecidos; cancelar pela notificação e pelo Android; aguardar expiração; testar orientação/tela protegida; confirmar que o indicador de compartilhamento encerra antes do envio. Só após estes testes a captura nativa poderá receber estado FUNCIONANDO.
+
+Também foram isolados resultados tardios de ferramentas/visão entre sessões de voz, evitando que uma consulta anterior responda em uma sessão nova.

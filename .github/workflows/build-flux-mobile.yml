@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 1.9.0-preview
+name: Build FLUX Mobile 1.9.1-preview
 
 on:
   workflow_dispatch:
@@ -90,8 +90,8 @@ jobs:
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.0-preview.apk
-          sha256sum FLUX-Mobile-1.9.0-preview.apk > FLUX-Mobile-1.9.0-preview.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.1-preview.apk
+          sha256sum FLUX-Mobile-1.9.1-preview.apk > FLUX-Mobile-1.9.1-preview.sha256
 
       - name: Compile side-by-side APK for existing installs
         working-directory: apps/android
@@ -103,17 +103,17 @@ jobs:
 
       - name: Prepare side-by-side APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.0-preview-lado-a-lado.apk
-          sha256sum FLUX-Mobile-1.9.0-preview-lado-a-lado.apk > FLUX-Mobile-1.9.0-preview-lado-a-lado.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-1.9.1-preview-lado-a-lado.apk
+          sha256sum FLUX-Mobile-1.9.1-preview-lado-a-lado.apk > FLUX-Mobile-1.9.1-preview-lado-a-lado.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-1.9.0-preview
+          name: FLUX-Mobile-1.9.1-preview
           path: |
-            FLUX-Mobile-1.9.0-preview.apk
-            FLUX-Mobile-1.9.0-preview.sha256
-            FLUX-Mobile-1.9.0-preview-lado-a-lado.apk
-            FLUX-Mobile-1.9.0-preview-lado-a-lado.sha256
+            FLUX-Mobile-1.9.1-preview.apk
+            FLUX-Mobile-1.9.1-preview.sha256
+            FLUX-Mobile-1.9.1-preview-lado-a-lado.apk
+            FLUX-Mobile-1.9.1-preview-lado-a-lado.sha256
           if-no-files-found: error
           retention-days: 7

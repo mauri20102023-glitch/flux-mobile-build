@@ -30,9 +30,13 @@ import ai.flux.mobile.data.FluxLocalContext
 import kotlinx.coroutines.launch
 import android.content.Context
 import java.util.Locale
+import android.app.Activity
+import android.app.AlertDialog
+import android.media.projection.MediaProjectionManager
+import ai.flux.mobile.vision.FluxScreenCaptureService
 
 class MainActivity : ComponentActivity() {
-    private enum class PermissionAction { VOICE, WAKE, DEVICE_SCAN, CONTEXT }
+    private enum class PermissionAction { VOICE, WAKE, DEVICE_SCAN, CONTEXT, VISION }
 
     private lateinit var viewModel: FluxViewModel
     // O canal de áudio em tempo real não participa da abertura do aplicativo.
@@ -45,6 +49,18 @@ class MainActivity : ComponentActivity() {
     private var pendingVoiceStart = false
     private var pendingVisionStart = false
     private var permissionAction: PermissionAction? = null
+
+    private val screenConsent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            try {
+                ContextCompat.startForegroundService(this, Intent(this, FluxScreenCaptureService::class.java)
+                    .setAction(FluxScreenCaptureService.START).putExtra("consent", result.data))
+                AlertDialog.Builder(this).setTitle("Captura autorizada")
+                    .setMessage("Abra o aplicativo que deseja analisar. Na notificação FLUX Vision, toque em Analisar agora. Apenas um quadro será enviado ao Core e ao provedor de IA. A sessão expira em 60 segundos.")
+                    .setPositiveButton("Entendi", null).show()
+            } catch (failure: Exception) { viewModel.reportError(failure.message ?: "Não consegui iniciar a captura.") }
+        } else viewModel.reportError("Captura não autorizada. Nenhuma tela foi enviada.")
+    }
 
     private val assistantRoleRequest = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         updateAssistantRoleState()
@@ -76,6 +92,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
             PermissionAction.DEVICE_SCAN -> scanGlasses()
+            PermissionAction.VISION -> {
+                if (hasNotificationPermission()) requestScreenCapture()
+                else viewModel.reportError("Autorize notificações para controlar e encerrar a captura.")
+            }
             PermissionAction.CONTEXT -> pendingContextMessage?.let { message ->
                 pendingContextMessage = null
                 sendWithContext(message)
@@ -164,6 +184,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.getBooleanExtra("vision_result", false)) showVisionResult()
         if (intent.getBooleanExtra("start_voice", false) || intent.action == Intent.ACTION_ASSIST) requestVoice()
         if (intent.getBooleanExtra("start_vision", false)) {
             pendingVisionStart = true
@@ -176,6 +197,7 @@ class MainActivity : ComponentActivity() {
         if (::viewModel.isInitialized) {
             updateAssistantRoleState()
             viewModel.reconnect(showFailure = false)
+            showVisionResult()
             if (viewModel.state.value.wakeWordEnabled) {
                 if (hasPermission(Manifest.permission.RECORD_AUDIO) && hasNotificationPermission()) {
                     startWakeWordService()
@@ -337,6 +359,33 @@ class MainActivity : ComponentActivity() {
         Build.VERSION.SDK_INT < 33 || hasPermission(Manifest.permission.POST_NOTIFICATIONS)
 
     private fun openVision() {
+        pendingVisionStart = false
+        AlertDialog.Builder(this).setTitle("FLUX Vision")
+            .setItems(arrayOf("Capturar tela com autorização do Android", "Usar captura fornecida ao assistente")) { _, option ->
+                if (option == 0) requestScreenCapture() else openAssistantVision()
+            }.setNegativeButton("Cancelar", null).show()
+    }
+
+    private fun requestScreenCapture() {
+        if (!((application as FluxApplication).connectionSettings.authTokenConfigured())) {
+            viewModel.reportError("Pareie este aparelho com o Core antes de enviar uma captura.")
+            return
+        }
+        if (!hasNotificationPermission()) {
+            permissionAction = PermissionAction.VISION
+            permissions.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+            return
+        }
+        screenConsent.launch(getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
+    }
+
+    private fun showVisionResult() {
+        val result = FluxScreenCaptureService.consumeResult() ?: return
+        AlertDialog.Builder(this).setTitle("FLUX Vision — análise da captura")
+            .setMessage(result).setPositiveButton("Fechar", null).show()
+    }
+
+    private fun openAssistantVision() {
         if (!isAssistantRoleHeld()) {
             pendingVisionStart = true
             viewModel.reportError("Defina o FLUX como assistente para ele receber a tela atual.")
