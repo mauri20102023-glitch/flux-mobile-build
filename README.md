@@ -1,63 +1,41 @@
-# FLUX — Projeto A / Mobile e Command Center
+# FLUX — Projeto A: Mobile e Command Center
 
-Clientes2.0.1-project-a, construídos sobre o preview2.0 do PR16. Core existente preservado; main e produção permanecem1.8 até revisão. ProjetoB Advanced é futuro, sem compras.
+Clientes **2.0.1-project-a**, desenvolvidos sobre o preview 2.0 do PR #16. O Core existente é preservado. `main` e produção continuam em 1.8 até revisão/aprovação. O Projeto B Advanced é futuro, sem compras.
 
-Auditoria: [docs/project-a/AUDITORIA.md](docs/project-a/AUDITORIA.md). Identidade/uso: [DESIGN-SYSTEM.md](docs/project-a/DESIGN-SYSTEM.md). Compatibilidade/orçamento: [ADVANCED.md](docs/project-a/ADVANCED.md). Evidências históricas do preview: docs/evolution; não equivalem a testes físicos atuais.
+## Experiências
 
-Command Center usa `wrangler.command.jsonc` e service binding para o Core de preview, sem copiar chaves/IA. Android continua usando Core existente. `npm test` valida contratos/cálculos; `npm run test:web` executa Chromium com fixture explicitamente simulada, sem custos de AI. CI também compila Android e testa emulador.
+- Android: Home compacta, Chat, Vision, Study e Control. Creator, memória, cofre, projetos, integrações e ajustes permanecem em Control/Workspace.
+- Desktop/Chromebook: Web/PWA Command Center, navegação lateral, contexto recolhível/redimensionável, modos Normal/Command/Imersivo/Study/Vision, atalhos e redução de movimento.
+- Study: lousa determinística, explicações pela API existente, incentivo ao raciocínio, histórico Web local mediante consentimento e exportação. Professor 3D e avaliação adaptativa permanecem em desenvolvimento.
 
----
+## Arquitetura e proteção
 
-# FLUX 1.7
+`wrangler.command.jsonc` hospeda somente a interface Desktop e utiliza service binding para `flux-evolution-preview`. Nenhuma cópia de inteligência, banco ou chave de serviço é criada para o Desktop. O Android continua usando esse Core remoto, mesmo com o PC desligado. A produção `flux-mobile-build2` não é substituída.
 
-Assistente pessoal de Maurício em duas experiências sincronizadas:
+A voz personalizada FLUX 4 e os clientes existentes são preservados. Disponibilidade exige teste real; configuração não é evidência de operação. Tokens de aparelhos ficam separados da credencial administrativa. API keys permanecem no servidor. Não incluir segredos no APK, scripts, logs, commits ou exportações.
 
-- **FLUX Web/PWA**: central responsiva instalável no celular e no computador.
-- **FLUX Mobile**: aplicativo Android nativo com assistente do sistema, ativação por voz e painel FLUX Vision.
-
-O FLUX Core roda em Cloudflare Workers. Com `INWORLD_API_KEY` configurada, chat e voz FLUX 4 usam a Inworld. O site mantém uma conversa WebRTC contínua com STT, LLM e TTS; o Core autentica e encaminha a sinalização sem expor a chave ao navegador. O Android usa chat e TTS do Core, reabrindo o reconhecimento de voz após cada resposta. Nenhuma chave de IA é incluída no site ou no APK.
-
-## Recursos
-
-- FLUX Chat para conversas livres, com modos rápido, padrão e profundo.
-- FLUX Live no site com áudio bidirecional, transcrição e interrupção natural.
-- FLUX Vision para compartilhar a tela sob comando explícito.
-- FLUX Studio para geração de imagens pelo Workers AI.
-- Planner com tarefas e projetos locais.
-- Memory Center com memórias privadas criptografadas no navegador e protegidas por PIN.
-- FLUX Link para WhatsApp, Instagram, e-mail, agenda, Canva, Drive, YouTube, Spotify, Mercado Livre e SmartThings.
-- FLUX Nexus para celular, Samsung Crystal, relógio, EDITH e futuro Home Hub.
-- FLUX Lab com Builder, Test Lab, Security, Update, Recovery e Developer Mode.
-- Quatro temas visuais e interface adaptada para celular, TV e desktop.
-
-## Segurança
-
-O repositório não armazena chaves de API, tokens ou dados pessoais. O Android usa um convite temporário emitido pelo Core para parear um aparelho e guarda o token do aparelho no Android Keystore. Nenhuma chave mestra de pareamento é incluída no APK. Sem pareamento, a chave Gemini pessoal permite chat e voz diretamente. Ações externas, como enviar mensagens ou controlar dispositivos, sempre exigem confirmação no aplicativo oficial correspondente.
-
-Configure os segredos no Cloudflare, nunca no `wrangler.jsonc`:
-
-```sh
-npx wrangler secret put INWORLD_API_KEY
-npx wrangler secret put FLUX_AUTH_TOKEN
-```
-
-Para parear um Android, o administrador autenticado cria um convite com
-`POST /v1/pair/invite` e `Authorization: Bearer <FLUX_AUTH_TOKEN>`. O código
-expira em 15 minutos e só pode ser usado uma vez em **Sistema → FLUX Link →
-Parear aparelho**. O Core guarda apenas o hash do código e entrega ao Android
-um token exclusivo do aparelho.
+Navegador exige gesto/permissão para microfone/captura. Vision analisa capturas individuais; não equivale a vídeo contínuo. Wake word Android depende de suporte/permissões e teste físico. OAuth exige cadastro e autorização próprios do FLUX; conexão dos serviços ao Codex não autoriza o aplicativo automaticamente.
 
 ## Desenvolvimento
 
 ```sh
 npm ci
+npm run embed:web
 npm test
-npm run check
-npm run deploy
+npm run check:types
+npx wrangler deploy --config wrangler.command.jsonc --dry-run
+npm run test:web
 ```
 
-O conteúdo de `web/flux-ath` é publicado como Static Assets pelo mesmo Worker. O Android está em `apps/android` e usa Java 17.
+Os testes Web usam Chromium no CI com fixture explicitamente simulada, sem chamadas pagas. Não comprovam a execução de provedores/contas. CI compila APKs e executa emulador Android. Build Android em `apps/android` requer Java 17; o workflow gera um pacote separado para preservar a instalação atual. Não usar `npm run deploy` em produção sem validação e aprovação.
 
-## Limites de plataforma
+Para parear, emita convite administrativo pelo Core de avaliação, uso único por 15 minutos. Cada cliente usa convite próprio. A interface recebe apenas token do aparelho, nunca a chave administrativa. Segredos do serviço devem ser configurados no painel seguro do Cloudflare.
 
-No navegador, microfone e compartilhamento de tela só podem começar após um gesto do usuário. A ativação contínua por “Flux” e o painel sobre outros aplicativos são recursos exclusivos do Android. Aplicativos protegidos podem impedir a leitura da tela.
+## Documentação
+
+- [Auditoria atual](docs/project-a/AUDITORIA.md)
+- [Design System e limites do Study](docs/project-a/DESIGN-SYSTEM.md)
+- [Advanced: compatibilidade, orçamento e critérios](docs/project-a/ADVANCED.md)
+- Evidências históricas e configuração do preview anterior em `docs/evolution`; essas evidências não equivalem a testes físicos atuais.
+
+Não houve compra, assinatura, recarga ou aquisição de equipamento. O teto de R$ 12.000 é planejamento de hardware/montagem; não garante preços nem inclui automaticamente APIs/licenças recorrentes.

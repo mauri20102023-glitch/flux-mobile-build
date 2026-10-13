@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -501,6 +502,7 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
                     style = Stroke(width = if (line % 3 == 0) 2.4f else 1.2f))
             }
         }
+        Image(painterResource(ai.flux.mobile.R.drawable.ic_flux_foreground), contentDescription = null, modifier = Modifier.size(size * .72f))
         Icon(if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
             if (state.isListening || state.voiceConnecting) "Encerrar voz" else "Conversar por voz",
             tint = accent, modifier = Modifier.size(26.dp).align(Alignment.BottomCenter))

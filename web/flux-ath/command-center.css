@@ -12,3 +12,4 @@ html[data-motion=reduced] *,html[data-motion=reduced] *::before,html[data-motion
 /* The original chat used negative margins for its previous shell. */
 body{padding-bottom:0}.chat-view{margin:0;height:auto;max-width:100%}.chat-stage{padding:16px 0;max-width:none}.command-toolbar{min-width:0}
 @media(max-width:760px){.status-pill{width:auto;padding:0 9px;min-width:65px}.status-pill b{display:inline;font-size:8px}.status-pill span{display:none}}
+.connect-catalog{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}.connect-card{border-top:1px solid var(--line);padding:15px 0;min-width:0}.connect-card h4{margin:0;font-size:14px}.connect-card p{font-size:11px}.connect-card .secondary-button{font-size:10px}.connect-card .evolution-actions{gap:7px}@media(max-width:760px){.connect-catalog{grid-template-columns:1fr}}
