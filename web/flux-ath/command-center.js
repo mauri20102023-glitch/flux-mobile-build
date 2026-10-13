@@ -1,4 +1,4 @@
-import {state,save,core,headers,readResponse,toast,friendlyError,go,getConversationId,contextForChat,speakFlux,stopVoice,requireConnection,inworldLive,live} from './app.js';
+import {state,save,core,headers,readResponse,toast,friendlyError,go,getConversationId,contextForChat,speakFlux,stopVoice,requireConnection,inworldLive,live,healthCheck} from './app.js';
 import {safeStudyExport} from './study-model.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const KEY='flux-command-preferences-v1', STUDY='flux-study-history-v1';
@@ -6,13 +6,14 @@ const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))||fa
 const prefs={mode:'normal',panel:false,width:300,reduced:matchMedia('(prefers-reduced-motion:reduce)').matches,modifier:'alt',...read(KEY,{})};
 function savePrefs(){localStorage.setItem(KEY,JSON.stringify(prefs));}
 function panel(open){prefs.panel=open;$('#contextPanel').hidden=!open;$('#panelToggle').setAttribute('aria-expanded',String(open));$('#panelToggle').textContent=open?'Fechar painel':'Abrir painel';savePrefs();}
-function mode(value,navigate=true){prefs.mode=['normal','command','immersive','study','vision'].includes(value)?value:'normal';document.body.dataset.mode=prefs.mode;$('#operatingMode').value=prefs.mode;if(prefs.mode==='command')panel(true);if(prefs.mode==='normal'||prefs.mode==='immersive')panel(false);if(navigate){if(prefs.mode==='study'||prefs.mode==='vision')go(prefs.mode);else go('home');}savePrefs();}
+let applyingMode=false;
+function mode(value,navigate=true){prefs.mode=['normal','command','immersive','study','vision'].includes(value)?value:'normal';document.body.dataset.mode=prefs.mode;$('#operatingMode').value=prefs.mode;if(prefs.mode==='command')panel(true);if(prefs.mode==='normal'||prefs.mode==='immersive')panel(false);if(navigate){applyingMode=true;if(prefs.mode==='study'||prefs.mode==='vision')go(prefs.mode);else go('home');applyingMode=false;}savePrefs();}
 $('#operatingMode').onchange=e=>mode(e.target.value);$('#panelToggle').onclick=()=>panel(!prefs.panel);$('#panelClose').onclick=()=>panel(false);
 $('#panelWidth').value=Math.min(400,Math.max(260,Number(prefs.width)||300));function width(){prefs.width=Number($('#panelWidth').value);document.documentElement.style.setProperty('--context-width',prefs.width+'px');savePrefs();}$('#panelWidth').oninput=width;width();
 $('#reduceMotion').checked=Boolean(prefs.reduced);function motion(){prefs.reduced=$('#reduceMotion').checked;document.documentElement.dataset.motion=prefs.reduced?'reduced':'full';savePrefs();}$('#reduceMotion').onchange=motion;motion();
 $('#shortcutModifier').value=prefs.modifier;$('#shortcutModifier').onchange=e=>{prefs.modifier=e.target.value;savePrefs();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&prefs.panel){panel(false);return;}if(e.target.closest('input,textarea,select,[contenteditable=true]'))return;const active=prefs.modifier==='alt'?e.altKey&&!e.ctrlKey&&!e.metaKey:prefs.modifier==='ctrlshift'?e.ctrlKey&&e.shiftKey&&!e.altKey:false;const i=Number(e.key)-1;if(active&&i>=0&&i<5){e.preventDefault();go(['home','chat','vision','study','control'][i]);}});
-window.addEventListener('flux:navigation',e=>{if(e.detail.view!==prefs.mode&&['study','vision','immersive'].includes(prefs.mode)){prefs.mode='normal';document.body.dataset.mode='normal';$('#operatingMode').value='normal';savePrefs();}});
+window.addEventListener('flux:navigation',e=>{if(applyingMode)return;if(e.detail.view!==prefs.mode&&['study','vision','immersive'].includes(prefs.mode)){prefs.mode='normal';document.body.dataset.mode='normal';$('#operatingMode').value='normal';savePrefs();}});
 mode(prefs.mode,false);panel(prefs.panel);
 const caption=()=>{$('#coreCaption').textContent=$('#coreStatus b').textContent==='CONECTADO'?'CORE AUTENTICADO · TESTE OS SERVIÇOS':$('#coreStatus b').textContent==='OFFLINE'?'SEM CONEXÃO':'AGUARDANDO PAREAMENTO';};new MutationObserver(caption).observe($('#coreStatus'),{childList:true,subtree:true});caption();
 window.addEventListener('flux:voice',e=>{$('#operationState').textContent=e.detail.mode==='idle'?'Sem operação em andamento':e.detail.label;});
@@ -35,3 +36,6 @@ let meter=null,frame=0,stream=null;
 async function stopMeter(){cancelAnimationFrame(frame);frame=0;stream=null;const old=meter;meter=null;if(old)await old.close().catch(()=>{});$('#voiceCore').style.removeProperty('--mic-level');}
 window.addEventListener('flux:voice',async e=>{const mic=inworldLive.mic||live.mic;if(!mic||e.detail.mode==='idle'){await stopMeter();return;}if(mic===stream)return;await stopMeter();stream=mic;try{const ctx=new AudioContext();meter=ctx;const source=ctx.createMediaStreamSource(mic),analyzer=ctx.createAnalyser();analyzer.fftSize=256;source.connect(analyzer);const values=new Uint8Array(256);const tick=()=>{if(meter!==ctx)return;analyzer.getByteTimeDomainData(values);const sum=values.reduce((s,x)=>s+((x-128)/128)**2,0);const level=Math.min(1,Math.sqrt(sum/values.length)*5);$('#voiceCore').style.setProperty('--mic-level',String(level));frame=requestAnimationFrame(tick);};tick();}catch{await stopMeter();}});
 window.addEventListener('pagehide',()=>{request?.abort();stopVoice();stopMeter();});
+
+window.addEventListener("offline",()=>{$("#coreStatus").className="status-pill offline";$("#coreStatus b").textContent="OFFLINE";});
+window.addEventListener("online",()=>{healthCheck().catch(()=>{});});

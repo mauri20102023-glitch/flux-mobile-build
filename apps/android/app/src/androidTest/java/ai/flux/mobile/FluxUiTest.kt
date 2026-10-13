@@ -51,6 +51,9 @@ class FluxUiTest {
         compose.waitForIdle()
         compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.accentKey()=="cyan"}
         Assert.assertEquals("cyan",(compose.activity.application as FluxApplication).workspace.accentKey())
+        compose.onNodeWithTag("toggle-Reduzir animações").performScrollTo().performClick()
+        compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.reducedMotion()}
+        Assert.assertTrue((compose.activity.application as FluxApplication).workspace.reducedMotion())
         evidence("settings")
         compose.onNodeWithText("Control").performClick()
         compose.onNodeWithText("Workspace · conexões, memória e cofre").performClick()

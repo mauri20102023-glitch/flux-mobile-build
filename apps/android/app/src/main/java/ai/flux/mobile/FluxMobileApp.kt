@@ -465,7 +465,7 @@ private fun presenceLabel(state: FluxUiState): String = when {
 
 @Composable
 private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
-    val breath = if(state.reducedMotion) 0f else {
+    val breath = if(state.reducedMotion || !(state.isListening || state.voiceConnecting || state.isResponding)) 0f else {
     val animation = rememberInfiniteTransition(label = "Presença FLUX")
     val progress by animation.animateFloat(
         initialValue = 0f,
@@ -1101,6 +1101,7 @@ private fun ToggleCard(icon: ImageVector, title: String, subtitle: String, check
             Switch(
                 checked = checked,
                 onCheckedChange = onChecked,
+                modifier = Modifier.testTag("toggle-$title"),
                 colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = PulseRed),
             )
         }
