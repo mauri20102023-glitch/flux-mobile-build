@@ -1,5 +1,5 @@
-const CACHE = "flux-shell-1.8.1";
-const SHELL = ["/", "/styles.css", "/app.js", "/icon.svg", "/manifest.webmanifest"];
+const CACHE = "flux-shell-2.0.1-project-a";
+const SHELL = ["/", "/styles.css", "/app.js", "/icon.svg", "/manifest.webmanifest", "/command-center.css", "/command-center.js", "/study-board.js", "/study-model.js"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", event => {
@@ -8,7 +8,7 @@ self.addEventListener("fetch", event => {
   if (request.method !== "GET" || url.origin !== self.location.origin || !SHELL.includes(url.pathname)) return;
   event.respondWith(fetch(request).then(response => {
     const copy = response.clone();
-    caches.open(CACHE).then(cache => cache.put(request, copy));
+    event.waitUntil(caches.open(CACHE).then(cache => cache.put(request, copy)));
     return response;
   }).catch(() => caches.match(request).then(hit => hit || caches.match("/"))));
 });

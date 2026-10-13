@@ -1,12 +1,12 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const VERSION = "1.8.1";
+const VERSION = "2.0.1-project-a";
 const STORE = "flux-workspace-v1";
 const DEVICE_ID = localStorage.getItem("flux-device-id") || `web-${crypto.randomUUID()}`;
 localStorage.setItem("flux-device-id", DEVICE_ID);
 
 const initial = {
-  theme: "ion",
+  theme: "ember",
   coreUrl: location.origin,
   token: "",
   pinHash: "",
@@ -34,9 +34,9 @@ function loadState() {
   catch { return { ...initial }; }
 }
 let state = loadState();
-if (!localStorage.getItem("flux-blue-upgrade-1.8")) {
-  if (state.theme === "ember") state.theme = "ion";
-  localStorage.setItem("flux-blue-upgrade-1.8", "1");
+if (!localStorage.getItem("flux-identity-project-a")) {
+  state.theme = "ember";
+  localStorage.setItem("flux-identity-project-a", "1");
 }
 const revealedMemories = new Map();
 let sessionPin = "";
@@ -75,7 +75,8 @@ function toast(message, type = "") {
 }
 
 const viewMeta = {
-  home:["SISTEMA PESSOAL","Olá, Maurício"], chat:["CONVERSA","FLUX Chat"], planner:["ORGANIZAÇÃO","Planos"],
+  vision:["CONTEXTO VISUAL","FLUX Vision"], study:["APRENDIZAGEM","FLUX Study"], control:["ECOSSISTEMA","FLUX Control"],
+  home:["EXTREME INTELLIGENCE","Command Center"], chat:["CONVERSA","FLUX Chat"], planner:["ORGANIZAÇÃO","Planos"],
   studio:["CRIAÇÃO","FLUX Studio"], memory:["CONTEXTO","Memória"], integrations:["SERVIÇOS","FLUX Link"],
   devices:["ECOSSISTEMA","Dispositivos"], lab:["EVOLUÇÃO SEGURA","FLUX Lab"], settings:["CONTROLE","Configurações"],
 };
@@ -85,7 +86,9 @@ function go(view, updateUrl = true, focusInput = true) {
   $$('[data-go]').forEach(node => node.classList.toggle("active", node.dataset.go === view));
   $("#sectionEyebrow").textContent = viewMeta[view][0]; $("#sectionTitle").textContent = viewMeta[view][1];
   if (updateUrl) history.replaceState(null, "", view === "home" ? location.pathname : `?view=${view}`);
-  window.scrollTo({ top:0, behavior:"smooth" });
+  window.scrollTo({ top:0, behavior:document.documentElement.dataset.motion === "reduced" ? "instant" : "smooth" });
+  document.body.dataset.view = view;
+  window.dispatchEvent(new CustomEvent("flux:navigation", {detail:{view}}));
   if (view === "chat" && focusInput) setTimeout(() => $("#chatInput").focus(), 150);
 }
 
@@ -93,7 +96,7 @@ function updateClock() {
   const now = new Date(); const hour = now.getHours();
   $("#clock").textContent = now.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
   $("#todayLabel").textContent = now.toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
-  $("#greeting").textContent = `${hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"}, Maurício.`;
+  $("#greeting").textContent = `${hour < 6 ? "Boa noite" : hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"}, Maurício.`;
   $("#deckDate").textContent = now.toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }).replace(/ de /g," ").toUpperCase();
 }
 
@@ -173,7 +176,7 @@ async function sendChat(message, { spoken = false } = {}) {
 function getConversationId() { let id = localStorage.getItem("flux-conversation-id"); if (!id) { id = crypto.randomUUID(); localStorage.setItem("flux-conversation-id", id); } return id; }
 function requireConnection() { if (!state.token || state.token.length < 20) { const error = new Error("Abra Configurações e conecte o FLUX com um código de pareamento."); error.code = "NO_TOKEN"; throw error; } }
 async function readResponse(response) { let body = {}; try { body = await response.json(); } catch {} if (!response.ok) throw new Error(body.message || body.error || `Erro ${response.status}`); return body; }
-function friendlyError(error) { const text = error?.message || "Falha inesperada."; if (/PAIRING_DENIED/i.test(text)) return "Código inválido, usado ou expirado. Peça um novo código de pareamento."; if (/PAIRING_RATE_LIMITED/i.test(text)) return "Muitas tentativas. Aguarde antes de tentar novamente."; if (/unauthorized/i.test(text)) return "A conexão deste navegador não foi aceita. Abra Configurações e use um novo código."; return text; }
+function friendlyError(error) { const text = error?.message || "Falha inesperada."; if (/Failed to fetch|Load failed|NetworkError/i.test(text)) return "Conexão indisponível. Confira a rede e tente novamente."; if (/PAIRING_DENIED/i.test(text)) return "Código inválido, usado ou expirado. Peça um novo código de pareamento."; if (/PAIRING_RATE_LIMITED/i.test(text)) return "Muitas tentativas. Aguarde antes de tentar novamente."; if (/unauthorized/i.test(text)) return "A conexão deste navegador não foi aceita. Abra Configurações e use um novo código."; return text; }
 
 function renderTasks() {
   const list = $("#taskList"); list.innerHTML = ""; $("#taskCount").textContent = state.tasks.filter(item => !item.done).length;
@@ -367,15 +370,15 @@ function openIntegration(id) { const item = integrations.find(row => row[0] === 
 function renderDevices() {
   const devices = [
     ["mobile","Este navegador","▣","ABERTO","Chat, voz e visão exigem permissão e Core ativo"], ["tv","Samsung Crystal","▱","NÃO PAREADA","Abra SmartThings para configurar sua TV"],
-    ["watch","FLUX Watch","◷","PLANEJADO","Voz rápida, alertas e saúde"], ["edith","FLUX EDITH","◉","PLANEJADO","Óculos, câmera e áudio contextual"],
-    ["home","FLUX Home Hub","⌂","PLANEJADO","HDMI, microfones e automação da casa"],
+    ["watch","FLUX Watch","◷","PLANEJADO","Voz rápida, alertas e saúde"], ["edith","FLUX Glasses","◉","PLANEJADO","Óculos, câmera e áudio contextual"],
+
   ];
   const grid=$("#deviceGrid"); grid.innerHTML=""; devices.forEach(([id,name,icon,status,desc])=>{ const node=document.createElement("article"); node.className="device-card"; node.innerHTML=`<header><span class="device-icon">${icon}</span><span class="tag">${status}</span></header><h3>${name}</h3><p>${desc}</p><footer><small>${id === "mobile" ? "Este navegador" : "Sem controle remoto pelo FLUX"}</small><button class="card-action" data-device="${id}">${id === "tv" ? "ABRIR" : "DETALHES"}</button></footer>`; grid.append(node); });
 }
 
 async function healthCheck(show = false) {
   const badge=$("#coreStatus"); badge.className="status-pill"; badge.querySelector("b").textContent="VERIFICANDO";
-  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); coreLiveAvailable=body.features?.live===true; coreRealtimeProvider=body.features?.realtimeProvider||"unavailable"; badge.classList.add(state.token?"online":"offline"); badge.querySelector("b").textContent=state.token?"VERIFICANDO":"PAREAR"; $("#deckVoice").textContent=state.token?(body.features?.voice?"Voz FLUX pronta":"Voz indisponível"):"Parear para falar"; if(show) toast(`FLUX Core ${body.version || "online"}. ${state.token?"Verificando pareamento.":"Pareie este navegador para conversar."}`,"ok"); return body; }
+  try { const response=await fetch(core("/health"),{cache:"no-store"}); const body=await readResponse(response); coreLiveAvailable=body.features?.live===true; coreRealtimeProvider=body.features?.realtimeProvider||"unavailable"; badge.classList.add(state.token?"online":"offline"); badge.querySelector("b").textContent=state.token?"VERIFICANDO":"PAREAR"; $("#deckVoice").textContent=state.token?(body.features?.voice?"Configurada · áudio não testado":"Voz indisponível"):"Parear para falar"; if(show) toast(`FLUX Core ${body.version || "online"}. ${state.token?"Verificando pareamento.":"Pareie este navegador para conversar."}`,"ok"); return body; }
   catch(error){ coreLiveAvailable=false; coreRealtimeProvider="unavailable"; badge.classList.add("offline"); badge.querySelector("b").textContent="OFFLINE"; if(show) toast(`Núcleo indisponível: ${friendlyError(error)}`,"error"); throw error; }
 }
 async function diagnostics() { requireConnection(); const response=await fetch(core("/v1/diagnostics"),{headers:headers()}); return readResponse(response); }
@@ -494,7 +497,7 @@ const inworldLive=new FluxInworldLive();
 function mergeTranscript(current,incoming){ if(!current)return incoming; if(incoming.startsWith(current))return incoming; if(current.endsWith(incoming))return current; return current+incoming; }
 function bytesToBase64(buffer){ const bytes=new Uint8Array(buffer); let binary=""; const step=0x8000; for(let i=0;i<bytes.length;i+=step) binary+=String.fromCharCode(...bytes.subarray(i,i+step)); return btoa(binary); }
 function downsample(float32,inputRate,outputRate){ const ratio=inputRate/outputRate; const length=Math.round(float32.length/ratio); const result=new Int16Array(length); for(let i=0;i<length;i++){ const start=Math.floor(i*ratio),end=Math.min(float32.length,Math.floor((i+1)*ratio)); let sum=0,count=0; for(let j=start;j<end;j++){sum+=float32[j];count++;} const sample=Math.max(-1,Math.min(1,sum/Math.max(1,count))); result[i]=sample<0?sample*32768:sample*32767; } return result; }
-function setVoiceState(mode,label){ $("#voiceCore").dataset.state=mode; $("#voiceStatus").textContent=label; $("#stopVoice").hidden=mode==="idle"; $("#homeHint").textContent=mode==="listening"?"Estou ouvindo. Pode falar com o FLUX.":mode==="speaking"?"O FLUX está respondendo. Toque para interromper.":"Sua voz, agenda e previsão em um só lugar. Toque no núcleo para conversar."; }
+function setVoiceState(mode,label){ window.dispatchEvent(new CustomEvent("flux:voice",{detail:{mode,label}})); $("#voiceCore").dataset.state=mode; $("#voiceStatus").textContent=label; $("#stopVoice").hidden=mode==="idle"; $("#homeHint").textContent=mode==="listening"?"Estou ouvindo. Pode falar com o FLUX.":mode==="speaking"?"O FLUX está respondendo. Toque para interromper.":"Sua voz, agenda e previsão em um só lugar. Toque no núcleo para conversar."; }
 function startLocalRecognition(){
   const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SpeechRecognition)throw new Error("Este navegador não oferece reconhecimento de voz. Use o botão ‘Me atualize agora’.");
@@ -513,11 +516,10 @@ async function toggleVoice(){
 }
 
 async function startScreen(){
-  if(!navigator.mediaDevices?.getDisplayMedia){ toast("O compartilhamento de tela exige um navegador compatível ou o app Android.","error"); return; }
-  const wasLiveActive=live.active;
-  try { screenStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:2},audio:false}); if(!live.active) await live.start(); const video=document.createElement("video"); video.srcObject=screenStream; video.muted=true; await video.play(); const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d"); canvas.width=640; canvas.height=360; const send=()=>{ if(!screenStream)return; const scale=Math.min(canvas.width/video.videoWidth,canvas.height/video.videoHeight); const w=video.videoWidth*scale,h=video.videoHeight*scale; ctx.fillStyle="#000";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(video,(canvas.width-w)/2,(canvas.height-h)/2,w,h); live.sendFrame(canvas.toDataURL("image/jpeg",.68).split(",")[1]); }; screenTimer=setInterval(send,1000); send(); screenStream.getVideoTracks()[0].addEventListener("ended",stopScreen); $("#screenShare").hidden=false; live.sendText("Analise a tela que eu compartilhar. Só descreva quando eu perguntar; preserve dados pessoais e nunca repita senhas.",false); toast("FLUX Vision ativada.","ok"); }
-  catch(error){ if(screenStream) stopScreen(false); if(!wasLiveActive&&live.active)live.stop(); toast(error.name==="NotAllowedError"?"Compartilhamento cancelado.":friendlyError(error),"error"); }
+  try { requireConnection(); const image = await captureEvolutionImage("screen"); go("lab"); $("#evoPrompt").value = "Explique o que aparece nesta captura."; await analyzeEvolutionImage(image); }
+  catch(error){ toast(error.name==="NotAllowedError" ? "Compartilhamento cancelado." : friendlyError(error), "error"); }
 }
+
 function stopScreen(showToast=true){ clearInterval(screenTimer); screenTimer=null; screenStream?.getTracks().forEach(track=>track.stop()); screenStream=null; $("#screenShare").hidden=true; if(showToast)toast("FLUX Vision encerrada."); }
 
 function modal({eyebrow="FLUX",title,body,confirm="SALVAR",onConfirm}){
@@ -556,7 +558,7 @@ function bindEvents(){
   $("#clearChat").onclick=()=>{state.messages=[];localStorage.removeItem("flux-conversation-id");save();renderMessages();toast("Conversa limpa.");};
   $("#taskForm").onsubmit=event=>{event.preventDefault();addTask($("#taskInput").value);$("#taskInput").value="";};
   $("#imageForm").onsubmit=createImage; $$('[data-style]').forEach(button=>button.onclick=()=>{selectedStyle=button.dataset.style;$$('[data-style]').forEach(item=>item.classList.toggle("selected",item===button));});
-  $("#saveConnection").onclick=async()=>{const code=$("#pairCode").value.trim();if(!/^[A-Za-z0-9_-]{32}$/.test(code))return toast("Cole o código de pareamento de 32 caracteres.","error");const button=$("#saveConnection");setBusy(button,true,"CONECTANDO…");try{const response=await fetch(core("/v1/pair/redeem"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({deviceId:DEVICE_ID,deviceName:"FLUX Web",code})});const paired=await readResponse(response);if(!paired.deviceToken)throw new Error("O Core não retornou a credencial do navegador.");state.token=paired.deviceToken;save();$("#pairCode").value="";await diagnostics();await healthCheck();await loadCalendar();$("#coreStatus").querySelector("b").textContent="CONECTADO";$("#pairStatus").textContent="Navegador autenticado. Voz FLUX e chat disponíveis.";toast("FLUX Core autenticado neste navegador.","ok");}catch(error){toast(friendlyError(error),"error");}finally{setBusy(button,false);}};
+  $("#saveConnection").onclick=async()=>{const code=$("#pairCode").value.trim();if(!/^[A-Za-z0-9_-]{32}$/.test(code))return toast("Cole o código de pareamento de 32 caracteres.","error");const button=$("#saveConnection");setBusy(button,true,"CONECTANDO…");try{const response=await fetch(core("/v1/pair/redeem"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({deviceId:DEVICE_ID,deviceName:"FLUX Web",code})});const paired=await readResponse(response);if(!paired.deviceToken)throw new Error("O Core não retornou a credencial do navegador.");state.token=paired.deviceToken;save();$("#pairCode").value="";await diagnostics();await healthCheck();await loadCalendar();$("#coreStatus").querySelector("b").textContent="CONECTADO";$("#pairStatus").textContent="Navegador autenticado. Teste cada serviço para confirmar sua disponibilidade.";toast("FLUX Core autenticado neste navegador.","ok");}catch(error){toast(friendlyError(error),"error");}finally{setBusy(button,false);}};
   $("#savePin").onclick=async()=>{const pin=$("#privatePin").value.trim();if(!/^\d{6,12}$/.test(pin))return toast("Use um PIN de 6 a 12 números.","error");try{let previous=$("#oldPrivatePin").value.trim()||sessionPin;const privateNotes=state.memories.filter(memory=>memory.private);if(state.pinVerifier||state.pinHash){if(!previous||!await verifyPin(previous))throw new Error("Informe o PIN atual para proteger suas notas existentes.");}else if(privateNotes.length)throw new Error("As notas privadas antigas precisam do PIN original.");const encrypted=await Promise.all(privateNotes.map(async memory=>{if(!memory.encrypted)throw new Error("Há uma nota privada sem dados cifrados.");return encryptPrivate(await decryptPrivate(memory.encrypted,previous),pin);}));const verifier=await createPinVerifier(pin);privateNotes.forEach((memory,index)=>{memory.encrypted=encrypted[index];revealedMemories.delete(memory.id);});state.pinVerifier=verifier;state.pinHash="";sessionPin=pin;save();renderMemories();$("#privatePin").value="";$("#oldPrivatePin").value="";toast("PIN salvo; notas privadas protegidas.","ok");}catch(error){toast(friendlyError(error),"error");}};
   $("#voiceEnabled").onchange=event=>{state.voiceEnabled=event.target.checked;save();if(!state.voiceEnabled)stopVoice();};
   $("#wakeEnabled").onchange=event=>{event.target.checked=false;state.wakeEnabled=false;save();toast("A ativação contínua por “Flux” fica no aplicativo Android; navegadores bloqueiam microfone permanente.");};
@@ -573,6 +575,41 @@ async function init(){
   state.coreUrl=location.origin; $("#pairStatus").textContent=state.token?"Conexão salva neste navegador. Verificando o Core…":"Este navegador ainda precisa de um código de pareamento."; $("#voiceEnabled").checked=state.voiceEnabled; $("#wakeEnabled").checked=false;
   updateClock();setInterval(updateClock,30000);const requested=new URLSearchParams(location.search).get("view");go(requested||"home",false);
   if("serviceWorker" in navigator && location.protocol==="https:")navigator.serviceWorker.register("/sw.js").catch(()=>{});
-  setTimeout(()=>$("#boot").classList.add("done"),520);healthCheck().then(async()=>{if(state.token){try{await diagnostics();await loadCalendar();$("#coreStatus").querySelector("b").textContent="CONECTADO";$("#pairStatus").textContent="Navegador autenticado. Voz FLUX e chat disponíveis.";}catch{$("#pairStatus").textContent="Conexão anterior não foi aceita. Use um novo código de pareamento.";$("#coreStatus").className="status-pill offline";$("#coreStatus").querySelector("b").textContent="PAREAR";$("#deckVoice").textContent="Parear para falar";}}}).catch(()=>{$("#pairStatus").textContent="FLUX Core indisponível no momento.";});
+  setTimeout(()=>$("#boot").classList.add("done"),520);healthCheck().then(async()=>{if(state.token){try{await diagnostics();await loadCalendar();$("#coreStatus").querySelector("b").textContent="CONECTADO";$("#pairStatus").textContent="Navegador autenticado. Teste cada serviço para confirmar sua disponibilidade.";}catch{$("#pairStatus").textContent="Conexão anterior não foi aceita. Use um novo código de pareamento.";$("#coreStatus").className="status-pill offline";$("#coreStatus").querySelector("b").textContent="PAREAR";$("#deckVoice").textContent="Parear para falar";}}}).catch(()=>{$("#pairStatus").textContent="FLUX Core indisponível no momento.";});
 }
 init();
+
+// Authenticated preview modules; model output is rendered only as text.
+const evo = document.createElement('section');
+evo.className = 'evolution-grid';
+evo.innerHTML = `<article class="panel evolution-card"><p class="eyebrow">MEMORY EVOLUTION</p><h3>Contexto que você escolhe guardar</h3><p>Compartilhado entre dispositivos pareados. Não guarde senhas ou dados de terceiros.</p><form id="evoMemory"><input name="title" placeholder="Título" maxlength="120" required aria-label="Título"><textarea name="content" placeholder="O que o FLUX deve lembrar?" maxlength="2000" required aria-label="Memória"></textarea><select name="category" aria-label="Categoria"><option value="preference">Preferência</option><option value="project">Projeto</option><option value="decision">Decisão</option><option value="study">Estudos</option><option value="routine">Rotina</option></select><label class="toggle-row"><span>Autorizo guardar este conteúdo no Core</span><input name="consent" type="checkbox" required></label><button class="primary-button" type="submit">GUARDAR</button></form><div id="evoMemories"></div></article>
+<article class="panel evolution-card"><p class="eyebrow">FLUX MISSIONS</p><h3>Objetivos com resultados reais</h3><p>Prepara estudos, textos e propostas de código. Não executa código, publica ou envia mensagens.</p><form id="evoMission"><select name="kind" aria-label="Tipo"><option value="study">Estudo</option><option value="code">Proposta de código</option><option value="business">Negócios</option><option value="draft">Texto</option></select><textarea name="objective" placeholder="Descreva seu objetivo" maxlength="3000" required aria-label="Objetivo"></textarea><button class="primary-button" type="submit">INICIAR MISSÃO</button></form><button id="evoRefresh" class="secondary-button">ATUALIZAR RESULTADOS</button><div id="evoMissions" aria-live="polite"></div></article>
+<article class="panel evolution-card evolution-vision"><p class="eyebrow">FLUX VISION</p><h3>Veja. Pergunte. Compreenda.</h3><p>Uma captura real por vez, após sua autorização. O Core não armazena a imagem.</p><textarea id="evoPrompt" placeholder="O que deseja saber sobre a imagem?" maxlength="3000" aria-label="Pergunta visual"></textarea><div class="evolution-actions"><label class="secondary-button">ENVIAR IMAGEM<input id="evoFile" type="file" accept="image/jpeg,image/png,image/webp" hidden></label><button id="evoCapture" class="secondary-button">CAPTURAR TELA</button><button id="evoCamera" class="secondary-button">FOTO DA CÂMERA</button></div><img id="evoPreview" alt="Imagem enviada" hidden><p id="evoVisionState" role="status">Nenhuma imagem analisada.</p><pre id="evoVisionResult"></pre></article>`;
+$('.view[data-view="lab"]').append(evo);
+async function evolutionRequest(path, options={}){requireConnection();return readResponse(await fetch(core(path),{...options,headers:headers()}));}
+function evoText(text){const pre=document.createElement('pre');pre.textContent=text;return pre;}
+function evoButton(label, action){const button=document.createElement('button');button.className='secondary-button';button.textContent=label;button.onclick=()=>action().catch(error=>toast(friendlyError(error),'error'));return button;}
+async function refreshEvolution(){
+ const [a,b]=await Promise.all([evolutionRequest('/v1/memories'),evolutionRequest('/v1/missions')]);
+ $('#evoMemories').replaceChildren();$('#evoMissions').replaceChildren();
+ for(const item of a.memories){const card=document.createElement('div');card.className='evolution-result';card.append(evoText(`${item.title}\n${item.content}`));card.append(evoButton('ESQUECER',async()=>{await evolutionRequest(`/v1/memories/${item.id}`,{method:'DELETE'});await refreshEvolution();}));card.append(evoButton('CORRIGIR',async()=>{modal({title:'Corrigir memória',body:`<textarea id="evoEdit" maxlength="2000">${escapeHtml(item.content)}</textarea>`,onConfirm:async()=>{await evolutionRequest(`/v1/memories/${item.id}`,{method:'PATCH',body:JSON.stringify({...item,content:$('#evoEdit').value,consent:true})});await refreshEvolution();}});}));$('#evoMemories').append(card);}
+ const labels={queued:'NA FILA',running:'EXECUTANDO',completed:'RESULTADO GERADO',failed:'COM ERRO',cancelled:'CANCELADA'};
+ for(const item of b.missions.slice(-10).reverse()){const card=document.createElement('div');card.className='evolution-result';card.append(evoText(`${labels[item.status]} • ${new Date(item.updatedAt).toLocaleString('pt-BR')}\n${item.objective}\n\n${item.output||item.error||'Aguardando resultado do executor.'}`));if(['queued','running'].includes(item.status))card.append(evoButton('CANCELAR',async()=>{await evolutionRequest(`/v1/missions/${item.id}/cancel`,{method:'POST',body:'{}'});await refreshEvolution();}));$('#evoMissions').append(card);}
+ if(!a.memories.length)$('#evoMemories').textContent='Nenhuma memória autorizada.';
+ if(!b.missions.length)$('#evoMissions').textContent='Nenhuma missão registrada.';
+}
+for(const [selector,path] of [['#evoMemory','/v1/memories'],['#evoMission','/v1/missions']])$(selector).onsubmit=async event=>{event.preventDefault();const button=event.submitter;setBusy(button,true);try{const data=Object.fromEntries(new FormData(event.target));if(selector==='#evoMemory')data.consent=event.target.elements.consent.checked;await evolutionRequest(path,{method:'POST',body:JSON.stringify(data)});event.target.reset();await refreshEvolution();}catch(error){toast(friendlyError(error),'error');}finally{setBusy(button,false);}};
+$('#evoRefresh').onclick=()=>refreshEvolution().catch(error=>toast(friendlyError(error),'error'));
+setInterval(()=>{if(document.visibilityState==='visible'&&$('.view[data-view="lab"]').classList.contains('active')&&state.token)refreshEvolution().catch(()=>{});},8000);
+function scaledEvolutionImage(image,w,h){const ratio=Math.min(1,1280/Math.max(w,h));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(w*ratio));canvas.height=Math.max(1,Math.round(h*ratio));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/jpeg',.82);}
+async function captureEvolutionImage(source){requireConnection();const stream=source==='screen'?await navigator.mediaDevices.getDisplayMedia({video:true,audio:false}):await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});try{const video=document.createElement('video');video.muted=true;video.srcObject=stream;await video.play();return scaledEvolutionImage(video,video.videoWidth,video.videoHeight);}finally{stream.getTracks().forEach(track=>track.stop());}}
+async function analyzeEvolutionImage(image){$('#evoPreview').src=image;$('#evoPreview').hidden=false;$('#evoVisionState').textContent='Analisando imagem enviada…';$('#evoVisionResult').textContent='';try{const result=await evolutionRequest('/v1/vision',{method:'POST',body:JSON.stringify({image,prompt:$('#evoPrompt').value.trim()||'Explique o que aparece nesta imagem. Declare quando algo estiver ilegível.'})});$('#evoVisionResult').textContent=result.content;$('#evoVisionState').textContent=`Análise concluída • ${new Date(result.analyzedAt).toLocaleTimeString('pt-BR')} • captura única`;}catch(error){$('#evoVisionState').textContent=friendlyError(error);throw error;}}
+$('#evoFile').onchange=async event=>{const file=event.target.files?.[0];if(!file)return;try{requireConnection();if(file.size>15000000)throw new Error('Escolha imagem de até 15 MB.');const bitmap=await createImageBitmap(file);try{await analyzeEvolutionImage(scaledEvolutionImage(bitmap,bitmap.width,bitmap.height));}finally{bitmap.close();}}catch(error){toast(friendlyError(error),'error');}finally{event.target.value='';}};
+$('#evoCapture').onclick=()=>startScreen();
+$('#evoCamera').onclick=async()=>{try{await analyzeEvolutionImage(await captureEvolutionImage('camera'));}catch(error){toast(friendlyError(error),'error');}};
+
+const evoStatus=document.createElement('article');evoStatus.className='panel evolution-card evolution-vision';evoStatus.innerHTML='<p class="eyebrow">MISSION CONTROL</p><h3>Capacidades com evidências</h3><p>Último resultado registrado pelo Core. Não representa teste de hardware ou disponibilidade futura.</p><button id="evoStatusRefresh" class="secondary-button">VERIFICAR ESTADOS</button><div id="evoStatusResults" aria-live="polite"></div>';evo.prepend(evoStatus);
+$('#evoStatusRefresh').onclick=async()=>{try{const result=await evolutionRequest('/v1/status');const list=$('#evoStatusResults');list.replaceChildren();for(const item of result.capabilities){const row=document.createElement('div');row.className='evolution-result';row.append(evoText(`${item.label} — ${item.state.replaceAll('_',' ')}\n${item.evidence?.detail||item.evidence?.scope||item.nextAction||'Sem teste real concluído.'}${item.evidence?.at?'\n'+new Date(item.evidence.at).toLocaleString('pt-BR'):''}`));list.append(row);}}catch(error){toast(friendlyError(error),'error');}};
+
+// Public client bridge; secrets remain in the Core.
+export { state, save, core, headers, requireConnection, readResponse, toast, friendlyError, go, getConversationId, contextForChat, speakFlux, stopVoice, evolutionRequest, inworldLive, live, healthCheck };

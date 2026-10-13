@@ -14,3 +14,9 @@ build/
 **/build/
 apt-cache/
 toolchain/
+
+# Generated from wrangler.command.jsonc by check:types
+src/command-env.d.ts
+web-evidence/
+playwright-report/
+test-results/

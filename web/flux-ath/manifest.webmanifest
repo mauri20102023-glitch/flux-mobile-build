@@ -1,16 +1,33 @@
 {
-  "name": "FLUX — Inteligência Pessoal",
+  "name": "FLUX Command Center",
   "short_name": "FLUX",
-  "description": "Converse, crie, organize e conecte seus dispositivos com o FLUX.",
+  "description": "Uma inteligência, seu espaço de trabalho. FLUX Mobile e Desktop.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#030b20",
-  "theme_color": "#030b20",
+  "background_color": "#0B0D12",
+  "theme_color": "#0B0D12",
   "orientation": "any",
-  "icons": [{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
   "shortcuts": [
-    {"name":"FLUX Chat","short_name":"Chat","url":"/?view=chat","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml"}]},
-    {"name":"FLUX Studio","short_name":"Studio","url":"/?view=studio","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml"}]}
+    {
+      "name": "FLUX Chat",
+      "url": "/?view=chat"
+    },
+    {
+      "name": "FLUX Study",
+      "url": "/?view=study"
+    },
+    {
+      "name": "FLUX Vision",
+      "url": "/?view=vision"
+    }
   ]
 }

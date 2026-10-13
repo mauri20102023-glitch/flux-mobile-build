@@ -29,6 +29,8 @@ class FluxWakeWordService : Service(), RecognitionListener {
     private var recognizer: SpeechRecognizer? = null
     private var paused = false
     private var restarting = false
+    private var destroyed = false
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onCreate() {
         super.onCreate()
@@ -48,11 +50,13 @@ class FluxWakeWordService : Service(), RecognitionListener {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (!paused) startRecognizer()
+        if (!destroyed && !paused) startRecognizer()
         return START_STICKY
     }
 
     override fun onDestroy() {
+        destroyed=true
+        handler.removeCallbacksAndMessages(null)
         if (active === this) active = null
         recognizer?.cancel()
         recognizer?.destroy()
@@ -63,7 +67,7 @@ class FluxWakeWordService : Service(), RecognitionListener {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startRecognizer() {
-        if (paused || restarting || recognizer != null) return
+        if (destroyed || paused || restarting || recognizer != null) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             stopSelf()
             return
@@ -124,12 +128,12 @@ class FluxWakeWordService : Service(), RecognitionListener {
     }
 
     private fun scheduleRestart(delay: Long = 900L) {
-        if (paused || restarting) return
+        if (destroyed || paused || restarting) return
         restarting = true
         mainExecutor.execute {
-            android.os.Handler(mainLooper).postDelayed({
+            handler.postDelayed({
                 restarting = false
-                if (!paused) startRecognizer()
+                if (!destroyed && !paused) startRecognizer()
             }, delay)
         }
     }
@@ -170,7 +174,7 @@ class FluxWakeWordService : Service(), RecognitionListener {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_flux_mark)
+            .setSmallIcon(R.drawable.ic_flux_notification)
             .setContentTitle("FLUX por voz ativo")
             .setContentText(detail)
             .setContentIntent(open)
