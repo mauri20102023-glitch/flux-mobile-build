@@ -4,9 +4,9 @@ Base main: 815ca9297328fe46d01e993c320ac785632640de (1.8). PR16: e92b8a34d473b04
 
 ## Verificação atual
 
-- 35 testes de regressão do Core passaram antes das alterações. Posteriormente, 39 incluindo cálculos da lousa/exportação passaram. Testes com respostas simuladas são contratos locais, não prova de API externa.
+- 35 testes de regressão do Core passaram antes das alterações. Posteriormente, 42 incluindo cálculos e preservação de autenticação da lousa/exportação passaram. Testes com respostas simuladas são contratos locais, não prova de API externa.
 - Cloudflare: produção e preview existentes responderam200 à consulta administrativa de configuração. Provedores e segredos permanecem no servidor; valores não lidos/impressos. O preview mantém Workers AI para texto/visão e Inworld para voz. A voz FLUX4 não foi substituída.
-- Não há credencial de aparelho/admin recuperada neste ambiente após limpeza de arquivos temporários. Sem essa credencial, não anunciar novo teste positivo de voz/contas. O teste anterior402 não prova que o saldo atual continua igual.
+- A credencial administrativa gerada anteriormente se perdeu após limpeza dos temporários. Renovada apenas no preview; autenticação dos aparelhos usa hashes independentes e não é invalidada por essa rotação. Nenhuma chave de provedor/produção foi alterada. Estudo real respondeu200 depois da recuperação; teste de voz atual consta na entrega. O402 antigo não é usado como prova de saldo atual.
 - Não há acesso ao Android físico, Samsung ou relógio do proprietário. Testes em emulador/Chromium serão registrados com escopo próprio.
 
 | Área | Evidência anterior / atual | Limite |
