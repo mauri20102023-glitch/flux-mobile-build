@@ -96,7 +96,7 @@ function updateClock() {
   const now = new Date(); const hour = now.getHours();
   $("#clock").textContent = now.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
   $("#todayLabel").textContent = now.toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
-  $("#greeting").textContent = `${hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"}, Maurício.`;
+  $("#greeting").textContent = `${hour < 6 ? "Boa noite" : hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"}, Maurício.`;
   $("#deckDate").textContent = now.toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }).replace(/ de /g," ").toUpperCase();
 }
 

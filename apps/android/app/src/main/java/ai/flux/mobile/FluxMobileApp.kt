@@ -286,7 +286,7 @@ private fun PulseHome(
         }
         Spacer(Modifier.height(26.dp))
         Text("Seu espaço. Sua inteligência.", fontSize = 25.sp, lineHeight = 31.sp, fontWeight = FontWeight.Light, letterSpacing = (-1).sp)
-        Text("Boa ${if (now.hour < 12) "manhã" else if (now.hour < 18) "tarde" else "noite"}, Maurício.", color = Muted, modifier = Modifier.padding(top = 12.dp))
+        Text("${if (now.hour < 6) "Boa noite" else if (now.hour < 12) "Bom dia" else if (now.hour < 18) "Boa tarde" else "Boa noite"}, Maurício.", color = Muted, modifier = Modifier.padding(top = 12.dp))
         Box(Modifier.fillMaxWidth().height(185.dp), contentAlignment = Alignment.Center) {
             FluxOrb(state, 170.dp, onVoice)
         }
