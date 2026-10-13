@@ -35,6 +35,8 @@ Para parear, emita convite administrativo pelo Core de avaliação, uso único p
 
 - [Auditoria atual](docs/project-a/AUDITORIA.md)
 - [Design System e limites do Study](docs/project-a/DESIGN-SYSTEM.md)
+- [Entrega 2.0.1: versão, testes e ativação](docs/project-a/ENTREGA.md)
+- [Preços verificados e limites do orçamento mensal](docs/project-a/CONSUMO.md)
 - [Advanced: compatibilidade, orçamento e critérios](docs/project-a/ADVANCED.md)
 - Evidências históricas e configuração do preview anterior em `docs/evolution`; essas evidências não equivalem a testes físicos atuais.
 

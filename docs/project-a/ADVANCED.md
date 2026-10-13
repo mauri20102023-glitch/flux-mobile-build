@@ -17,17 +17,17 @@ Mesa190×85cm é referência; medir quarto, passagem, cadeira e montagem antes d
 
 | Categoria | Teto planejado (não cotação) |
 |---|---:|
-| Computador | R$4.600 |
-| Monitor principal | R$1.500 |
+| Computador | R$ 4.600 |
+| Monitor principal | R$ 1.500 |
 | Painel touch | R$600 |
 | Smartwatch | R$700 |
-| Óculos | R$1.600 |
+| Óculos | R$ 1.600 |
 | Mesa/suportes | R$700 |
 | Voz/câmera | R$450 |
 | Luz/sensores | R$250 |
 | Cabos/energia/adaptadores | R$700 |
 | Reserva | R$900 |
-| Total | R$12.000 |
+| Total | R$ 12.000 |
 
 Sem produtos/modelos recomendados nesta etapa: preços, compatibilidade, frete, tributos e garantia precisam ser confirmados quando houver decisão de compra. Reserva não comprometida; APIs/licenças/energia/internet recorrentes ficam fora do envelope de equipamentos. Se valores reais excederem o teto, escalonar recursos em vez de prometer todo hardware.
 

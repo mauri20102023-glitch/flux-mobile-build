@@ -4,10 +4,10 @@ Base main: 815ca9297328fe46d01e993c320ac785632640de (1.8). PR16: e92b8a34d473b04
 
 ## Verificação atual
 
-- 35 testes de regressão do Core passaram antes das alterações. Posteriormente, 42 incluindo cálculos e preservação de autenticação da lousa/exportação passaram. Testes com respostas simuladas são contratos locais, não prova de API externa.
+- 35 testes de regressão do Core passaram antes das alterações. No CI final, 44 passaram, incluindo cálculos da lousa, exportação sem credenciais, contrato de dispositivos, proxy da interface e preservação dos tokens de aparelhos após rotação administrativa. Testes com respostas simuladas são contratos locais, não prova de API externa.
 - Cloudflare: produção e preview existentes responderam200 à consulta administrativa de configuração. Provedores e segredos permanecem no servidor; valores não lidos/impressos. O preview mantém Workers AI para texto/visão e Inworld para voz. A voz FLUX4 não foi substituída.
 - A credencial administrativa gerada anteriormente se perdeu após limpeza dos temporários. Renovada apenas no preview; autenticação dos aparelhos usa hashes independentes e não é invalidada por essa rotação. Nenhuma chave de provedor/produção foi alterada. Estudo real respondeu200 depois da recuperação; teste de voz atual consta na entrega. O402 antigo não é usado como prova de saldo atual.
-- Não há acesso ao Android físico, Samsung ou relógio do proprietário. Testes em emulador/Chromium serão registrados com escopo próprio.
+- Não há acesso ao Android físico, Samsung ou relógio do proprietário. O CI final executou 14 testes Chromium e 5 testes Android 15/API35, todos aprovados; capturas reais foram conferidas. O teste acústico e de captura física permanece pendente.
 
 | Área | Evidência anterior / atual | Limite |
 |---|---|---|
@@ -16,7 +16,7 @@ Base main: 815ca9297328fe46d01e993c320ac785632640de (1.8). PR16: e92b8a34d473b04
 | OAuth Google/Spotify/Canva/GitHub/ML/TV | Clientes preparados, tokens cifrados e confirmação | Sem cadastro/configuração/conta validada no preview |
 | Interface Web | Versão mostrava1.8; script1.9; tema azul com grade e efeitos redundantes | Mudança principal deste incremento; preservar DOM/ações/voz |
 | Android Home | Núcleo270dp, botões Home/Chat/Voz/Workspace/Ajustes | Compactar núcleo, trocar navegação sem retirar funções secundárias |
-| Study | Missões textuais, sem lousa | Lousa calculada + perguntas ao Core + Independence; avatar3D separado |
+| Study | Missões textuais, sem lousa | Lousa calculada + perguntas ao Core + Independence; avatar 3D separado |
 | Dispositivos | Placeholders planejados | Remover Hub dedicado conforme nova decisão; nunca presumir pareamento |
 
 ## Riscos tratados
