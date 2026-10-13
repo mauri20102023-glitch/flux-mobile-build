@@ -7,6 +7,10 @@ const web = join(root, "web", "flux-ath");
 const mime = {
   "index.html": "text/html; charset=utf-8",
   "app.js": "text/javascript; charset=utf-8",
+  "command-center.js": "text/javascript; charset=utf-8",
+  "study-board.js": "text/javascript; charset=utf-8",
+  "study-model.js": "text/javascript; charset=utf-8",
+  "command-center.css": "text/css; charset=utf-8",
   "styles.css": "text/css; charset=utf-8",
   "sw.js": "text/javascript; charset=utf-8",
   "icon.svg": "image/svg+xml",

@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test';
+export default defineConfig({testDir:'test/browser',timeout:30000,fullyParallel:false,retries:0,workers:1,reporter:[['list'],['html',{open:'never'}]],use:{baseURL:'http://127.0.0.1:4173',trace:'retain-on-failure',screenshot:'only-on-failure',reducedMotion:'reduce'},projects:[{name:'desktop',use:{viewport:{width:1440,height:1000}}},{name:'mobile-web',use:{viewport:{width:412,height:915},isMobile:true,hasTouch:true}}],webServer:{command:'node test/serve-web.mjs',port:4173,reuseExistingServer:false}});

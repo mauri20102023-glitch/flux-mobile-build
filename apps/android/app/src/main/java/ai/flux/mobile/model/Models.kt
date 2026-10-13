@@ -63,6 +63,7 @@ data class FluxUiState(
     val showAssistantOnboarding: Boolean = false,
     val wakeWordEnabled: Boolean = false,
     val accentKey: String = "red",
+    val reducedMotion: Boolean = false,
     val imageGenerating: Boolean = false,
     val generatedImageBase64: String? = null,
     val error: String? = null,

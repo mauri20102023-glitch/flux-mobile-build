@@ -78,38 +78,41 @@ private val PulseRed: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 private val PulseRedDark: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.secondary
-private val Ink = Color(0xFF06090E)
-private val Panel = Color(0xFF10161F)
-private val PanelRaised = Color(0xFF192330)
-private val Line = Color(0xFF293744)
-private val White = Color(0xFFF4F6FA)
-private val Muted = Color(0xFF9BA2AD)
+private val Ink = Color(0xFF0B0D12)
+private val Panel = Color(0xFF171A21)
+private val PanelRaised = Color(0xFF222630)
+private val Line = Color(0xFF2B303B)
+private val White = Color(0xFFF3F4F6)
+private val Muted = Color(0xFFA4ABB8)
 private val Green = Color(0xFF52D27F)
 private val Amber = Color(0xFFFFBC52)
 
 private enum class FluxTab(val label: String, val icon: ImageVector) {
-    HOME("Início", Icons.Default.Home),
+    HOME("Home", Icons.Default.Home),
+    VISION("Vision", Icons.Default.CenterFocusStrong),
+    STUDY("Study", Icons.Default.School),
+    SETTINGS("Ajustes", Icons.Default.Settings),
     CHAT("Chat", Icons.Default.ChatBubbleOutline),
     AGENDA("Planos", Icons.Default.CheckCircleOutline),
     DEVICES("Dispositivos", Icons.Default.Devices),
     LAB("Workspace", Icons.Default.Build),
-    CONTROL("Ajustes", Icons.Default.Settings),
+    CONTROL("Control", Icons.Default.Tune),
 }
 
 @Composable
-fun FluxTheme(accentKey: String = "blue", content: @Composable () -> Unit) {
+fun FluxTheme(accentKey: String = "red", content: @Composable () -> Unit) {
     val (accent, accentDark) = when (accentKey) {
         "blue" -> Color(0xFF17B8FF) to Color(0xFF1255C7)
         "cyan" -> Color(0xFF00D9F5) to Color(0xFF006D7A)
         "purple" -> Color(0xFF8D73FF) to Color(0xFF4932A3)
         "gold" -> Color(0xFFFFB840) to Color(0xFF865700)
-        else -> Color(0xFFFF304A) to Color(0xFF9A1025)
+        else -> Color(0xFFE84761) to Color(0xFF82263B)
     }
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = accent,
             secondary = accentDark,
-            onPrimary = Color.White,
+            onPrimary = if(accentKey in listOf("cyan","gold","blue")) Color(0xFF0B0D12) else Color.White,
             background = Ink,
             onBackground = White,
             surface = Panel,
@@ -155,6 +158,7 @@ fun FluxMobileApp(
     onGenerateImage: (String) -> Unit,
     onWakeWordEnabled: (Boolean) -> Unit,
     onAccentChange: (String) -> Unit,
+    onReducedMotion: (Boolean) -> Unit,
     onOpenVision: () -> Unit,
     onCoreUrlChange: (String) -> Unit,
     onCoreTest: () -> Unit,
@@ -181,10 +185,10 @@ fun FluxMobileApp(
     ) { padding ->
         Box(
             Modifier.fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFF0B141C), Ink, Color(0xFF080B10))))
+                .background(Brush.verticalGradient(listOf(Ink, Ink, Color(0xFF11141A))))
                 .padding(padding),
         ) {
-            AnimatedContent(targetState = selected, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "Navegação") { currentTab ->
+            AnimatedContent(targetState = selected, transitionSpec = { fadeIn(tween(if(state.reducedMotion) 0 else 220)) togetherWith fadeOut(tween(if(state.reducedMotion) 0 else 160)) }, label = "Navegação") { currentTab ->
             when (currentTab) {
                 FluxTab.HOME -> PulseHome(
                     state = state,
@@ -192,14 +196,21 @@ fun FluxMobileApp(
                     onBriefing = onBriefing,
                     onChat = { selectedName = FluxTab.CHAT.name },
                     onPlans = { selectedName = FluxTab.AGENDA.name },
-                    onStudio = { selectedName = FluxTab.LAB.name },
+                    onStudio = { selectedName = FluxTab.STUDY.name },
                     onDevices = { selectedName = FluxTab.DEVICES.name },
-                    onSettings = { selectedName = FluxTab.CONTROL.name },
+                    onSettings = { selectedName = FluxTab.SETTINGS.name },
                     onVision = onOpenVision,
                 )
                 FluxTab.CHAT -> PulseChat(state, onSend, onVoice, onStop) {
-                    selectedName = FluxTab.CONTROL.name
+                    selectedName = FluxTab.SETTINGS.name
                 }
+                FluxTab.VISION -> FluxVisionPage(state, onOpenVision)
+                FluxTab.STUDY -> FluxStudyScreen(state)
+                FluxTab.CONTROL -> FluxControlPage(state,
+                    onSettings={selectedName=FluxTab.SETTINGS.name},
+                    onWorkspace={selectedName=FluxTab.LAB.name},
+                    onDevices={selectedName=FluxTab.DEVICES.name},
+                    onPlans={selectedName=FluxTab.AGENDA.name})
                 FluxTab.AGENDA -> AgendaScreen(state, onAddTask, onToggleTask, onDeleteTask, onAddProject)
                 FluxTab.DEVICES -> DevicesScreen(
                     state, onScanDevices, onAssistantSetup, onOpenSpotify, onOpenWhatsApp, onOpenMercadoLivre,
@@ -207,11 +218,11 @@ fun FluxMobileApp(
                     onOpenSmartThings,
                 )
                 FluxTab.LAB -> FluxWorkspaceScreen(state, onGenerateImage) { message -> onSend(message); selectedName = FluxTab.CHAT.name }
-                FluxTab.CONTROL -> ControlScreen(
+                FluxTab.SETTINGS -> ControlScreen(
                     state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
                     onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
-                    onGeminiKeyChange, onGeminiKeyClear,
+                    onGeminiKeyChange, onGeminiKeyClear, onReducedMotion,
                 )
             }
             }
@@ -231,23 +242,8 @@ fun FluxMobileApp(
 
 @Composable
 private fun PulseNavigation(selected: FluxTab, onVoice: () -> Unit, onSelect: (FluxTab) -> Unit) {
-    NavigationBar(containerColor = Color(0xF2091017), tonalElevation = 0.dp) {
-        listOf(FluxTab.HOME, FluxTab.CHAT).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
-        NavigationBarItem(
-            selected = false,
-            onClick = onVoice,
-            icon = {
-                Box(
-                    Modifier.size(50.dp).background(
-                        Brush.radialGradient(listOf(Color(0xFFB7EFFF), PulseRed, Color(0xFF061A4D))), CircleShape,
-                    ).border(1.dp, Color(0xFF54DCFF).copy(alpha = 0.65f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) { Text("F", color = White, fontSize = 23.sp, fontWeight = FontWeight.SemiBold) }
-            },
-            label = { Text("Voz", fontSize = 10.sp) },
-            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent, unselectedTextColor = Muted),
-        )
-        listOf(FluxTab.LAB, FluxTab.CONTROL).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
+    NavigationBar(containerColor = Ink, tonalElevation = 0.dp) {
+        listOf(FluxTab.HOME, FluxTab.CHAT, FluxTab.VISION, FluxTab.STUDY, FluxTab.CONTROL).forEach { tab -> PulseNavItem(selected, tab, onSelect) }
     }
 }
 
@@ -282,26 +278,26 @@ private fun PulseHome(
             }
             IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Abrir ajustes", tint = Muted) }
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(22.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(now.format(DateTimeFormatter.ofPattern("EEEE, dd MMM", Locale("pt", "BR"))).uppercase(), color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
             Text(if (state.coreOnline && state.coreAuthConfigured) "● CORE CONECTADO" else "○ PAREAMENTO", color = if (state.coreOnline && state.coreAuthConfigured) accent else Amber, fontSize = 10.sp)
         }
         Spacer(Modifier.height(26.dp))
-        Text("Seu universo.\nUma inteligência.", fontSize = 35.sp, lineHeight = 40.sp, fontWeight = FontWeight.Light, letterSpacing = (-1).sp)
+        Text("Seu espaço. Sua inteligência.", fontSize = 25.sp, lineHeight = 31.sp, fontWeight = FontWeight.Light, letterSpacing = (-1).sp)
         Text("Boa ${if (now.hour < 12) "manhã" else if (now.hour < 18) "tarde" else "noite"}, Maurício.", color = Muted, modifier = Modifier.padding(top = 12.dp))
-        Box(Modifier.fillMaxWidth().height(285.dp), contentAlignment = Alignment.Center) {
-            FluxOrb(state, 270.dp, onVoice)
+        Box(Modifier.fillMaxWidth().height(185.dp), contentAlignment = Alignment.Center) {
+            FluxOrb(state, 170.dp, onVoice)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             StatusPill(presenceLabel(state), accent)
         }
-        Text("Voz FLUX 4 · ativa após liberação de créditos", color = Muted, fontSize = 11.sp,
+        Text("Voz FLUX 4 · disponibilidade verificada ao iniciar", color = Muted, fontSize = 11.sp,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             HomeQuickAction(Icons.Default.ChatBubbleOutline, "Conversar", onChat, Modifier.weight(1f))
             HomeQuickAction(Icons.Default.CenterFocusStrong, "Ver tela", onVision, Modifier.weight(1f))
-            HomeQuickAction(Icons.Default.AutoAwesome, "Criar", onStudio, Modifier.weight(1f))
+            HomeQuickAction(Icons.Default.AutoAwesome, "Estudar", onStudio, Modifier.weight(1f))
         }
         Spacer(Modifier.height(28.dp))
         SectionLabel("SEU DIA, COM CLAREZA")
@@ -469,13 +465,16 @@ private fun presenceLabel(state: FluxUiState): String = when {
 
 @Composable
 private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+    val breath = if(state.reducedMotion) 0f else {
     val animation = rememberInfiniteTransition(label = "Presença FLUX")
-    val breath by animation.animateFloat(
+    val progress by animation.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(if (state.isListening) 800 else 2600), RepeatMode.Reverse),
         label = "Respiração",
     )
+    progress
+    }
     val active = state.isListening || state.voiceConnecting || state.isResponding
     val accent = if (!state.networkAvailable) Muted else MaterialTheme.colorScheme.primary
     Box(Modifier.size(size).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
@@ -504,7 +503,7 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
         }
         Icon(if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
             if (state.isListening || state.voiceConnecting) "Encerrar voz" else "Conversar por voz",
-            tint = Color(0xFFA8E8FF), modifier = Modifier.size(26.dp).align(Alignment.BottomCenter))
+            tint = accent, modifier = Modifier.size(26.dp).align(Alignment.BottomCenter))
     }
 }
 
@@ -874,6 +873,7 @@ private fun ControlScreen(
     onVision: () -> Unit,
     onGeminiKeyChange: (String) -> Unit,
     onGeminiKeyClear: () -> Unit,
+    onReducedMotion: (Boolean) -> Unit,
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
     var pairCode by remember { mutableStateOf("") }
@@ -999,6 +999,8 @@ private fun ControlScreen(
         Spacer(Modifier.height(22.dp))
         SectionLabel("APARÊNCIA")
         AccentSelector(state.accentKey, onAccent)
+        Spacer(Modifier.height(10.dp))
+        ToggleCard(Icons.Default.Animation, "Reduzir animações", "Movimento discreto e menor atividade visual", state.reducedMotion, onReducedMotion)
         Spacer(Modifier.height(22.dp))
         SectionLabel("DADOS LOCAIS")
         OutlinedAction("LIMPAR CONVERSA", Icons.Default.ClearAll, onClear, danger = true)
@@ -1108,6 +1110,7 @@ private fun ToggleCard(icon: ImageVector, title: String, subtitle: String, check
 @Composable
 private fun AccentSelector(selected: String, onSelect: (String) -> Unit) {
     val accents = listOf(
+        "red" to Color(0xFFE84761),
         "blue" to Color(0xFF17B8FF),
         "cyan" to Color(0xFF00D9F5),
         "purple" to Color(0xFF8D73FF),

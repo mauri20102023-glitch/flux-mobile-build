@@ -49,6 +49,7 @@ class FluxViewModel(
         moderateProactivity = workspace.moderateProactivity(),
         wakeWordEnabled = workspace.wakeWordEnabled(),
         accentKey = workspace.accentKey(),
+        reducedMotion = workspace.reducedMotion(),
         pendingMessageCount = pendingChats.size,
         showAssistantOnboarding = !workspace.assistantPromptDismissed(),
     ))
@@ -353,8 +354,10 @@ class FluxViewModel(
         _state.update { it.copy(wakeWordEnabled = value) }
     }
 
+    fun setReducedMotion(value: Boolean) { workspace.setReducedMotion(value); _state.update { it.copy(reducedMotion = value) } }
+
     fun setAccentKey(value: String) {
-        val clean = value.takeIf { it in setOf("blue", "red", "cyan", "purple", "gold") } ?: "blue"
+        val clean = value.takeIf { it in setOf("blue", "red", "cyan", "purple", "gold") } ?: "red"
         workspace.setAccentKey(clean)
         _state.update { it.copy(accentKey = clean) }
     }

@@ -1,3 +1,13 @@
+# FLUX — Projeto A / Mobile e Command Center
+
+Clientes2.0.1-project-a, construídos sobre o preview2.0 do PR16. Core existente preservado; main e produção permanecem1.8 até revisão. ProjetoB Advanced é futuro, sem compras.
+
+Auditoria: [docs/project-a/AUDITORIA.md](docs/project-a/AUDITORIA.md). Identidade/uso: [DESIGN-SYSTEM.md](docs/project-a/DESIGN-SYSTEM.md). Compatibilidade/orçamento: [ADVANCED.md](docs/project-a/ADVANCED.md). Evidências históricas do preview: docs/evolution; não equivalem a testes físicos atuais.
+
+Command Center usa `wrangler.command.jsonc` e service binding para o Core de preview, sem copiar chaves/IA. Android continua usando Core existente. `npm test` valida contratos/cálculos; `npm run test:web` executa Chromium com fixture explicitamente simulada, sem custos de AI. CI também compila Android e testa emulador.
+
+---
+
 # FLUX 1.7
 
 Assistente pessoal de Maurício em duas experiências sincronizadas:

@@ -1,4 +1,4 @@
-name: Build FLUX Mobile 2.0.0-preview
+name: Build FLUX Mobile 2.0.1-project-a
 
 on:
   workflow_dispatch:
@@ -26,7 +26,31 @@ jobs:
           node --check web/flux-ath/app.js
           node --check web/flux-ath/sw.js
           npm test
+          npm run check:types
           npm run check
+          npx wrangler deploy --config wrangler.command.jsonc --dry-run
+
+  web-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FLUX-Command-Center-evidence
+          path: |
+            web-evidence
+            playwright-report
+            test-results
+          retention-days: 7
 
   signing-tools:
     runs-on: ubuntu-latest
@@ -68,7 +92,7 @@ jobs:
       - name: Compile FLUX Voice APK
         working-directory: apps/android
         env:
-          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.projecta"
           FLUX_APP_LABEL: "FLUX"
           FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
         run: ./gradlew :app:assembleRelease --stacktrace
@@ -90,31 +114,31 @@ jobs:
 
       - name: Prepare APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.0-preview.apk
-          sha256sum FLUX-Mobile-2.0.0-preview.apk > FLUX-Mobile-2.0.0-preview.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.1-project-a.apk
+          sha256sum FLUX-Mobile-2.0.1-project-a.apk > FLUX-Mobile-2.0.1-project-a.sha256
 
       - name: Compile side-by-side APK for existing installs
         working-directory: apps/android
         env:
           FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
-          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro.next"
+          FLUX_APPLICATION_ID: "ai.flux.mobile.preview.projectajecta.next"
           FLUX_APP_LABEL: "FLUX"
         run: ./gradlew :app:assembleRelease --rerun-tasks --stacktrace
 
       - name: Prepare side-by-side APK and checksum
         run: |
-          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.0-preview-lado-a-lado.apk
-          sha256sum FLUX-Mobile-2.0.0-preview-lado-a-lado.apk > FLUX-Mobile-2.0.0-preview-lado-a-lado.sha256
+          cp apps/android/app/build/outputs/apk/release/app-release.apk FLUX-Mobile-2.0.1-project-a-lado-a-lado.apk
+          sha256sum FLUX-Mobile-2.0.1-project-a-lado-a-lado.apk > FLUX-Mobile-2.0.1-project-a-lado-a-lado.sha256
 
       - name: Upload setup APK
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-Mobile-2.0.0-preview
+          name: FLUX-Mobile-2.0.1-project-a
           path: |
-            FLUX-Mobile-2.0.0-preview.apk
-            FLUX-Mobile-2.0.0-preview.sha256
-            FLUX-Mobile-2.0.0-preview-lado-a-lado.apk
-            FLUX-Mobile-2.0.0-preview-lado-a-lado.sha256
+            FLUX-Mobile-2.0.1-project-a.apk
+            FLUX-Mobile-2.0.1-project-a.sha256
+            FLUX-Mobile-2.0.1-project-a-lado-a-lado.apk
+            FLUX-Mobile-2.0.1-project-a-lado-a-lado.sha256
           if-no-files-found: error
           retention-days: 7
 
@@ -122,7 +146,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      FLUX_APPLICATION_ID: "ai.flux.mobile.preview.pro"
+      FLUX_APPLICATION_ID: "ai.flux.mobile.preview.projecta"
       FLUX_APP_LABEL: "FLUX"
       FLUX_CORE_URL: "https://flux-evolution-preview.mauri20102023.workers.dev"
     steps:

@@ -52,7 +52,8 @@ class FluxUiTest {
         compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.accentKey()=="cyan"}
         Assert.assertEquals("cyan",(compose.activity.application as FluxApplication).workspace.accentKey())
         evidence("settings")
-        compose.onNode(hasText("Workspace") and hasClickAction()).performClick()
+        compose.onNodeWithText("Control").performClick()
+        compose.onNodeWithText("Workspace · conexões, memória e cofre").performClick()
         compose.onNodeWithText("Memória").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("Memórias autorizadas").assertExists()
         compose.onNodeWithText("Pareie o aparelho em Ajustes para acessar este módulo.").assertExists()
@@ -64,6 +65,14 @@ class FluxUiTest {
         compose.onNodeWithText("Abrir cofre seguro").assertExists();evidence("privacy")
         compose.onNodeWithText("Chat").performClick()
         compose.onNodeWithTag("chat-input").assertExists()
+        compose.onNodeWithText("Vision").performClick()
+        compose.onNodeWithText("Capturar tela com autorização").assertExists()
+        evidence("vision")
+        compose.onNodeWithText("Study").performClick()
+        compose.onNodeWithTag("flux-study").assertExists()
+        compose.onNodeWithText("Energia de ativação").performClick()
+        compose.onNodeWithText("Catalisador").assertExists()
+        evidence("study")
     }
     @Test fun installedIconAppearsOnLauncher(){
         device.pressHome()

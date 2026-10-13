@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="pt-BR" data-theme="ion">
+<html lang="pt-BR" data-theme="ember">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#030b20">
+  <meta name="theme-color" content="#0B0D12">
   <meta name="description" content="FLUX — inteligência pessoal de Maurício para conversar, criar, organizar e conectar dispositivos.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,27 +11,31 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
-  <title>FLUX</title>
+  <link rel="stylesheet" href="/command-center.css">
+  <title>FLUX Command Center</title>
 </head>
 <body>
   <div class="boot" id="boot" aria-live="polite">
-    <div class="boot-mark">F</div>
+    <div class="boot-mark"><svg viewBox="0 0 108 108" aria-hidden="true"><path d="M22 40 42 18 83 12 57 34 47 38 36 55Z" fill="currentColor"/><path d="M47 40 67 35 53 50 45 52Z" fill="var(--accent)"/><path d="M43 47 55 41 43 73 27 84Z" fill="#777E8D"/></svg></div>
     <div><strong>FLUX</strong><span>INICIALIZANDO NÚCLEO</span></div>
   </div>
 
   <div class="app-shell">
     <aside class="rail" aria-label="Navegação principal">
       <button class="brand" data-go="home" aria-label="Início do FLUX">
-        <span class="brand-mark">F</span><span class="brand-word">FLUX</span>
+        <span class="brand-mark"><svg viewBox="0 0 108 108" aria-hidden="true"><path d="M22 40 42 18 83 12 57 34 47 38 36 55Z" fill="currentColor"/><path d="M47 40 67 35 53 50 45 52Z" fill="var(--accent)"/><path d="M43 47 55 41 43 73 27 84Z" fill="#777E8D"/></svg></span><span class="brand-word">FLUX</span>
       </button>
       <nav class="rail-nav">
-        <button class="nav-item active" data-go="home"><span>⌂</span><b>Início</b></button>
-        <button class="nav-item" data-go="chat"><span>◉</span><b>Chat</b></button>
+        <span class="nav-group-label">COMMAND CENTER</span>
+        <button class="nav-item active" data-go="home"><span>⌂</span><b>Home</b></button>
+        <button class="nav-item" data-go="chat"><span>◉</span><b>Conversa</b></button>
+        <button class="nav-item" data-go="vision"><span>▱</span><b>Vision</b></button>
+        <button class="nav-item" data-go="study"><span>▤</span><b>Study</b></button>
+        <button class="nav-item" data-go="control"><span>⌘</span><b>Control</b></button>
+        <span class="nav-group-label">WORKSPACE</span>
         <button class="nav-item" data-go="planner"><span>✓</span><b>Planos</b></button>
-        <button class="nav-item" data-go="studio"><span>◇</span><b>Studio</b></button>
+        <button class="nav-item" data-go="studio"><span>◇</span><b>Creator</b></button>
         <button class="nav-item" data-go="memory"><span>∞</span><b>Memória</b></button>
-        <button class="nav-item" data-go="integrations"><span>⌘</span><b>Conectar</b></button>
-        <button class="nav-item" data-go="devices"><span>▣</span><b>Dispositivos</b></button>
         <button class="nav-item" data-go="lab"><span>△</span><b>Laboratório</b></button>
       </nav>
       <button class="nav-item rail-settings" data-go="settings"><span>⚙</span><b>Ajustes</b></button>
@@ -50,38 +54,33 @@
         </div>
       </header>
 
-      <main id="main">
+      <div class="command-toolbar"><label for="operatingMode">Ambiente</label><select id="operatingMode"><option value="normal">Normal</option><option value="command">Command</option><option value="immersive">Imersivo</option><option value="study">Study</option><option value="vision">Vision</option></select><span id="operationState" role="status">Sem operação em andamento</span><button id="panelToggle" class="secondary-button" aria-expanded="false" aria-controls="contextPanel">Abrir painel</button></div>
+      <div class="command-layout"><main id="main">
         <section class="view active" data-view="home">
           <div class="command-deck">
             <div class="deck-grid" aria-hidden="true"></div>
             <div class="deck-copy">
-              <p class="eyebrow deck-kicker"><span class="live-dot"></span> FLUX / CENTRO DE COMANDO <span class="deck-index">/ 01</span></p>
+              <p class="eyebrow deck-kicker"><span class="live-dot"></span> SEU ESPAÇO, SUA INTELIGÊNCIA</p>
               <h2 id="greeting">Boa noite, Maurício.</h2>
-              <p id="homeHint">Sua voz, agenda e previsão em um só lugar. Toque no núcleo para conversar.</p>
+              <p id="homeHint">Uma inteligência. Seu espaço de trabalho.</p>
               <div class="quick-row">
-                <button class="briefing-trigger" data-action="briefing"><span>✦</span> ME ATUALIZE AGORA <span aria-hidden="true">↗</span></button>
+                <button class="briefing-trigger" data-action="briefing"><span>✦</span> Resumo do dia <span aria-hidden="true">↗</span></button>
                 <button class="chip" data-action="toggle-voice"><span class="chip-pulse">●</span> Conversar por voz</button>
               </div>
               <div class="deck-foot"><span id="deckDate">HOJE</span><span class="deck-divider"></span><span>INTELIGÊNCIA PESSOAL</span></div>
             </div>
             <div class="core-wrap">
-              <span class="core-topline">FLUX / ASSISTENTE <i>●</i> PRONTO</span>
+              <span class="core-topline"><span id="coreCaption">AGUARDANDO CONEXÃO</span></span>
               <button class="energy-core" id="voiceCore" aria-label="Iniciar conversa por voz" data-state="idle">
                 <span class="orbit orbit-a"></span><span class="orbit orbit-b"></span>
                 <span class="orbit orbit-c"></span><span class="orbit orbit-d"></span><span class="orbit orbit-e"></span><span class="orb-lines"></span>
-                <span class="core-light"></span><span class="core-f">✦</span>
+                <span class="core-light"></span><span class="core-f"><svg viewBox="0 0 108 108" aria-hidden="true"><path d="M22 40 42 18 83 12 57 34 47 38 36 55Z" fill="currentColor"/><path d="M47 40 67 35 53 50 45 52Z" fill="var(--accent)"/><path d="M43 47 55 41 43 73 27 84Z" fill="#777E8D"/></svg></span>
               </button>
-              <span class="core-label" id="voiceStatus">TOQUE PARA FALAR</span>
+              <span class="core-label" id="voiceStatus">INICIAR CONVERSA</span>
               <button class="stop-voice" id="stopVoice" hidden>ENCERRAR</button>
               <div class="scene-feed" id="sceneFeed" aria-live="polite"></div>
             </div>
-            <div class="deck-telemetry" aria-label="Conexões do FLUX">
-              <div class="telemetry-head">PAINEL DE SISTEMAS <span>01 / 03</span></div>
-              <button class="telemetry-card" data-action="weather"><span class="telemetry-icon">☼</span><span><small>PREVISÃO</small><b id="deckWeather">Consultar clima</b><em>Open-Meteo · localização opcional</em></span><span>↗</span></button>
-              <button class="telemetry-card" data-go="integrations"><span class="telemetry-icon">▦</span><span><small>AGENDA</small><b id="deckCalendar">Aguardando Android</b><em>Próximos eventos, se autorizado</em></span><span>↗</span></button>
-              <button class="telemetry-card" data-go="settings"><span class="telemetry-icon">◉</span><span><small>VOZ</small><b id="deckVoice">Parear para falar</b><em>Inworld · voz FLUX 4</em></span><span>↗</span></button>
-              <div class="telemetry-foot">FLUX 1.8 <span>●</span> INTERFACE ATIVA</div>
-            </div>
+
           </div>
 
           <div class="briefing-heading" id="briefingHeading">
@@ -90,7 +89,7 @@
           </div>
           <div class="briefing-banner" id="briefingBanner" role="status"><span>✦</span><div><strong>Pronto para começar.</strong><small>Diga “bom dia” no microfone ou toque em “Me atualize agora”.</small></div><button data-action="briefing">COMEÇAR ↗</button></div>
           <div class="briefing-grid" id="briefingGrid" aria-live="polite">
-            <article class="brief-card focus-card"><div class="brief-card-top"><span class="brief-icon">⌁</span><span class="brief-source">FLUX PLANNER</span></div><p class="brief-label">EM FOCO</p><h4 id="briefTaskHeadline">Tudo sob controle.</h4><p id="briefTaskDetail">Suas tarefas locais aparecerão aqui.</p><button class="brief-link" data-go="planner">VER TAREFAS <span>↗</span></button><span class="card-number">01</span></article>
+            <article class="brief-card focus-card"><div class="brief-card-top"><span class="brief-icon">⌁</span><span class="brief-source">FLUX PLANNER</span></div><p class="brief-label">EM FOCO</p><h4 id="briefTaskHeadline">Nenhuma tarefa local.</h4><p id="briefTaskDetail">Suas tarefas locais aparecerão aqui.</p><button class="brief-link" data-go="planner">VER TAREFAS <span>↗</span></button><span class="card-number">01</span></article>
             <article class="brief-card"><div class="brief-card-top"><span class="brief-icon weather-icon">☼</span><span class="brief-source">OPEN-METEO</span></div><p class="brief-label">CLIMA AGORA</p><h4 id="briefWeatherHeadline">Sua localização</h4><p id="briefWeatherDetail">Ative o clima para consultar a previsão da sua região.</p><button class="brief-link" data-action="weather">ATIVAR CLIMA <span>↗</span></button><span class="card-number">02</span></article>
             <article class="brief-card"><div class="brief-card-top"><span class="brief-icon">◇</span><span class="brief-source">SEUS PROJETOS</span></div><p class="brief-label">EM ANDAMENTO</p><h4 id="briefProjectHeadline">Novas possibilidades.</h4><p id="briefProjectDetail">Acompanhe aqui os projetos que você cadastrou.</p><button class="brief-link" data-go="planner">VER PROJETOS <span>↗</span></button><span class="card-number">03</span></article>
             <article class="brief-card"><div class="brief-card-top"><span class="brief-icon">▦</span><span class="brief-source">AGENDA DO ANDROID</span></div><p class="brief-label">PRÓXIMOS EVENTOS</p><h4 id="briefCalendarHeadline">Aguardando permissão.</h4><p id="briefCalendarDetail">Autorize a agenda no app Android para sincronizar os próximos eventos.</p><button class="brief-link" data-go="integrations">VER CONEXÕES <span>↗</span></button><span class="card-number">04</span></article>
@@ -99,10 +98,10 @@
           <div class="home-grid">
             <article class="panel now-panel">
               <div class="panel-head"><div><p class="eyebrow">AGORA</p><h3>Seu centro de comando</h3></div><button class="text-button" data-go="planner">ABRIR PLANOS</button></div>
-              <div class="signal-line"><span id="clock">--:--</span><div><b id="todayLabel">Hoje</b><small id="taskSummary">Nenhuma pendência urgente</small></div></div>
+              <div class="signal-line"><span id="clock">--:--</span><div><b id="todayLabel">Hoje</b><small id="taskSummary">Nenhuma tarefa local em aberto</small></div></div>
               <div class="home-actions">
                 <button data-action="new-task"><span>＋</span><div><b>Nova tarefa</b><small>Guarde algo para depois</small></div></button>
-                <button data-action="run-check"><span>⌁</span><div><b>Diagnóstico</b><small>Teste todo o sistema</small></div></button>
+                <button data-action="run-check"><span>⌁</span><div><b>Diagnóstico</b><small>Verifique conexão e permissões</small></div></button>
               </div>
             </article>
             <article class="panel transcript-panel">
@@ -118,6 +117,9 @@
           </div>
         </section>
 
+<section class="view" data-view="study"><div class="section-intro"><div><p class="eyebrow">FLUX STUDY · AULA VIVA</p><h2>Entenda. Explore. Aprenda.</h2><p>Uma lousa interativa e explicações do seu FLUX. Professor 3D em desenvolvimento.</p></div></div><div class="study-layout"><article class="panel study-console"><form id="studyForm"><label>Matéria<select id="studySubject"><option>Matemática</option><option>Química</option><option>Física</option><option>Biologia</option><option>Geografia</option><option>História</option></select></label><label>Conteúdo ou exercício<textarea id="studyTopic" required maxlength="3000" placeholder="O que você quer entender?"></textarea></label><label>Como estudar<select id="studyAction"><option value="explain">Explicação com exemplos</option><option value="hint">Uma pista por vez</option><option value="exercise">Criar exercícios</option><option value="quiz">Simulado</option><option value="review">Corrigir meu raciocínio</option></select></label><label class="toggle-row"><span>Incentivar meu raciocínio antes da solução</span><input id="studyIndependence" type="checkbox" checked></label><button class="primary-button" id="studySubmit">Pedir ao FLUX</button></form><label class="toggle-row"><span>Autorizo salvar o histórico de estudo neste navegador</span><input id="studyConsent" type="checkbox"></label><div class="evolution-actions"><button class="secondary-button" id="studyExport">Exportar estudo</button><button class="text-button" id="studyClear">Excluir histórico</button></div></article><article class="panel whiteboard"><div class="board-head"><div><p class="eyebrow">LOUSA INTERATIVA</p><h3>Explore as relações</h3></div><select id="boardType" aria-label="Visualização da lousa"><option value="quadratic">Função quadrática</option><option value="energy">Energia de ativação</option><option value="motion">Movimento uniforme</option></select></div><div id="studyBoard" class="board-chart"></div><div id="boardControls" class="board-controls"></div><p id="boardExplanation" class="helper"></p></article><article class="panel study-answer"><div class="panel-head"><h3>Sua aula</h3><div><button id="studySpeak" class="secondary-button" disabled>Ouvir com FLUX 4</button><button id="studyStop" class="text-button">Interromper voz</button></div></div><p id="studyState" role="status">A lousa funciona localmente. Explicações e voz exigem pareamento com o Core.</p><div id="studyAnswer" aria-live="polite"></div><div id="studyHistory"></div></article></div></section>
+<section class="view" data-view="vision"><div class="section-intro"><div><p class="eyebrow">FLUX VISION</p><h2>Conteúdo real. Contexto claro.</h2><p>Envie uma imagem ou autorize uma captura. Nenhum compartilhamento começa sem sua ação.</p></div><button class="secondary-button" data-action="stop-screen">Encerrar compartilhamento</button></div><div id="visionMount"></div></section>
+<section class="view" data-view="control"><div class="section-intro"><div><p class="eyebrow">FLUX CONTROL</p><h2>Seu ecossistema, sob controle.</h2><p>Consulte suporte, autorizações e resultados reais. Nenhum dispositivo remoto é presumido conectado.</p></div></div><div class="control-grid"><button class="panel control-module" data-go="devices"><span>01</span><h3>Dispositivos</h3><p>Disponibilidade e limites deste navegador</p></button><button class="panel control-module" data-go="integrations"><span>02</span><h3>Serviços</h3><p>Atalhos oficiais e conexão de contas</p></button><button class="panel control-module" data-go="lab"><span>03</span><h3>Mission Control</h3><p>Memórias, missões e estados do Core</p></button><button class="panel control-module" data-go="settings"><span>04</span><h3>Ajustes e privacidade</h3><p>Preferências, pareamento e controles manuais</p></button></div><article class="panel independence"><h3>FLUX Independence</h3><p>Você decide quando a IA age. Desative a voz, encerre capturas, revise respostas e exporte seus dados locais.</p><button class="secondary-button" id="exportWorkspace">Exportar dados locais</button><p class="helper">A exportação exclui tokens, PINs e notas privadas cifradas. Não inclui dados de contas remotas.</p></article></section>
         <section class="view chat-view" data-view="chat">
           <div class="chat-stage">
             <div class="chat-heading"><div><p class="eyebrow">FLUX CHAT</p><h2>Converse sobre qualquer coisa</h2></div><button class="text-button" id="clearChat">LIMPAR</button></div>
@@ -185,29 +187,31 @@
 
         <section class="view" data-view="settings">
           <div class="section-intro"><div><p class="eyebrow">CONFIGURAÇÕES</p><h2>Seu FLUX, do seu jeito</h2><p>Aparência, conexão, privacidade e diagnóstico.</p></div></div>
-          <div class="settings-grid">
+          <div class="settings-grid"><article class="panel setting-card"><h3>Movimento e teclado</h3><label class="toggle-row"><span>Reduzir animações</span><input type="checkbox" id="reduceMotion"></label><label>Atalhos de navegação<select id="shortcutModifier"><option value="alt">Alt + 1…5</option><option value="ctrlshift">Ctrl + Shift + 1…5</option><option value="off">Desativados</option></select></label><p class="helper">Home, Chat, Vision, Study e Control. Atalhos não atuam durante digitação.</p></article>
             <article class="panel setting-card"><h3>Aparência</h3><p>Escolha a assinatura de energia.</p><div class="theme-picker"><button data-theme-pick="ember" class="ember selected" aria-label="Vermelho e ciano"></button><button data-theme-pick="ion" class="ion" aria-label="Azul e violeta"></button><button data-theme-pick="aurora" class="aurora" aria-label="Verde e azul"></button><button data-theme-pick="gold" class="gold" aria-label="Dourado e vermelho"></button></div></article>
             <article class="panel setting-card"><h3>FLUX Core</h3><p id="pairStatus" role="status">Verificando conexão…</p><label>CÓDIGO DE PAREAMENTO<input id="pairCode" type="text" inputmode="text" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Cole o código de uso único"></label><button class="primary-button wide" id="saveConnection">CONECTAR AO CORE</button><p class="helper">Use um código exclusivo para este navegador. Ele expira em 15 minutos e funciona uma vez.</p></article>
             <article class="panel setting-card"><h3>Privacidade</h3><label>PIN ATUAL (SE JÁ EXISTIR)<input id="oldPrivatePin" type="password" inputmode="numeric" maxlength="12" autocomplete="off"></label><label>NOVO PIN<input id="privatePin" type="password" inputmode="numeric" maxlength="12" placeholder="6 a 12 números" autocomplete="off"></label><p class="helper">O PIN cifra as notas privadas neste navegador. Para trocar, informe o atual.</p><button class="secondary-button wide" id="savePin">SALVAR PIN</button></article>
             <article class="panel setting-card"><h3>Voz e contexto</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Voz FLUX 4 pela Inworld após parear o Core</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>Ativação contínua disponível apenas no app Android compatível</small></span><input type="checkbox" id="wakeEnabled" disabled></label><p class="helper">A agenda do Android compartilha os próximos eventos com seu Core somente após você autorizar a permissão no aplicativo.</p><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
           </div>
         </section>
-      </main>
+      </main><aside class="context-panel" id="contextPanel" hidden aria-label="Contexto e atividade"><div class="inspector-header"><h2>Seu contexto</h2><button class="icon-button" id="panelClose" aria-label="Fechar painel">×</button></div><label class="panel-size-label">Largura do painel<input id="panelWidth" type="range" min="260" max="400" value="300" aria-label="Largura do painel"></label>            <div class="deck-telemetry" aria-label="Conexões do FLUX">
+              <div class="telemetry-head">PAINEL DE SISTEMAS <span>01 / 03</span></div>
+              <button class="telemetry-card" data-action="weather"><span class="telemetry-icon">☼</span><span><small>PREVISÃO</small><b id="deckWeather">Consultar clima</b><em>Open-Meteo · localização opcional</em></span><span>↗</span></button>
+              <button class="telemetry-card" data-go="integrations"><span class="telemetry-icon">▦</span><span><small>AGENDA</small><b id="deckCalendar">Aguardando Android</b><em>Próximos eventos, se autorizado</em></span><span>↗</span></button>
+              <button class="telemetry-card" data-go="settings"><span class="telemetry-icon">◉</span><span><small>VOZ</small><b id="deckVoice">Parear para falar</b><em>Inworld · voz FLUX 4</em></span><span>↗</span></button>
+              <div class="telemetry-foot">FLUX 2.0.1 <span>·</span> WEB / PWA</div>
+            </div><article class="context-note"><h3>Atividade local</h3><p id="inspectorTasks">Nenhuma tarefa local.</p><p id="inspectorDevices">Este navegador aberto. Dispositivos remotos não verificados.</p><button class="text-button" data-go="control">Abrir Control ↗</button></article></aside></div>
     </div>
 
-    <nav class="mobile-nav" aria-label="Navegação móvel">
-      <button class="active" data-go="home"><span>⌂</span><b>Início</b></button>
-      <button data-go="chat"><span>◉</span><b>Chat</b></button>
-      <button class="mobile-core" data-action="toggle-voice" aria-label="Falar com FLUX"><i>F</i></button>
-      <button data-go="planner"><span>✓</span><b>Planos</b></button>
-      <button data-go="settings"><span>⚙</span><b>Ajustes</b></button>
-    </nav>
+    <nav class="mobile-nav" aria-label="Navegação móvel"><button data-go="home"><span>⌂</span><b>Home</b></button><button data-go="chat"><span>◉</span><b>Chat</b></button><button data-go="vision"><span>▱</span><b>Vision</b></button><button data-go="study"><span>▤</span><b>Study</b></button><button data-go="control"><span>⌘</span><b>Control</b></button></nav>
   </div>
 
-  <div class="screen-share" id="screenShare" hidden><span class="screen-pulse"></span><div><b>FLUX VISION ATIVA</b><small>O FLUX está vendo a tela compartilhada</small></div><button data-action="stop-screen">PARAR</button></div>
+  <div class="screen-share" id="screenShare" hidden><span class="screen-pulse"></span><div><b>FLUX VISION ATIVA</b><small>Compartilhamento autorizado. Análise por captura individual.</small></div><button data-action="stop-screen">PARAR</button></div>
   <div class="toast-region" id="toasts" aria-live="assertive"></div>
   <dialog id="modal"><form method="dialog"><div class="modal-head"><div><p class="eyebrow" id="modalEyebrow">FLUX</p><h2 id="modalTitle">Título</h2></div><button value="cancel" aria-label="Fechar">×</button></div><div id="modalBody"></div><div class="modal-actions" id="modalActions"></div></form></dialog>
 
   <script src="/app.js" type="module"></script>
+  <script src="/command-center.js" type="module"></script>
+  <script src="/study-board.js" type="module"></script>
 </body>
 </html>

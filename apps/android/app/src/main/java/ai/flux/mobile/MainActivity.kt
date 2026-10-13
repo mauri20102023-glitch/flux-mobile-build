@@ -154,6 +154,7 @@ class MainActivity : ComponentActivity() {
                     onGenerateImage = viewModel::generateImage,
                     onWakeWordEnabled = ::setWakeWordEnabled,
                     onAccentChange = viewModel::setAccentKey,
+                    onReducedMotion = viewModel::setReducedMotion,
                     onOpenVision = ::openVision,
                     onCoreUrlChange = viewModel::updateCoreUrl,
                     onCoreTest = { viewModel.reconnect(showFailure = true) },

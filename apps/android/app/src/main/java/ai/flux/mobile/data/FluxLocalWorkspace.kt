@@ -71,13 +71,13 @@ class FluxLocalWorkspace(context: Context) {
     // Android microphone/notification permissions; the user can disable it.
     fun wakeWordEnabled(): Boolean = preferences.getBoolean("wake_word_enabled", true)
     fun accentKey(): String {
-        val stored = preferences.getString("accent_key", null)
-        if (stored == null || stored == "red" && !preferences.getBoolean("blue_upgrade", false)) {
-            preferences.edit().putString("accent_key", "blue").putBoolean("blue_upgrade", true).apply()
-            return "blue"
+        if (!preferences.getBoolean("project_a_identity", false)) {
+            preferences.edit().putString("accent_key", "red").putBoolean("project_a_identity", true).apply()
         }
-        return stored
+        return preferences.getString("accent_key", "red").orEmpty()
     }
+    fun reducedMotion(): Boolean = preferences.getBoolean("reduced_motion", false)
+    fun setReducedMotion(value: Boolean) = preferences.edit().putBoolean("reduced_motion", value).apply()
 
     fun setMemoryEnabled(value: Boolean) = preferences.edit().putBoolean("memory_enabled", value).apply()
     fun setModerateProactivity(value: Boolean) = preferences.edit().putBoolean("moderate_proactivity", value).apply()

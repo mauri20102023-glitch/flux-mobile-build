@@ -32,13 +32,13 @@ class FluxEnergyOrbView(context: Context) : View(context) {
 
     fun setActive(value: Boolean) {
         active = value
-        if (!animator.isStarted) animator.start()
+        if (!context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE).getBoolean("reduced_motion",false) && !animator.isStarted) animator.start()
         invalidate()
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (!animator.isStarted) animator.start()
+        if (!context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE).getBoolean("reduced_motion",false) && !animator.isStarted) animator.start()
     }
 
     override fun onDetachedFromWindow() {
@@ -75,13 +75,13 @@ class FluxEnergyOrbView(context: Context) : View(context) {
 
     private fun accentColor(): Int = when (
         context.getSharedPreferences("flux_workspace", Context.MODE_PRIVATE)
-            .getString("accent_key", "blue")
+            .getString("accent_key", "red")
     ) {
         "blue" -> Color.rgb(0, 183, 255)
         "cyan" -> Color.rgb(0, 229, 255)
         "purple" -> Color.rgb(123, 97, 255)
         "gold" -> Color.rgb(255, 184, 64)
-        else -> Color.rgb(0, 183, 255)
+        else -> Color.rgb(232, 71, 97)
     }
 
     private fun darken(color: Int): Int = Color.rgb(

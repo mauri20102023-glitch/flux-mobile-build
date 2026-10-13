@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "flux-command-preview",
+  "main": "src/command-site.ts",
+  "compatibility_date": "2026-10-13",
+  "services": [{ "binding": "FLUX_CORE", "service": "flux-evolution-preview" }],
+  "observability": { "enabled": true, "head_sampling_rate": 0.1, "redact_query_string": true }
+}
