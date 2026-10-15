@@ -34,8 +34,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 28
         targetSdk = 35
-        versionCode = 41
-        versionName = "2.0.1-project-a"
+        versionCode = 42
+        versionName = "2.1.0-master-preview"
 
         buildConfigField("String", "FLUX_CORE_URL", buildConfigString(fluxCoreUrl))
     }

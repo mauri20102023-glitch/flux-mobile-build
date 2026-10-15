@@ -50,14 +50,19 @@ class FluxRealtimeVoice(
     private var contextNote = ""
     private var levelListener: ((Float)->Unit)? = null
     private var lastLevelAt=0L
+    private var phaseListener: ((String) -> Unit)? = null
+    override fun setPhaseListener(listener: (String) -> Unit) { phaseListener=listener }
     override fun setAudioLevelListener(listener:(Float)->Unit) {levelListener=listener}
 
+    private val closeForMute: () -> Unit = { endSession() }
     override fun startSession() {
+        if(app.workspace.microphoneMuted()) { onError("Microfone do FLUX silenciado. Reative nos Ajustes."); return }
         if (active) return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             onError("Autorize o microfone para conversar com o FLUX."); return
         }
         if (!app.connectionSettings.authTokenConfigured()) { onError("Pareie este aparelho com o Core."); return }
+        FluxMicrophoneGate.register(closeForMute)
         active = true
         val sessionEpoch = ++epoch
         previousMode = audioManager.mode
@@ -152,8 +157,8 @@ class FluxRealtimeVoice(
     private fun handleEvent(raw: String) {
         val event = runCatching { JSONObject(raw) }.getOrNull() ?: return
         when (event.optString("type")) {
-            "session.updated" -> { ready = true; onSessionChanged(true); pendingText?.let { pendingText = null; sendUserMessage(it) } }
-            "input_audio_buffer.speech_started" -> { transcript.clear(); visionJob?.cancel() /* provider cancels its active audio response */ }
+            "session.updated" -> { phaseListener?.invoke("listening"); ready = true; onSessionChanged(true); pendingText?.let { pendingText = null; sendUserMessage(it) } }
+            "input_audio_buffer.speech_started" -> { phaseListener?.invoke("listening"); transcript.clear(); visionJob?.cancel() /* provider cancels its active audio response */ }
             "conversation.item.input_audio_transcription.completed" -> event.optString("transcript").takeIf(String::isNotBlank)?.let {
                 onUserTranscript(it); currentImage?.let { image -> analyze(image, it) }
             }
@@ -165,8 +170,10 @@ class FluxRealtimeVoice(
                 if (active && callEpoch == epoch && callId.isNotBlank()) send(JSONObject().put("type", "conversation.item.create")
                     .put("item", JSONObject().put("type", "function_call_output").put("call_id", callId).put("output", output.ifBlank { "Dados não autorizados ou indisponíveis." })))
             }
-            "response.output_audio_transcript.delta", "response.output_text.delta", "response.audio_transcript.delta" -> transcript.append(event.optString("delta"))
-            "response.done" -> { if (transcript.isNotBlank()) onAgentResponse(transcript.toString()); transcript.clear() }
+            "input_audio_buffer.speech_stopped" -> phaseListener?.invoke("thinking")
+            "response.output_audio.delta", "response.audio.delta" -> phaseListener?.invoke("speaking")
+            "response.output_audio_transcript.delta", "response.output_text.delta", "response.audio_transcript.delta" -> { phaseListener?.invoke("speaking"); transcript.append(event.optString("delta")) }
+            "response.done" -> { phaseListener?.invoke("listening"); if (transcript.isNotBlank()) onAgentResponse(transcript.toString()); transcript.clear() }
             "error" -> { onError(event.optJSONObject("error")?.optString("message") ?: "Erro na sessão de áudio.") }
         }
     }
@@ -246,6 +253,8 @@ class FluxRealtimeVoice(
         if (local) connection.setLocalDescription(callback, sdp) else connection.setRemoteDescription(callback, sdp)
     }
     override fun endSession() {
+        FluxMicrophoneGate.unregister(closeForMute)
+        phaseListener?.invoke("idle")
         levelListener?.invoke(0f)
         active = false; ready = false; ++epoch
         connectionJob?.cancel(); visionJob?.cancel(); pendingText = null; currentImage = null; contextNote = ""

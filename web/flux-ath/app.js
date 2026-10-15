@@ -1,6 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const VERSION = "2.0.1-project-a";
+const VERSION = "2.1.0-master-preview";
 const STORE = "flux-workspace-v1";
 const DEVICE_ID = localStorage.getItem("flux-device-id") || `web-${crypto.randomUUID()}`;
 localStorage.setItem("flux-device-id", DEVICE_ID);
@@ -107,17 +107,20 @@ function renderMessages() {
     node.innerHTML = `${escapeHtml(item.text)}<small>${item.role === "flux" ? escapeHtml(item.mode || "FLUX") : "VOCÊ"}</small>`; box.append(node);
   });
   box.scrollTop = box.scrollHeight;
+  window.dispatchEvent(new CustomEvent("flux:messages"));
   const last = [...state.messages].reverse().find(item => item.role === "flux" && !item.pending);
   $("#lastExchange").textContent = last ? `“${last.text.slice(0,180)}${last.text.length > 180 ? "…" : ""}”` : "Nenhuma conversa ainda.";
 }
 
 function renderSceneCards() {
-  for (const [selector, cards] of [["#sceneFeed", sceneCards.slice(0, 1)], ["#chatInsights", sceneCards.slice(0, 3)]]) {
+  for (const [selector, cards] of [["#sceneFeed", sceneCards.slice(0, 3)], ["#chatInsights", sceneCards.slice(0, 3)]]) {
     const container = $(selector); container.replaceChildren();
     for (const card of cards) {
       const node = document.createElement("article"); node.className = `scene-card scene-${card.kind}`;
-      node.innerHTML = `<div class="scene-card-head"><span class="scene-icon">${escapeHtml(card.icon)}</span><span>${escapeHtml(card.label)}</span><i>● ${escapeHtml(card.badge || "ATUALIZADO")}</i></div><strong>${escapeHtml(card.title)}</strong><p>${escapeHtml(card.detail)}</p><small>${escapeHtml(card.source)}</small>`;
+      node.dataset.kind=card.kind; node.dataset.cardId=card.id||card.kind;
+      node.innerHTML = `<button type="button" class="card-close" aria-label="Fechar cartão" data-card-close="${escapeHtml(card.kind)}">×</button><div class="scene-card-head"><span class="scene-icon">${escapeHtml(card.icon)}</span><span>${escapeHtml(card.label)}</span><i>● ${escapeHtml(card.badge || "ATUALIZADO")}</i></div><strong>${escapeHtml(card.title)}</strong><p>${escapeHtml(card.detail)}</p><small>${escapeHtml(card.source)}</small>`;
       container.append(node);
+      node.querySelector("[data-card-close]")?.addEventListener("click",()=>{sceneCards=sceneCards.filter(item=>item.kind!==card.kind);renderSceneCards();});
     }
   }
 }
@@ -142,14 +145,14 @@ function weatherPlaceFromQuery(query) {
   return match?.[1].replace(/\s+(?:hoje|amanhã|agora|neste momento)\s*$/i, "").trim() || "";
 }
 
-async function sendChat(message, { spoken = false } = {}) {
+async function sendChat(message, { spoken = false, stayHome = false } = {}) {
   const clean = message.trim(); if (!clean) return;
   if (isBriefingRequest(clean)) {
     state.messages.push({ id:crypto.randomUUID(), role:"user", text:clean });
-    await runBriefing({ speak:spoken || state.voiceEnabled, log:true }); go("chat",true,!spoken); return;
+    await runBriefing({ speak:spoken || state.voiceEnabled, log:true }); go(stayHome?"home":"chat",true,!spoken); return;
   }
   const user = { id:crypto.randomUUID(), role:"user", text:clean }; const pending = { id:crypto.randomUUID(), role:"flux", text:"Pensando…", mode:"FLUX", pending:true };
-  state.messages.push(user, pending); save(); renderMessages(); go("chat",true,!spoken);
+  state.messages.push(user, pending); save(); renderMessages(); go(stayHome?"home":"chat",true,!spoken);
   try {
     requireConnection();
     if (/\b(clima|tempo|previs[aã]o|temperatura|chuva)\b/i.test(clean)) {
@@ -164,10 +167,10 @@ async function sendChat(message, { spoken = false } = {}) {
     if (/\b(tarefa|pend[eê]ncia|plano|projeto)\b/i.test(clean)) showTaskScene();
     const response = await fetch(core("/v1/chat"), { method:"POST", headers:headers(), body:JSON.stringify({ requestId:crypto.randomUUID(), conversationId:getConversationId(), message:clean, context:contextForChat(), deviceId:DEVICE_ID, modality:spoken?"VOICE":"TEXT" }) });
     const payload = await readResponse(response);
+    if(Array.isArray(payload.cards))payload.cards.forEach(showSceneCard);
+    if(payload.toolResult?.approvalId)window.dispatchEvent(new CustomEvent('flux:tool-result',{detail:payload.toolResult}));
     pending.text = payload.content; pending.mode = payload.mode || "FLUX"; pending.pending = false;
-    if (!/\b(clima|tempo|previs[aã]o|temperatura|chuva|agenda|evento|compromisso|tarefa|pend[eê]ncia)\b/i.test(clean)) {
-      showSceneCard({kind:"answer",icon:"✦",label:"FLUX RESPONDE",title:"Entendido, Maurício",detail:payload.content.slice(0,180),source:"FLUX CORE"});
-    }
+
   } catch (error) { pending.text = friendlyError(error); pending.mode = "AVISO"; pending.pending = false; }
   save(); renderMessages();
   if(spoken && pending.mode!=="AVISO")await speakFlux(pending.text);
@@ -387,6 +390,7 @@ class FluxLive {
   constructor() { this.socket=null; this.context=null; this.mic=null; this.processor=null; this.source=null; this.nextPlay=0; this.userText=""; this.fluxText=""; this.session=null; this.running=false; this.ready=false; this.resumeHandle=""; this.reconnectAttempts=0; this.reconnectTimer=null; }
   get active(){ return this.running; }
   async start(){
+    if(localStorage.getItem("flux-microphone-muted-v1")==="true")throw new Error("Microfone do FLUX silenciado.");
     if(this.active) return; if(!state.voiceEnabled)throw new Error("Ative a resposta falada em Configurações.");requireConnection(); setVoiceState("connecting","CONECTANDO AO FLUX");
     this.running=true; this.resumeHandle=""; this.reconnectAttempts=0;
     this.context=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}); await this.context.resume();
@@ -436,6 +440,7 @@ class FluxInworldLive {
   constructor(){ this.running=false;this.pc=null;this.channel=null;this.mic=null;this.audio=null;this.userText="";this.fluxText=""; }
   get active(){ return this.running; }
   async start(){
+    if(localStorage.getItem("flux-microphone-muted-v1")==="true")throw new Error("Microfone do FLUX silenciado.");
     if(this.active)return;
     if(!window.RTCPeerConnection||!navigator.mediaDevices?.getUserMedia)throw new Error("Este navegador não suporta conversa contínua por voz.");
     requireConnection();this.running=true;setVoiceState("connecting","CONECTANDO À VOZ FLUX");
@@ -486,7 +491,7 @@ class FluxInworldLive {
     }
     if(event.type==="response.done"){
       const text=(this.fluxText||this.userText).trim();
-      if(text){state.messages.push({id:crypto.randomUUID(),role:"flux",text,mode:"FLUX LIVE"});save();renderMessages();if(!sceneCards.length)showSceneCard({kind:"answer",icon:"✦",label:"FLUX RESPONDE",title:"Entendido, Maurício",detail:text.slice(0,180),source:"FLUX LIVE"});}
+      if(text){state.messages.push({id:crypto.randomUUID(),role:"flux",text,mode:"FLUX LIVE"});save();renderMessages();}
       this.fluxText="";this.userText="";setVoiceState("listening","OUVINDO — PODE FALAR");
     }
   }
@@ -510,6 +515,7 @@ function startLocalRecognition(){
 }
 function restartRecognition(){if(!voiceSession||localRecognizer||voiceAudio||voiceRequest)return;setTimeout(()=>{if(voiceSession&&!localRecognizer&&!voiceAudio&&!voiceRequest)try{startLocalRecognition();}catch(error){voiceSession=false;setVoiceState("idle","TOQUE PARA FALAR");toast(friendlyError(error),"error");}},450);}
 async function toggleVoice(){
+  if(localStorage.getItem("flux-microphone-muted-v1")==="true"){toast("Microfone do FLUX silenciado. Reative em Configurações.");return;}
   if(voiceSession||localRecognizer||voiceAudio||inworldLive.active){stopVoice();return;}
   try{requireConnection();if(!coreLiveAvailable)await healthCheck();voiceSession=true;if(coreRealtimeProvider==="inworld")await inworldLive.start();else startLocalRecognition();}
   catch(error){voiceSession=false;setVoiceState("idle","TOQUE PARA FALAR");toast(friendlyError(error),"error");}
@@ -555,7 +561,7 @@ function bindEvents(){
   $("#chatForm").onsubmit=event=>{event.preventDefault();const input=$("#chatInput");sendChat(input.value);input.value="";input.style.height="auto";};
   $("#chatInput").oninput=event=>{event.target.style.height="auto";event.target.style.height=`${Math.min(150,event.target.scrollHeight)}px`;};
   $("#chatInput").onkeydown=event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();$("#chatForm").requestSubmit();}};
-  $("#clearChat").onclick=()=>{state.messages=[];localStorage.removeItem("flux-conversation-id");save();renderMessages();toast("Conversa limpa.");};
+  $("#clearChat").onclick=()=>{state.messages=[];sceneCards=[];renderSceneCards();localStorage.removeItem("flux-conversation-id");save();renderMessages();toast("Conversa limpa.");};
   $("#taskForm").onsubmit=event=>{event.preventDefault();addTask($("#taskInput").value);$("#taskInput").value="";};
   $("#imageForm").onsubmit=createImage; $$('[data-style]').forEach(button=>button.onclick=()=>{selectedStyle=button.dataset.style;$$('[data-style]').forEach(item=>item.classList.toggle("selected",item===button));});
   $("#saveConnection").onclick=async()=>{const code=$("#pairCode").value.trim();if(!/^[A-Za-z0-9_-]{32}$/.test(code))return toast("Cole o código de pareamento de 32 caracteres.","error");const button=$("#saveConnection");setBusy(button,true,"CONECTANDO…");try{const response=await fetch(core("/v1/pair/redeem"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({deviceId:DEVICE_ID,deviceName:"FLUX Web",code})});const paired=await readResponse(response);if(!paired.deviceToken)throw new Error("O Core não retornou a credencial do navegador.");state.token=paired.deviceToken;save();$("#pairCode").value="";await diagnostics();await healthCheck();await loadCalendar();$("#coreStatus").querySelector("b").textContent="CONECTADO";$("#pairStatus").textContent="Navegador autenticado. Teste cada serviço para confirmar sua disponibilidade.";toast("FLUX Core autenticado neste navegador.","ok");}catch(error){toast(friendlyError(error),"error");}finally{setBusy(button,false);}};
@@ -568,7 +574,7 @@ function bindEvents(){
 
 async function revealMemory(id){const memory=state.memories.find(item=>item.id===id);if(!memory?.encrypted)return;modal({eyebrow:"FLUX SECURITY",title:"Desbloquear memória",body:'<label class="modal-field">PIN<input id="unlockPin" type="password" inputmode="numeric" maxlength="12"></label>',confirm:"DESBLOQUEAR",onConfirm:async()=>{const pin=$("#unlockPin").value;if(!await verifyPin(pin))throw new Error("PIN incorreto.");revealedMemories.set(id,await decryptPrivate(memory.encrypted,pin));sessionPin=pin;renderMemories();setTimeout(()=>{revealedMemories.delete(id);renderMemories();},30000);}});}
 function deviceAction(id){if(id==="mobile")showReport("FLUX NEXUS","Este navegador",`<p>ID local: <b>${escapeHtml(DEVICE_ID.slice(0,18))}…</b></p><p>A voz e o chat dependem do Core e das permissões deste navegador.</p>`);else if(id==="tv")openIntegration("smartthings");else showReport("FLUX NEXUS","Ainda sem integração",'<p>Este dispositivo não está pareado com o FLUX. Nenhum controle remoto foi ativado.</p>');}
-function applyTheme(){document.documentElement.dataset.theme=state.theme;$$('[data-theme-pick]').forEach(node=>node.classList.toggle("selected",node.dataset.themePick===state.theme));}
+function applyTheme(){state.theme="metal";document.documentElement.dataset.theme="metal";$$('[data-theme-pick]').forEach(node=>node.classList.toggle("selected",node.dataset.themePick===state.theme));}
 
 async function init(){
   save();applyTheme(); bindEvents(); renderMessages(); renderTasks(); renderProjects(); renderMemories(); renderIntegrations(); renderDevices(); renderImage();
@@ -612,4 +618,4 @@ const evoStatus=document.createElement('article');evoStatus.className='panel evo
 $('#evoStatusRefresh').onclick=async()=>{try{const result=await evolutionRequest('/v1/status');const list=$('#evoStatusResults');list.replaceChildren();for(const item of result.capabilities){const row=document.createElement('div');row.className='evolution-result';row.append(evoText(`${item.label} — ${item.state.replaceAll('_',' ')}\n${item.evidence?.detail||item.evidence?.scope||item.nextAction||'Sem teste real concluído.'}${item.evidence?.at?'\n'+new Date(item.evidence.at).toLocaleString('pt-BR'):''}`));list.append(row);}}catch(error){toast(friendlyError(error),'error');}};
 
 // Public client bridge; secrets remain in the Core.
-export { state, save, core, headers, requireConnection, readResponse, toast, friendlyError, go, getConversationId, contextForChat, speakFlux, stopVoice, evolutionRequest, inworldLive, live, healthCheck };
+export { sendChat, setVoiceState, showSceneCard, renderMessages, state, save, core, headers, requireConnection, readResponse, toast, friendlyError, go, getConversationId, contextForChat, speakFlux, stopVoice, evolutionRequest, inworldLive, live, healthCheck };

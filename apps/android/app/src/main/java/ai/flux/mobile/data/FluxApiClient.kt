@@ -1,5 +1,6 @@
 package ai.flux.mobile.data
 
+import ai.flux.mobile.model.ToolApproval
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -16,7 +17,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-data class ChatResult(val content: String, val mode: String, val outputDeviceId: String)
+data class ChatResult(val content: String, val mode: String, val outputDeviceId: String, val approval: ToolApproval? = null)
 data class WeatherResult(val temperature: Double, val high: Double, val low: Double,
     val rainChance: Int, val condition: String)
 data class PairResult(val deviceToken: String, val deviceId: String)
@@ -185,6 +186,12 @@ class FluxApiClient(
                 content = result.getString("content"),
                 mode = result.getString("mode"),
                 outputDeviceId = result.optString("outputDeviceId", deviceId()),
+                approval = result.optJSONObject("toolResult")?.let { tool ->
+                    val id=tool.optString("approvalId")
+                    val name=tool.optString("id")
+                    if(!id.matches(Regex("[0-9a-f-]{36}")) || name !in listOf("samsung_tv.volume.set","spotify.playback.pause")) null
+                    else ToolApproval(id,name,if(name=="samsung_tv.volume.set") "Definir volume do aparelho ${tool.optJSONObject("data")?.optString("deviceId")} para ${tool.optJSONObject("data")?.optInt("volume")}." else "Pausar a reprodução na conta Spotify autorizada.")
+                },
             )
         }
     }

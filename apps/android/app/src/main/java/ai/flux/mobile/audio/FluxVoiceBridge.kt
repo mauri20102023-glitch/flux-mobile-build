@@ -9,6 +9,7 @@ import android.graphics.Bitmap
  * microfone. Isso mantém o caminho de inicialização leve e recuperável.
  */
 interface FluxVoiceBridge {
+    fun setPhaseListener(listener: (String)->Unit) {}
     fun setAudioLevelListener(listener: (Float)->Unit) {}
     fun startSession()
     fun sendUserMessage(message: String)

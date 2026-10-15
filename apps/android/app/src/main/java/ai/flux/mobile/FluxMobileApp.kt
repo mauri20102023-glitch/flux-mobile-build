@@ -1,5 +1,6 @@
 package ai.flux.mobile
 
+import androidx.activity.compose.BackHandler
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -79,17 +80,19 @@ private val PulseRed: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.primary
 private val PulseRedDark: Color
     @Composable @ReadOnlyComposable get() = MaterialTheme.colorScheme.secondary
-private val Ink = Color(0xFF0B0D12)
-private val Panel = Color(0xFF171A21)
-private val PanelRaised = Color(0xFF222630)
+private val Ink = Color(0xFF080A0D)
+private val Panel = Color(0xFF1C2026)
+private val PanelRaised = Color(0xFF2B3038)
 private val Line = Color(0xFF2B303B)
-private val White = Color(0xFFF3F4F6)
-private val Muted = Color(0xFFA4ABB8)
+private val White = Color(0xFFE8ECF0)
+private val Muted = Color(0xFFB9C1CA)
 private val Green = Color(0xFF52D27F)
 private val Amber = Color(0xFFFFBC52)
 
 private enum class FluxTab(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
+    CONNECTIONS("Conexões", Icons.Default.Link),
+    MEMORY("Memória", Icons.Default.Memory),
     VISION("Vision", Icons.Default.CenterFocusStrong),
     STUDY("Study", Icons.Default.School),
     SETTINGS("Ajustes", Icons.Default.Settings),
@@ -102,18 +105,13 @@ private enum class FluxTab(val label: String, val icon: ImageVector) {
 
 @Composable
 fun FluxTheme(accentKey: String = "red", content: @Composable () -> Unit) {
-    val (accent, accentDark) = when (accentKey) {
-        "blue" -> Color(0xFF17B8FF) to Color(0xFF1255C7)
-        "cyan" -> Color(0xFF00D9F5) to Color(0xFF006D7A)
-        "purple" -> Color(0xFF8D73FF) to Color(0xFF4932A3)
-        "gold" -> Color(0xFFFFB840) to Color(0xFF865700)
-        else -> Color(0xFFE84761) to Color(0xFF82263B)
-    }
+    val accent = White
+    val accentDark = Color(0xFFB9C1CA)
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = accent,
             secondary = accentDark,
-            onPrimary = if(accentKey in listOf("cyan","gold","blue")) Color(0xFF0B0D12) else Color.White,
+            onPrimary = Ink,
             background = Ink,
             onBackground = White,
             surface = Panel,
@@ -160,6 +158,9 @@ fun FluxMobileApp(
     onWakeWordEnabled: (Boolean) -> Unit,
     onAccentChange: (String) -> Unit,
     onReducedMotion: (Boolean) -> Unit,
+    onAdvancedEnabled: (Boolean) -> Unit,
+    onMicrophoneMuted: (Boolean) -> Unit,
+    onToolApproval: (Boolean) -> Unit,
     onOpenVision: () -> Unit,
     onCoreUrlChange: (String) -> Unit,
     onCoreTest: () -> Unit,
@@ -176,13 +177,33 @@ fun FluxMobileApp(
 ) {
     var selectedName by rememberSaveable { mutableStateOf(FluxTab.HOME.name) }
     val selected = FluxTab.valueOf(selectedName)
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val drawerScope = rememberCoroutineScope()
+    BackHandler(drawerState.isOpen || selected != FluxTab.HOME) {
+        if (drawerState.isOpen) drawerScope.launch { drawerState.close() } else selectedName = FluxTab.HOME.name
+    }
+    ModalNavigationDrawer(drawerState = drawerState, drawerContent = {
+        ModalDrawerSheet(modifier=Modifier.verticalScroll(rememberScrollState()), drawerContainerColor = Panel) {
+            Spacer(Modifier.height(24.dp))
+            Text("F L U X", Modifier.padding(24.dp), fontSize = 22.sp, letterSpacing = 6.sp)
+            listOf(FluxTab.HOME, FluxTab.CHAT, FluxTab.CONNECTIONS, FluxTab.MEMORY, FluxTab.CONTROL, FluxTab.DEVICES, FluxTab.VISION, FluxTab.STUDY, FluxTab.AGENDA, FluxTab.LAB, FluxTab.SETTINGS).forEach { tab ->
+                NavigationDrawerItem(label = { Text(tab.label) }, selected = selected == tab,
+                    icon = { Icon(tab.icon, null) }, onClick = { selectedName = tab.name; drawerScope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(horizontal = 12.dp).testTag("drawer-" + tab.name))
+            }
+        }
+    }) {
 
     Scaffold(
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onBackground,
-        bottomBar = { PulseNavigation(selected, {
-            if (state.isListening || state.voiceConnecting) onStop() else onVoice()
-        }) { selectedName = it.name } },
+        topBar = {
+            if(selected != FluxTab.HOME) Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=12.dp), verticalAlignment=Alignment.CenterVertically) {
+                IconButton(onClick={selectedName=FluxTab.HOME.name}) { Icon(Icons.Default.ArrowBack, "Voltar ao início") }
+                Text(selected.label, Modifier.weight(1f), color=Muted)
+                IconButton(onClick={drawerScope.launch{drawerState.open()}}) { Icon(Icons.Default.Menu, "Abrir menu") }
+            }
+        },
     ) { padding ->
         Box(
             Modifier.fillMaxSize()
@@ -201,6 +222,9 @@ fun FluxMobileApp(
                     onDevices = { selectedName = FluxTab.DEVICES.name },
                     onSettings = { selectedName = FluxTab.SETTINGS.name },
                     onVision = onOpenVision,
+                    onMenu = {drawerScope.launch {drawerState.open()}},
+                    onSend = onSend,
+                    onStop = onStop,
                 )
                 FluxTab.CHAT -> PulseChat(state, onSend, onVoice, onStop) {
                     selectedName = FluxTab.SETTINGS.name
@@ -218,22 +242,34 @@ fun FluxMobileApp(
                     onOpenInstagram, onOpenEmail, onOpenCalendar, onOpenCanva, onOpenDrive, onOpenYouTube,
                     onOpenSmartThings,
                 )
+                FluxTab.CONNECTIONS -> FluxWorkspaceScreen(state, onGenerateImage, initialSection="Conexões") { message -> onSend(message); selectedName = FluxTab.CHAT.name }
+                FluxTab.MEMORY -> FluxWorkspaceScreen(state, onGenerateImage, initialSection="Memória") { message -> onSend(message); selectedName = FluxTab.CHAT.name }
                 FluxTab.LAB -> FluxWorkspaceScreen(state, onGenerateImage) { message -> onSend(message); selectedName = FluxTab.CHAT.name }
                 FluxTab.SETTINGS -> ControlScreen(
                     state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
                     onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
                     onGeminiKeyChange, onGeminiKeyClear, onReducedMotion,
+                    { value -> onAdvancedEnabled(value); selectedName = FluxTab.HOME.name }, onMicrophoneMuted,
                 )
             }
             }
             AnimatedVisibility(
                 visible = state.error != null,
-                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 104.dp),
             ) {
                 state.error?.let { ErrorBanner(it, onClearError) }
             }
         }
+    }
+
+    }
+
+    state.pendingToolApproval?.let { approval ->
+        AlertDialog(onDismissRequest={if(!state.approvingTool)onToolApproval(false)}, title={Text("Confirmar ação")},
+            text={Text(approval.description+"\nNada foi executado. Confirmação válida por cinco minutos.")},
+            confirmButton={TextButton(enabled=!state.approvingTool,onClick={onToolApproval(true)}){Text("Confirmar ação")}},
+            dismissButton={TextButton(enabled=!state.approvingTool,onClick={onToolApproval(false)}){Text("Cancelar ação")}})
     }
 
     if (state.assistantCheckComplete && state.assistantAvailable && state.showAssistantOnboarding && !state.assistantRoleHeld) {
@@ -266,62 +302,40 @@ private fun RowScope.PulseNavItem(selected: FluxTab, tab: FluxTab, onSelect: (Fl
 private fun PulseHome(
     state: FluxUiState, onVoice: () -> Unit, onBriefing: () -> Unit, onChat: () -> Unit,
     onPlans: () -> Unit, onStudio: () -> Unit, onDevices: () -> Unit, onSettings: () -> Unit,
-    onVision: () -> Unit,
+    onVision: () -> Unit, onMenu: () -> Unit, onSend: (String) -> Unit, onStop: () -> Unit,
 ) {
-    val now = LocalDateTime.now()
-    val accent = MaterialTheme.colorScheme.primary
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())
-        .padding(horizontal = 24.dp, vertical = 22.dp).testTag("flux-home")) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("F L U X", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 6.sp)
-                Text("EXTREME INTELLIGENCE", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
+    var text by rememberSaveable { mutableStateOf("") }
+    var interacted by rememberSaveable { mutableStateOf(false) }
+    var transforming by remember { mutableStateOf(false) }
+    LaunchedEffect(state.advancedEnabled) { if(state.advancedEnabled && !state.reducedMotion){transforming=true;delay(1600);transforming=false} }
+    BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().testTag("flux-home")) {
+        val orbSize = minOf(270.dp, maxHeight * .4f)
+        if(state.advancedEnabled) Canvas(Modifier.fillMaxSize()) {
+            val spacing=40.dp.toPx()
+            var x=0f;while(x<size.width){drawLine(Color(0x0CB9C1CA),androidx.compose.ui.geometry.Offset(x,0f),androidx.compose.ui.geometry.Offset(x,size.height));x+=spacing}
+            var y=0f;while(y<size.height){drawLine(Color(0x0CB9C1CA),androidx.compose.ui.geometry.Offset(0f,y),androidx.compose.ui.geometry.Offset(size.width,y));y+=spacing}
+        }
+        Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+            IconButton(onClick=onMenu){Icon(Icons.Default.Menu,"Abrir menu",tint=Muted)}
+            Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally) {
+                Text("F L U X",fontSize=20.sp,fontWeight=FontWeight.Light,letterSpacing=5.sp)
+                if(state.advancedEnabled)Text("ADVANCED",fontSize=8.sp,color=Muted,letterSpacing=3.sp)
             }
-            IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Abrir ajustes", tint = Muted) }
+            IconButton(onClick=onSettings){Icon(Icons.Default.Settings,"Abrir ajustes",tint=Muted)}
         }
-        Spacer(Modifier.height(22.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(now.format(DateTimeFormatter.ofPattern("EEEE, dd MMM", Locale("pt", "BR"))).uppercase(), color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
-            Text(if (state.coreOnline && state.coreAuthConfigured) "● CORE CONECTADO" else "○ PAREAMENTO", color = if (state.coreOnline && state.coreAuthConfigured) accent else Amber, fontSize = 10.sp)
-        }
-        Spacer(Modifier.height(26.dp))
-        Text("Seu espaço. Sua inteligência.", fontSize = 25.sp, lineHeight = 31.sp, fontWeight = FontWeight.Light, letterSpacing = (-1).sp)
-        Text("${if (now.hour < 6) "Boa noite" else if (now.hour < 12) "Bom dia" else if (now.hour < 18) "Boa tarde" else "Boa noite"}, Maurício.", color = Muted, modifier = Modifier.padding(top = 12.dp))
-        Box(Modifier.fillMaxWidth().height(185.dp), contentAlignment = Alignment.Center) {
-            FluxOrb(state, 170.dp, onVoice)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            StatusPill(presenceLabel(state), accent)
-        }
-        Text("Voz FLUX 4 · disponibilidade verificada ao iniciar", color = Muted, fontSize = 11.sp,
-            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 24.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HomeQuickAction(Icons.Default.ChatBubbleOutline, "Conversar", onChat, Modifier.weight(1f))
-            HomeQuickAction(Icons.Default.CenterFocusStrong, "Ver tela", onVision, Modifier.weight(1f))
-            HomeQuickAction(Icons.Default.AutoAwesome, "Estudar", onStudio, Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(28.dp))
-        SectionLabel("SEU DIA, COM CLAREZA")
-        HomeAction(Icons.Default.WbSunny, "Briefing pessoal", "Agenda, clima e seus próximos passos", onBriefing)
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(Modifier.weight(1f).clickable(onClick = onPlans), color = Panel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Line)) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("${state.tasks.count { !it.completed }}", fontSize = 32.sp, fontWeight = FontWeight.Light, color = accent)
-                    Text("Tarefas abertas", color = Muted, fontSize = 12.sp)
-                }
-            }
-            Surface(Modifier.weight(1f).clickable(onClick = onDevices), color = Panel, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Line)) {
-                Column(Modifier.padding(18.dp)) { Icon(Icons.Default.Devices, null, tint = accent); Spacer(Modifier.height(10.dp)); Text("Conexões", color = Muted, fontSize = 12.sp) }
+        Column(Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal=28.dp,vertical=86.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+            FluxOrb(state,if(transforming) orbSize * .9f else orbSize,onVoice)
+            Text("Fale com o FLUX",fontSize=23.sp,fontWeight=FontWeight.Light)
+            Text(presenceLabel(state),fontSize=10.sp,color=Muted,modifier=Modifier.padding(top=12.dp))
+            if(interacted)state.messages.lastOrNull{it.role==Role.FLUX}?.let { reply ->
+                Text(reply.content.take(280),fontSize=12.sp,lineHeight=18.sp,color=Muted,maxLines=5,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=12.dp).clickable(onClick=onChat))
             }
         }
-        Spacer(Modifier.height(18.dp))
-        state.messages.lastOrNull { it.role == Role.FLUX }?.let {
-            Text("CONTINUE DE ONDE PAROU", color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
-            Text(it.content.take(160), color = White, fontSize = 14.sp, lineHeight = 22.sp,
-                modifier = Modifier.padding(top = 8.dp).clickable(onClick = onChat))
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(20.dp).border(1.dp,Line,RoundedCornerShape(30.dp)).background(Panel.copy(alpha=.55f),RoundedCornerShape(30.dp)).padding(horizontal=6.dp),verticalAlignment=Alignment.CenterVertically) {
+            IconButton(onClick={if(state.isListening||state.voiceConnecting)onStop() else onVoice()}) { Icon(if(state.microphoneMuted)Icons.Default.MicOff else if(state.isListening)Icons.Default.Stop else Icons.Default.Mic,if(state.isListening)"Encerrar voz" else "Conversar por voz",tint=White) }
+            TextField(text,{text=it},placeholder={Text("Fale com o FLUX…",fontSize=13.sp)},modifier=Modifier.weight(1f).testTag("home-input"),singleLine=true,colors=TextFieldDefaults.colors(focusedContainerColor=Color.Transparent,unfocusedContainerColor=Color.Transparent,focusedIndicatorColor=Color.Transparent,unfocusedIndicatorColor=Color.Transparent),keyboardOptions=KeyboardOptions(imeAction=ImeAction.Send),keyboardActions=KeyboardActions(onSend={if(text.isNotBlank()){interacted=true;onSend(text);text=""}}))
+            if(text.isNotBlank())IconButton(onClick={interacted=true;onSend(text);text=""},enabled=!state.isResponding){Icon(Icons.Default.ArrowUpward,"Enviar mensagem",tint=White)}
         }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -456,6 +470,9 @@ private fun PulseHeader(state: FluxUiState) {
 
 @Composable
 private fun presenceLabel(state: FluxUiState): String = when {
+    state.microphoneMuted -> "Microfone silenciado"
+    state.voicePhase == "speaking" -> "Falando…"
+    state.voicePhase == "thinking" -> "Processando fala…"
     state.voiceConnecting -> "Conectando voz…"
     state.isListening -> "Ouvindo…"
     state.isResponding -> "Pensando…"
@@ -476,9 +493,9 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
     )
     progress
     }
-    val active = state.isListening || state.voiceConnecting || state.isResponding
+    val active = !state.microphoneMuted && (state.isListening || state.voiceConnecting || state.isResponding)
     val accent = if (!state.networkAvailable) Muted else MaterialTheme.colorScheme.primary
-    Box(Modifier.size(size).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).testTag("flux-orb").clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.fillMaxSize().graphicsLayer {
             val scale = 0.94f + breath * if (active) 0.1f else 0.03f
             scaleX = scale + state.audioLevel * .06f; scaleY = scale + state.audioLevel * .06f
@@ -503,7 +520,7 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
             }
         }
         Image(painterResource(ai.flux.mobile.R.drawable.ic_flux_foreground), contentDescription = null, modifier = Modifier.size(size * .72f))
-        Icon(if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
+        Icon(if (state.microphoneMuted) Icons.Default.MicOff else if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
             if (state.isListening || state.voiceConnecting) "Encerrar voz" else "Conversar por voz",
             tint = accent, modifier = Modifier.size(26.dp).align(Alignment.BottomCenter))
     }
@@ -630,7 +647,7 @@ private fun Composer(
             Icon(
                 if (listening) Icons.Default.Stop else Icons.Default.Mic,
                 null,
-                tint = if (listening) PulseRed else Color.White,
+                tint = if (listening) Ink else Ink,
             )
         }
     }
@@ -876,6 +893,8 @@ private fun ControlScreen(
     onGeminiKeyChange: (String) -> Unit,
     onGeminiKeyClear: () -> Unit,
     onReducedMotion: (Boolean) -> Unit,
+    onAdvancedEnabled: (Boolean) -> Unit,
+    onMicrophoneMuted: (Boolean) -> Unit,
 ) {
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
     var pairCode by remember { mutableStateOf("") }
@@ -884,6 +903,8 @@ private fun ControlScreen(
     }
 
     ScreenScroll("SISTEMA", "Conexão, inteligência, voz e privacidade.") {
+        FluxAdvancedSettings(state, onAdvancedEnabled, onMicrophoneMuted)
+
         SectionLabel("STATUS AO VIVO")
         SystemStatus(
             "FLUX Link",
@@ -1000,7 +1021,7 @@ private fun ControlScreen(
             "Usar mensagens anteriores no chat; desligar inicia um contexto novo", state.memoryEnabled, onMemory)
         Spacer(Modifier.height(22.dp))
         SectionLabel("APARÊNCIA")
-        AccentSelector(state.accentKey, onAccent)
+        Text("Identidade oficial: preto, grafite, prata e branco metálico.", color=Muted, fontSize=12.sp)
         Spacer(Modifier.height(10.dp))
         ToggleCard(Icons.Default.Animation, "Reduzir animações", "Movimento discreto e menor atividade visual", state.reducedMotion, onReducedMotion)
         Spacer(Modifier.height(22.dp))

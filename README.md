@@ -1,11 +1,13 @@
-# FLUX — Projeto A: Mobile e Command Center
+# FLUX — Mobile, Command Center e Advanced
 
-Clientes **2.0.1-project-a**, desenvolvidos sobre o preview 2.0 do PR #16. O Core existente é preservado. `main` e produção continuam em 1.8 até revisão/aprovação. O Projeto B Advanced é futuro, sem compras.
+Clientes **2.1.0-master-preview**: home mínima metálica, Advanced de software persistente, mute, registro de capacidades, ações com consentimento e Build com proteção para patches e PRs em rascunho. Incremento sobre o Projeto A, preservando o Core existente. `main` e produção continuam preservados até revisão/aprovação. Integrações reais e hardware têm pendências explícitas no relatório.
+
+Avaliação: https://flux-command-preview.mauri20102023.workers.dev/ . [Entrega e limites](docs/master/ENTREGA.md), [testes e evidências](docs/master/TESTES.md), [auditoria](docs/master/AUDITORIA.md) e [arquivos alterados](docs/master/ARQUIVOS.txt). O PDF mestre completo ainda não está integralmente implementado.
 
 ## Experiências
 
 - Android: Home compacta, Chat, Vision, Study e Control. Creator, memória, cofre, projetos, integrações e ajustes permanecem em Control/Workspace.
-- Desktop/Chromebook: Web/PWA Command Center, navegação lateral, contexto recolhível/redimensionável, modos Normal/Command/Imersivo/Study/Vision, atalhos e redução de movimento.
+- Desktop/Chromebook: Web/PWA Command Center, drawer recolhido, contexto recolhível/redimensionável, modos Normal/Command/Imersivo/Study/Vision, Advanced, atalhos e redução de movimento.
 - Study: lousa determinística, explicações pela API existente, incentivo ao raciocínio, histórico Web local mediante consentimento e exportação. Professor 3D e avaliação adaptativa permanecem em desenvolvimento.
 
 ## Arquitetura e proteção
@@ -31,7 +33,7 @@ Os testes Web usam Chromium no CI com fixture explicitamente simulada, sem chama
 
 Para parear, emita convite administrativo pelo Core de avaliação, uso único por 15 minutos. Cada cliente usa convite próprio. A interface recebe apenas token do aparelho, nunca a chave administrativa. Segredos do serviço devem ser configurados no painel seguro do Cloudflare.
 
-## Documentação
+## Documentação anterior do Projeto A
 
 - [Auditoria atual](docs/project-a/AUDITORIA.md)
 - [Design System e limites do Study](docs/project-a/DESIGN-SYSTEM.md)

@@ -67,6 +67,7 @@ class FluxWakeWordService : Service(), RecognitionListener {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startRecognizer() {
+        if (ai.flux.mobile.data.FluxLocalWorkspace(applicationContext).microphoneMuted()) { stopSelf(); return }
         if (destroyed || paused || restarting || recognizer != null) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             stopSelf()

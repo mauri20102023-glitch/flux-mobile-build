@@ -42,40 +42,72 @@ class FluxUiTest {
         compose.waitForIdle()
         if(compose.onAllNodesWithText("AGORA NÃO").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithText("AGORA NÃO").performClick()
     }
-    @Test fun startupNavigationAndPersistentAccent(){
+    private fun navigate(label:String){
+        compose.onNodeWithContentDescription("Abrir menu").performClick()
+        compose.onNodeWithTag("drawer-"+label.uppercase()).performClick()
+    }
+    @Test fun startupNavigationAndPersistentPreferences(){
         compose.onNodeWithTag("flux-home").assertExists();evidence("home")
         compose.onNodeWithContentDescription("Abrir ajustes").performClick()
         compose.onNodeWithText("SISTEMA").assertExists()
         compose.onNodeWithText("APARÊNCIA").performScrollTo()
-        compose.onNodeWithTag("accent-cyan").performScrollTo().assertIsDisplayed().performClick()
-        compose.waitForIdle()
-        compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.accentKey()=="cyan"}
-        Assert.assertEquals("cyan",(compose.activity.application as FluxApplication).workspace.accentKey())
+        compose.onNodeWithText("Identidade oficial: preto, grafite, prata e branco metálico.").performScrollTo().assertIsDisplayed()
+        Assert.assertEquals("metal",(compose.activity.application as FluxApplication).workspace.accentKey())
         compose.onNodeWithTag("toggle-Reduzir animações").performScrollTo().performClick()
         compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.reducedMotion()}
         Assert.assertTrue((compose.activity.application as FluxApplication).workspace.reducedMotion())
         evidence("settings")
-        compose.onNodeWithText("Control").performClick()
+        navigate("Control")
         compose.onNodeWithText("Workspace · conexões, memória e cofre").performClick()
-        compose.onNodeWithText("Memória").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("workspace-section-Memória").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("Memórias autorizadas").assertExists()
         compose.onNodeWithText("Pareie o aparelho em Ajustes para acessar este módulo.").assertExists()
         evidence("memory-unpaired")
-        compose.onNodeWithText("Conexões").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("workspace-section-Conexões").performScrollTo().assertIsDisplayed().performClick()
         compose.waitForIdle()
         compose.onNodeWithText("FLUX Connect").assertIsDisplayed();evidence("connect-unpaired")
-        compose.onNodeWithText("Segurança").performScrollTo().performClick()
+        compose.onNodeWithTag("workspace-section-Segurança").performScrollTo().performClick()
         compose.onNodeWithText("Abrir cofre seguro").assertExists();evidence("privacy")
-        compose.onNodeWithText("Chat").performClick()
+        navigate("Chat")
         compose.onNodeWithTag("chat-input").assertExists()
-        compose.onNodeWithText("Vision").performClick()
+        navigate("Vision")
         compose.onNodeWithText("Capturar tela com autorização").assertExists()
         evidence("vision")
-        compose.onNodeWithText("Study").performClick()
+        navigate("Study")
         compose.onNodeWithTag("flux-study").assertExists()
         compose.onNodeWithText("Energia de ativação").performClick()
         compose.onNodeWithText("Catalisador").assertExists()
         evidence("study")
+    }
+    @Test fun advancedPersistsWithoutStartingCapture(){
+        val workspace=(compose.activity.application as FluxApplication).workspace
+        val wasEnabled=workspace.advancedEnabled()
+        compose.onNodeWithContentDescription("Abrir ajustes").performClick()
+        compose.onNodeWithText(if(wasEnabled) "Sair do Advanced" else "Iniciar Advanced").performScrollTo().performClick()
+        compose.waitUntil(5000){workspace.advancedEnabled()!=wasEnabled}
+        compose.onNodeWithTag("flux-home").assertExists()
+        compose.activityRule.scenario.recreate()
+        compose.waitForIdle()
+        Assert.assertEquals(!wasEnabled,workspace.advancedEnabled())
+        if(!wasEnabled)compose.onNodeWithText("ADVANCED").assertExists()
+        evidence("advanced-home")
+    }
+    @Test fun microphoneMutePersistsAndMainVoiceCannotRestartIt(){
+        val workspace=(compose.activity.application as FluxApplication).workspace
+        compose.onNodeWithContentDescription("Abrir ajustes").performClick()
+        if(!workspace.microphoneMuted())compose.onNodeWithText("Silenciar microfone do FLUX").performScrollTo().performClick()
+        compose.waitUntil(5000){workspace.microphoneMuted()}
+        compose.activityRule.scenario.recreate();compose.waitForIdle()
+        Assert.assertTrue(workspace.microphoneMuted())
+        device.pressBack();compose.waitForIdle()
+        compose.onNodeWithTag("flux-home").assertExists()
+        compose.onNodeWithTag("flux-orb").performClick()
+        compose.onNodeWithText("Microfone silenciado. Reative em Ajustes.").assertExists()
+        evidence("microphone-muted")
+        compose.onNodeWithContentDescription("Abrir ajustes").performClick()
+        compose.onNodeWithText("Reativar microfone do FLUX").performScrollTo().performClick()
+        compose.waitUntil(5000){!workspace.microphoneMuted()}
+        Assert.assertFalse(workspace.wakeWordEnabled())
     }
     @Test fun installedIconAppearsOnLauncher(){
         device.pressHome()
