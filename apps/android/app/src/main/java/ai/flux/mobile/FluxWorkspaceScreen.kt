@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,7 +83,7 @@ fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, initialS
         Text("Suas ferramentas, um só lugar.", color=MaterialTheme.colorScheme.onSurfaceVariant, modifier=Modifier.padding(start=22.dp,top=4.dp,bottom=16.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=18.dp), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("Criar","Analisar","Estudar","Pesquisar","Memória","Missões","Conexões","Segurança","Consumo","Sistema","Builder").forEach {
-                FilterChip(selected=section==it,onClick={section=it},enabled=!busy,label={Text(it)})
+                FilterChip(selected=section==it,onClick={section=it},enabled=!busy,label={Text(it)},modifier=Modifier.testTag("workspace-section-"+it))
             }
         }
         if(busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal=22.dp))

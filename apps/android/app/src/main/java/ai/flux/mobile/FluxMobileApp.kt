@@ -256,7 +256,7 @@ fun FluxMobileApp(
             }
             AnimatedVisibility(
                 visible = state.error != null,
-                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 16.dp).padding(top = 76.dp),
             ) {
                 state.error?.let { ErrorBanner(it, onClearError) }
             }
@@ -332,7 +332,7 @@ private fun PulseHome(
             }
         }
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(20.dp).border(1.dp,Line,RoundedCornerShape(30.dp)).background(Panel.copy(alpha=.55f),RoundedCornerShape(30.dp)).padding(horizontal=6.dp),verticalAlignment=Alignment.CenterVertically) {
-            IconButton(onClick={if(state.isListening||state.voiceConnecting)onStop() else onVoice()}) { Icon(if(state.isListening)Icons.Default.Stop else Icons.Default.Mic,if(state.isListening)"Encerrar voz" else "Conversar por voz",tint=White) }
+            IconButton(onClick={if(state.isListening||state.voiceConnecting)onStop() else onVoice()}) { Icon(if(state.microphoneMuted)Icons.Default.MicOff else if(state.isListening)Icons.Default.Stop else Icons.Default.Mic,if(state.isListening)"Encerrar voz" else "Conversar por voz",tint=White) }
             TextField(text,{text=it},placeholder={Text("Fale com o FLUX…",fontSize=13.sp)},modifier=Modifier.weight(1f).testTag("home-input"),singleLine=true,colors=TextFieldDefaults.colors(focusedContainerColor=Color.Transparent,unfocusedContainerColor=Color.Transparent,focusedIndicatorColor=Color.Transparent,unfocusedIndicatorColor=Color.Transparent),keyboardOptions=KeyboardOptions(imeAction=ImeAction.Send),keyboardActions=KeyboardActions(onSend={if(text.isNotBlank()){interacted=true;onSend(text);text=""}}))
             if(text.isNotBlank())IconButton(onClick={interacted=true;onSend(text);text=""},enabled=!state.isResponding){Icon(Icons.Default.ArrowUpward,"Enviar mensagem",tint=White)}
         }
@@ -520,7 +520,7 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
             }
         }
         Image(painterResource(ai.flux.mobile.R.drawable.ic_flux_foreground), contentDescription = null, modifier = Modifier.size(size * .72f))
-        Icon(if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
+        Icon(if (state.microphoneMuted) Icons.Default.MicOff else if (state.isListening || state.voiceConnecting) Icons.Default.Stop else Icons.Default.Mic,
             if (state.isListening || state.voiceConnecting) "Encerrar voz" else "Conversar por voz",
             tint = accent, modifier = Modifier.size(26.dp).align(Alignment.BottomCenter))
     }
