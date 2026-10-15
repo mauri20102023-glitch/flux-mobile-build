@@ -256,7 +256,7 @@ fun FluxMobileApp(
             }
             AnimatedVisibility(
                 visible = state.error != null,
-                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 16.dp).padding(top = 76.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 104.dp),
             ) {
                 state.error?.let { ErrorBanner(it, onClearError) }
             }
