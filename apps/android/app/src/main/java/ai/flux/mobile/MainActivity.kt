@@ -160,9 +160,10 @@ class MainActivity : ComponentActivity() {
                     onAccentChange = viewModel::setAccentKey,
                     onReducedMotion = viewModel::setReducedMotion,
                     onAdvancedEnabled = viewModel::setAdvancedEnabled,
+                    onToolApproval = viewModel::confirmToolApproval,
                     onMicrophoneMuted = { muted ->
                         viewModel.setMicrophoneMuted(muted)
-                        if(muted) { setWakeWordEnabled(false); stopListening() }
+                        if(muted) { setWakeWordEnabled(false); ai.flux.mobile.audio.FluxMicrophoneGate.closeAll(); stopListening() }
                     },
                     onOpenVision = ::openVision,
                     onCoreUrlChange = viewModel::updateCoreUrl,
@@ -316,7 +317,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun textController(): FluxTextBridge = text ?: createTextController().also { text = it }
+    private fun textController(): FluxTextBridge = text ?: createTextController().also { it.setApprovalListener(viewModel::setPendingToolApproval); text = it }
 
     @Suppress("UNCHECKED_CAST")
     private fun createTextController(): FluxTextBridge {

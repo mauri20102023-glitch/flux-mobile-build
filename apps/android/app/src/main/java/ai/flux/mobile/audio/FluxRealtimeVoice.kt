@@ -54,12 +54,15 @@ class FluxRealtimeVoice(
     override fun setPhaseListener(listener: (String) -> Unit) { phaseListener=listener }
     override fun setAudioLevelListener(listener:(Float)->Unit) {levelListener=listener}
 
+    private val closeForMute: () -> Unit = { endSession() }
     override fun startSession() {
+        if(app.workspace.microphoneMuted()) { onError("Microfone do FLUX silenciado. Reative nos Ajustes."); return }
         if (active) return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             onError("Autorize o microfone para conversar com o FLUX."); return
         }
         if (!app.connectionSettings.authTokenConfigured()) { onError("Pareie este aparelho com o Core."); return }
+        FluxMicrophoneGate.register(closeForMute)
         active = true
         val sessionEpoch = ++epoch
         previousMode = audioManager.mode
@@ -250,6 +253,8 @@ class FluxRealtimeVoice(
         if (local) connection.setLocalDescription(callback, sdp) else connection.setRemoteDescription(callback, sdp)
     }
     override fun endSession() {
+        FluxMicrophoneGate.unregister(closeForMute)
+        phaseListener?.invoke("idle")
         levelListener?.invoke(0f)
         active = false; ready = false; ++epoch
         connectionJob?.cancel(); visionJob?.cancel(); pendingText = null; currentImage = null; contextNote = ""

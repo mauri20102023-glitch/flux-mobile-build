@@ -9,6 +9,7 @@ import ai.flux.mobile.data.FluxLocalWorkspace
 import ai.flux.mobile.data.LocalFacts
 import ai.flux.mobile.data.FluxNetworkMonitor
 import ai.flux.mobile.data.LocalConversationCache
+import ai.flux.mobile.model.ToolApproval
 import ai.flux.mobile.model.FluxUiState
 import ai.flux.mobile.model.LocalProject
 import ai.flux.mobile.model.LocalTask
@@ -362,6 +363,18 @@ class FluxViewModel(
         workspace.setAccentKey("metal")
         _state.update { it.copy(accentKey = "metal") }
     }
+    fun setPendingToolApproval(value: ToolApproval) { _state.update { if(it.pendingToolApproval==null) it.copy(pendingToolApproval=value) else it } }
+    fun confirmToolApproval(approve: Boolean) {
+        val pending=state.value.pendingToolApproval ?: return
+        if(state.value.approvingTool) return
+        _state.update { it.copy(approvingTool=true) }
+        viewModelScope.launch {
+            runCatching { api.workspace("/v1/tools/approvals/"+pending.id, org.json.JSONObject().put("approve",approve)) }
+                .onSuccess { completeDirectMessage(it.optString("content","Resultado não confirmado.")) }
+                .onFailure { reportError(it.message ?: "Resultado da ação não confirmado. Confira o aparelho antes de repetir.") }
+            _state.update { it.copy(pendingToolApproval=null,approvingTool=false) }
+        }
+    }
     fun setAdvancedEnabled(value: Boolean) { workspace.setAdvancedEnabled(value); _state.update { it.copy(advancedEnabled = value) } }
     fun setMicrophoneMuted(value: Boolean) { workspace.setMicrophoneMuted(value); _state.update { it.copy(microphoneMuted = value, audioLevel = 0f) } }
     fun setVoicePhase(value: String) { _state.update { it.copy(voicePhase = value) } }
@@ -505,6 +518,7 @@ class FluxViewModel(
                         aiReady = true,
                         aiVerified = true,
                         pendingMessageCount = pendingChats.size,
+                        pendingToolApproval = it.pendingToolApproval ?: result.approval,
                         error = null,
                     )
                 }

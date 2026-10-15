@@ -79,6 +79,36 @@ class FluxUiTest {
         compose.onNodeWithText("Catalisador").assertExists()
         evidence("study")
     }
+    @Test fun advancedPersistsWithoutStartingCapture(){
+        val workspace=(compose.activity.application as FluxApplication).workspace
+        val wasEnabled=workspace.advancedEnabled()
+        compose.onNodeWithContentDescription("Abrir ajustes").performClick()
+        compose.onNodeWithText(if(wasEnabled) "Sair do Advanced" else "Iniciar Advanced").performScrollTo().performClick()
+        compose.waitUntil(5000){workspace.advancedEnabled()!=wasEnabled}
+        compose.onNodeWithTag("flux-home").assertExists()
+        compose.activityRule.scenario.recreate()
+        compose.waitForIdle()
+        Assert.assertEquals(!wasEnabled,workspace.advancedEnabled())
+        if(!wasEnabled)compose.onNodeWithText("ADVANCED").assertExists()
+        evidence("advanced-home")
+    }
+    @Test fun microphoneMutePersistsAndMainVoiceCannotRestartIt(){
+        val workspace=(compose.activity.application as FluxApplication).workspace
+        compose.onNodeWithContentDescription("Abrir ajustes").performClick()
+        if(!workspace.microphoneMuted())compose.onNodeWithText("Silenciar microfone do FLUX").performScrollTo().performClick()
+        compose.waitUntil(5000){workspace.microphoneMuted()}
+        compose.activityRule.scenario.recreate();compose.waitForIdle()
+        Assert.assertTrue(workspace.microphoneMuted())
+        device.pressBack();compose.waitForIdle()
+        compose.onNodeWithTag("flux-home").assertExists()
+        compose.onNodeWithTag("flux-orb").performClick()
+        compose.onNodeWithText("Microfone silenciado. Reative em Ajustes.").assertExists()
+        evidence("microphone-muted")
+        compose.onNodeWithContentDescription("Abrir ajustes").performClick()
+        compose.onNodeWithText("Reativar microfone do FLUX").performScrollTo().performClick()
+        compose.waitUntil(5000){!workspace.microphoneMuted()}
+        Assert.assertFalse(workspace.wakeWordEnabled())
+    }
     @Test fun installedIconAppearsOnLauncher(){
         device.pressHome()
         device.waitForIdle()

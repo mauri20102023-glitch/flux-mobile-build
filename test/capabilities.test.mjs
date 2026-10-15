@@ -44,3 +44,10 @@ test('schema rejects out-of-range volume, unknown tools and remote URL parameter
   const f=fixture(true);for(const volume of [-1,101,1.5,'25'])await assert.rejects(()=>f.registry.invoke('samsung_tv.volume.set',{deviceId:'123e4567-e89b-42d3-a456-426614174000',volume},'a'),/inteiro/);
   await assert.rejects(()=>f.registry.invoke('deploy.production',{},'a'),/não implementada/);await assert.rejects(()=>f.registry.invoke('gmail.messages.read',{url:'https://evil.test'},'a'),/não permitido/);
 });
+test('natural Spotify pause prepares consent and never executes from the model request',async()=>{
+  const f=fixture(true);const r=await f.registry.natural('Flux, pause o Spotify','owner');assert.equal(r.state,'approval_required');assert.equal(f.calls.length,0);assert.equal(await f.registry.natural('Não pause o Spotify','owner'),null);
+});
+test('pending consent is bounded and unavailable accounts cannot accumulate approvals',async()=>{
+  const f=fixture(true);for(let i=0;i<20;i++)await f.registry.invoke('spotify.playback.pause',{},'owner');await assert.rejects(()=>f.registry.invoke('spotify.playback.pause',{},'owner'),/pendentes/);
+  const off=fixture(false);assert.equal((await off.registry.invoke('spotify.playback.pause',{},'owner')).state,'unavailable');assert.equal(off.values.size,0);
+});

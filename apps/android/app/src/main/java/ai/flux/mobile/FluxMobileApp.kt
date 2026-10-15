@@ -158,6 +158,7 @@ fun FluxMobileApp(
     onReducedMotion: (Boolean) -> Unit,
     onAdvancedEnabled: (Boolean) -> Unit,
     onMicrophoneMuted: (Boolean) -> Unit,
+    onToolApproval: (Boolean) -> Unit,
     onOpenVision: () -> Unit,
     onCoreUrlChange: (String) -> Unit,
     onCoreTest: () -> Unit,
@@ -258,6 +259,13 @@ fun FluxMobileApp(
         }
     }
 
+    }
+
+    state.pendingToolApproval?.let { approval ->
+        AlertDialog(onDismissRequest={if(!state.approvingTool)onToolApproval(false)}, title={Text("Confirmar ação")},
+            text={Text(approval.description+"\nNada foi executado. Confirmação válida por cinco minutos.")},
+            confirmButton={TextButton(enabled=!state.approvingTool,onClick={onToolApproval(true)}){Text("Confirmar ação")}},
+            dismissButton={TextButton(enabled=!state.approvingTool,onClick={onToolApproval(false)}){Text("Cancelar ação")}})
     }
 
     if (state.assistantCheckComplete && state.assistantAvailable && state.showAssistantOnboarding && !state.assistantRoleHeld) {
@@ -483,7 +491,7 @@ private fun FluxOrb(state: FluxUiState, size: androidx.compose.ui.unit.Dp, onCli
     }
     val active = !state.microphoneMuted && (state.isListening || state.voiceConnecting || state.isResponding)
     val accent = if (!state.networkAvailable) Muted else MaterialTheme.colorScheme.primary
-    Box(Modifier.size(size).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).testTag("flux-orb").clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.fillMaxSize().graphicsLayer {
             val scale = 0.94f + breath * if (active) 0.1f else 0.03f
             scaleX = scale + state.audioLevel * .06f; scaleY = scale + state.audioLevel * .06f

@@ -30,6 +30,8 @@ data class LocalProject(
     val progress: Int = 0,
 )
 
+data class ToolApproval(val id: String, val toolId: String, val description: String)
+
 data class FluxUiState(
     val messages: List<UiMessage> = emptyList(),
     val isResponding: Boolean = false,
@@ -66,6 +68,8 @@ data class FluxUiState(
     val advancedEnabled: Boolean = false,
     val microphoneMuted: Boolean = false,
     val voicePhase: String = "idle",
+    val pendingToolApproval: ToolApproval? = null,
+    val approvingTool: Boolean = false,
     val reducedMotion: Boolean = false,
     val imageGenerating: Boolean = false,
     val generatedImageBase64: String? = null,

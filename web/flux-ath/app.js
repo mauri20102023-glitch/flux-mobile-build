@@ -168,6 +168,7 @@ async function sendChat(message, { spoken = false, stayHome = false } = {}) {
     const response = await fetch(core("/v1/chat"), { method:"POST", headers:headers(), body:JSON.stringify({ requestId:crypto.randomUUID(), conversationId:getConversationId(), message:clean, context:contextForChat(), deviceId:DEVICE_ID, modality:spoken?"VOICE":"TEXT" }) });
     const payload = await readResponse(response);
     if(Array.isArray(payload.cards))payload.cards.forEach(showSceneCard);
+    if(payload.toolResult?.approvalId)window.dispatchEvent(new CustomEvent('flux:tool-result',{detail:payload.toolResult}));
     pending.text = payload.content; pending.mode = payload.mode || "FLUX"; pending.pending = false;
 
   } catch (error) { pending.text = friendlyError(error); pending.mode = "AVISO"; pending.pending = false; }
@@ -617,4 +618,4 @@ const evoStatus=document.createElement('article');evoStatus.className='panel evo
 $('#evoStatusRefresh').onclick=async()=>{try{const result=await evolutionRequest('/v1/status');const list=$('#evoStatusResults');list.replaceChildren();for(const item of result.capabilities){const row=document.createElement('div');row.className='evolution-result';row.append(evoText(`${item.label} — ${item.state.replaceAll('_',' ')}\n${item.evidence?.detail||item.evidence?.scope||item.nextAction||'Sem teste real concluído.'}${item.evidence?.at?'\n'+new Date(item.evidence.at).toLocaleString('pt-BR'):''}`));list.append(row);}}catch(error){toast(friendlyError(error),'error');}};
 
 // Public client bridge; secrets remain in the Core.
-export { sendChat, setVoiceState, showSceneCard, state, save, core, headers, requireConnection, readResponse, toast, friendlyError, go, getConversationId, contextForChat, speakFlux, stopVoice, evolutionRequest, inworldLive, live, healthCheck };
+export { sendChat, setVoiceState, showSceneCard, renderMessages, state, save, core, headers, requireConnection, readResponse, toast, friendlyError, go, getConversationId, contextForChat, speakFlux, stopVoice, evolutionRequest, inworldLive, live, healthCheck };

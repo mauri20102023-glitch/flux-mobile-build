@@ -90,8 +90,17 @@ export class FluxCapabilities {
   async invoke(id:unknown,raw:unknown,actor:string):Promise<ToolResult>{
     const tool=this.tool(id),inputs=this.inputs(tool,raw);
     if(tool.confirmation==='explicit'){
+      const capability=(await this.catalog()).capabilities.find(c=>c.id===tool.id);
+      if(!capability?.serverExecutable)return result(tool.id,'unavailable','Conta não autorizada no FLUX. Nenhuma ação foi preparada ou executada.');
       const approvalId=crypto.randomUUID();
-      await this.store.put('tools:approval:'+approvalId,{toolId:tool.id,inputs,actor,expires:Date.now()+300000} satisfies Approval);
+      await this.store.transaction(async tx=>{
+        const now=Date.now(),rows=await tx.get<Array<{id:string;actor:string;expires:number}>>('tools:pending')??[];
+        const active=rows.filter(r=>r.expires>now);
+        for(const row of rows.filter(r=>r.expires<=now))await tx.delete('tools:approval:'+row.id);
+        if(active.length>=20)throw new EvolutionError(429,'Conclua ou cancele as confirmações pendentes antes de preparar outra ação.');
+        await tx.put('tools:approval:'+approvalId,{toolId:tool.id,inputs,actor,expires:now+300000} satisfies Approval);
+        await tx.put('tools:pending',[...active,{id:approvalId,actor,expires:now+300000}]);
+      });
       return {...result(tool.id,'approval_required','Revise o aparelho, os parâmetros e confirme a ação. Nada foi executado.',inputs),approvalId};
     }
     return this.call(tool,inputs);
@@ -100,7 +109,9 @@ export class FluxCapabilities {
     const approval=await this.store.transaction(async tx=>{
       const saved=await tx.get<Approval>('tools:approval:'+id);
       if(!saved||saved.expires<=Date.now()||saved.actor!==actor)throw new EvolutionError(409,'Confirmação expirada, utilizada ou de outra sessão.');
-      await tx.delete('tools:approval:'+id);return saved;
+      await tx.delete('tools:approval:'+id);
+      const pending=await tx.get<Array<{id:string;actor:string;expires:number}>>('tools:pending')??[];
+      await tx.put('tools:pending',pending.filter(r=>r.id!==id));return saved;
     });
     if(!approve)return result(approval.toolId,'unavailable','Ação cancelada pelo usuário.');
     const started=Date.now(),output=await this.call(this.tool(approval.toolId),approval.inputs);
@@ -115,6 +126,16 @@ export class FluxCapabilities {
     const text=message.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     if(/(?:do que|o que|quais).*(?:capaz|pode fazer|capacidades)/.test(text)){
       const catalog=await this.catalog();return {...result('capabilities.list','available',catalog.capabilities.map(c=>`${c.name}: ${c.state}`).join('\n'),catalog),verified:true};
+    }
+    if(/^(?:flux[, ]+)?(?:pause|pausar) (?:o )?spotify[.!]?$/.test(text))return this.invoke('spotify.playback.pause',{},actor);
+    const volume=text.match(/^(?:flux[, ]+)?(?:defina|ajuste|coloque) (?:o )?volume (?:da |do )?(?:tv|televisao)(?: para| em)? (\d{1,3})[.!]?$/);
+    if(volume){
+      const devices=await this.call(this.tool('samsung_tv.devices.list'),{});
+      if(!devices.verified)return devices;
+      const data=devices.data as {items?:Array<{deviceId:string;label?:string;deviceTypeName?:string;ocf?:{deviceType?:string};components?:Array<{id:string;categories?:Array<{name:string}>;capabilities?:Array<{id:string}>}>}>};
+      const eligible=(data.items??[]).filter(d=>(d.ocf?.deviceType==='oic.d.tv'||/television|samsung.*tv/i.test(d.deviceTypeName??'')||d.components?.some(c=>c.categories?.some(cat=>cat.name==='Television')))&&d.components?.some(c=>c.id==='main'&&c.capabilities?.some(cap=>cap.id==='audioVolume')));
+      if(eligible.length!==1)return result('samsung_tv.volume.set','unavailable',eligible.length?'Há mais de um aparelho compatível. Selecione o aparelho em Configurações → Capacidades reais.':'Nenhum aparelho com controle de volume foi retornado pela conta.');
+      return this.invoke('samsung_tv.volume.set',{deviceId:eligible[0].deviceId,volume:Number(volume[1])},actor);
     }
     // Only explicit read intents are routed; quoted instructions and ambiguous side effects go to conversation.
     if(!/^(?:(?:flux)[, ]+)?(?:mostre|mostrar|consulte|consultar|leia|ler|veja|ver|quais|o que esta tocando)\b/.test(text))return null;

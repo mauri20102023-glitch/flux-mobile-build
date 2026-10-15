@@ -2,6 +2,7 @@ package ai.flux.mobile.audio
 
 import android.content.Context
 import ai.flux.mobile.FluxApplication
+import ai.flux.mobile.model.ToolApproval
 import ai.flux.mobile.model.Role
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 interface FluxTextBridge {
+    fun setApprovalListener(listener: (ToolApproval) -> Unit) {}
     fun send(message: String, context: String = "")
     fun destroy()
 }
@@ -33,6 +35,8 @@ class FluxTextController(
     private val api = application.api
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val sendMutex = Mutex()
+    private var approvalListener: ((ToolApproval) -> Unit)? = null
+    override fun setApprovalListener(listener: (ToolApproval) -> Unit) { approvalListener=listener }
 
     override fun send(message: String, context: String) {
         val clean = message.trim()
@@ -48,7 +52,7 @@ class FluxTextController(
                             message = clean,
                             voice = false,
                             context = context,
-                        ).content
+                        ).also { result -> result.approval?.let { approvalListener?.invoke(it) } }.content
                     } else if (application.connectionSettings.geminiApiKeyConfigured()) {
                         personalChat()
                     } else {

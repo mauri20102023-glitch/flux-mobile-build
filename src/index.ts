@@ -207,7 +207,7 @@ const worker = {
       return json({
         status: "ok",
         service: "flux-core-edge",
-        version: "2.0.0-professional-preview",
+        version: "2.1.0-master-preview",
         features: {
           chat: Boolean(env.INWORLD_API_KEY || env.GEMINI_API_KEY || env.OPENAI_API_KEY || env.AI),
           live: Boolean(env.INWORLD_API_KEY || env.GEMINI_API_KEY),
@@ -436,7 +436,7 @@ export class FluxState {
         realtime: this.env.INWORLD_API_KEY || this.env.GEMINI_API_KEY ? "OK" : "NOT_CONFIGURED",
         memory: "EXPLICIT_OWNER_MEMORIES",
         authentication: "DEVICE_PAIRED",
-        version: "2.0.0-professional-preview",
+        version: "2.1.0-master-preview",
         checkedAt: new Date().toISOString(),
       },
       aiProfile: {
@@ -487,11 +487,11 @@ export class FluxState {
     ]) capabilities.push({label,state:'PREPARADO',evidence:null,nextAction:detail});
     for (const [label,detail] of [
       ['Identidade vocal','Cadastro e reconhecimento de locutor não implementados.'],['Handoff confirmado','Transferência com recebimento confirmado ainda não implementada.'],
-      ['Builder executor','Missões geram propostas de código; não executam repositórios, testes ou deployments.'],['Automações de notificações','Agendamento persistente e entrega de notificações ainda não implementados.'],
+      ['Build completo / release','Patch e abertura de branch/PR preparados sob GitHub App e proteção de main; sandbox, revisão/merge e deploy seguem pendentes.'],['Automações de notificações','Agendamento persistente e entrega de notificações ainda não implementados.'],
       ['Relógio / Health Connect','Conector de saúde ainda não implementado; nenhum dado de saúde foi consultado.'],['ClassApp / Geekie One','Materiais autorizados podem ser compartilhados em Analisar. Sem login, leitura automática ou API escolar.'],
       ['Visão contínua','Tela/câmera em quadros individuais; sem transmissão e compreensão contínua de vídeo.']
     ])capabilities.push({label,state:'EM_DESENVOLVIMENTO',evidence:null,nextAction:detail});
-    return json({ version: "2.0.0-professional-preview", checkedAt: new Date().toISOString(), capabilities, warning: "Evidência refere-se ao último teste, não garante disponibilidade futura. Nunca equivale a teste em dispositivo físico." });
+    return json({ version: "2.1.0-master-preview", checkedAt: new Date().toISOString(), capabilities, warning: "Evidência refere-se ao último teste, não garante disponibilidade futura. Nunca equivale a teste em dispositivo físico." });
   }
 
   private async recordEvidence(id: string, state: string, detail: string): Promise<void> {
