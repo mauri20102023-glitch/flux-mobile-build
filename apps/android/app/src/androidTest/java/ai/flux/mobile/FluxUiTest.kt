@@ -42,20 +42,22 @@ class FluxUiTest {
         compose.waitForIdle()
         if(compose.onAllNodesWithText("AGORA NÃO").fetchSemanticsNodes().isNotEmpty())compose.onNodeWithText("AGORA NÃO").performClick()
     }
-    @Test fun startupNavigationAndPersistentAccent(){
+    private fun navigate(label:String){
+        compose.onNodeWithContentDescription("Abrir menu").performClick()
+        compose.onNodeWithTag("drawer-"+label.uppercase()).performClick()
+    }
+    @Test fun startupNavigationAndPersistentPreferences(){
         compose.onNodeWithTag("flux-home").assertExists();evidence("home")
         compose.onNodeWithContentDescription("Abrir ajustes").performClick()
         compose.onNodeWithText("SISTEMA").assertExists()
         compose.onNodeWithText("APARÊNCIA").performScrollTo()
-        compose.onNodeWithTag("accent-cyan").performScrollTo().assertIsDisplayed().performClick()
-        compose.waitForIdle()
-        compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.accentKey()=="cyan"}
-        Assert.assertEquals("cyan",(compose.activity.application as FluxApplication).workspace.accentKey())
+        compose.onNodeWithText("Identidade oficial: preto, grafite, prata e branco metálico.").performScrollTo().assertIsDisplayed()
+        Assert.assertEquals("metal",(compose.activity.application as FluxApplication).workspace.accentKey())
         compose.onNodeWithTag("toggle-Reduzir animações").performScrollTo().performClick()
         compose.waitUntil(5000){(compose.activity.application as FluxApplication).workspace.reducedMotion()}
         Assert.assertTrue((compose.activity.application as FluxApplication).workspace.reducedMotion())
         evidence("settings")
-        compose.onNodeWithText("Control").performClick()
+        navigate("Control")
         compose.onNodeWithText("Workspace · conexões, memória e cofre").performClick()
         compose.onNodeWithText("Memória").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithText("Memórias autorizadas").assertExists()
@@ -66,12 +68,12 @@ class FluxUiTest {
         compose.onNodeWithText("FLUX Connect").assertIsDisplayed();evidence("connect-unpaired")
         compose.onNodeWithText("Segurança").performScrollTo().performClick()
         compose.onNodeWithText("Abrir cofre seguro").assertExists();evidence("privacy")
-        compose.onNodeWithText("Chat").performClick()
+        navigate("Chat")
         compose.onNodeWithTag("chat-input").assertExists()
-        compose.onNodeWithText("Vision").performClick()
+        navigate("Vision")
         compose.onNodeWithText("Capturar tela com autorização").assertExists()
         evidence("vision")
-        compose.onNodeWithText("Study").performClick()
+        navigate("Study")
         compose.onNodeWithTag("flux-study").assertExists()
         compose.onNodeWithText("Energia de ativação").performClick()
         compose.onNodeWithText("Catalisador").assertExists()

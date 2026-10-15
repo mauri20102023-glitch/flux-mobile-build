@@ -50,6 +50,8 @@ class FluxViewModel(
         wakeWordEnabled = workspace.wakeWordEnabled(),
         accentKey = workspace.accentKey(),
         reducedMotion = workspace.reducedMotion(),
+        advancedEnabled = workspace.advancedEnabled(),
+        microphoneMuted = workspace.microphoneMuted(),
         pendingMessageCount = pendingChats.size,
         showAssistantOnboarding = !workspace.assistantPromptDismissed(),
     ))
@@ -357,10 +359,12 @@ class FluxViewModel(
     fun setReducedMotion(value: Boolean) { workspace.setReducedMotion(value); _state.update { it.copy(reducedMotion = value) } }
 
     fun setAccentKey(value: String) {
-        val clean = value.takeIf { it in setOf("blue", "red", "cyan", "purple", "gold") } ?: "red"
-        workspace.setAccentKey(clean)
-        _state.update { it.copy(accentKey = clean) }
+        workspace.setAccentKey("metal")
+        _state.update { it.copy(accentKey = "metal") }
     }
+    fun setAdvancedEnabled(value: Boolean) { workspace.setAdvancedEnabled(value); _state.update { it.copy(advancedEnabled = value) } }
+    fun setMicrophoneMuted(value: Boolean) { workspace.setMicrophoneMuted(value); _state.update { it.copy(microphoneMuted = value, audioLevel = 0f) } }
+    fun setVoicePhase(value: String) { _state.update { it.copy(voicePhase = value) } }
 
     fun beginDirectMessage(text: String) {
         val clean = text.trim()

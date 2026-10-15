@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const web = join(root, "web", "flux-ath");
 const mime = {
+  "master-shell.css": "text/css; charset=utf-8",
+  "master-shell.js": "text/javascript; charset=utf-8",
   "index.html": "text/html; charset=utf-8",
   "app.js": "text/javascript; charset=utf-8",
   "command-center.js": "text/javascript; charset=utf-8",

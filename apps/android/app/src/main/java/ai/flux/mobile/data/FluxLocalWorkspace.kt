@@ -69,13 +69,12 @@ class FluxLocalWorkspace(context: Context) {
     fun moderateProactivity(): Boolean = preferences.getBoolean("moderate_proactivity", true)
     // Hands-free is the primary FLUX experience. The first launch asks for the
     // Android microphone/notification permissions; the user can disable it.
-    fun wakeWordEnabled(): Boolean = preferences.getBoolean("wake_word_enabled", true)
-    fun accentKey(): String {
-        if (!preferences.getBoolean("project_a_identity", false)) {
-            preferences.edit().putString("accent_key", "red").putBoolean("project_a_identity", true).apply()
-        }
-        return preferences.getString("accent_key", "red").orEmpty()
-    }
+    fun wakeWordEnabled(): Boolean = !microphoneMuted() && preferences.getBoolean("wake_word_enabled", false)
+    fun accentKey(): String = "metal"
+    fun advancedEnabled(): Boolean = preferences.getBoolean("advanced_enabled_v1", false)
+    fun setAdvancedEnabled(value: Boolean) = preferences.edit().putBoolean("advanced_enabled_v1", value).apply()
+    fun microphoneMuted(): Boolean = preferences.getBoolean("microphone_muted_v1", false)
+    fun setMicrophoneMuted(value: Boolean) = preferences.edit().putBoolean("microphone_muted_v1", value).apply()
     fun reducedMotion(): Boolean = preferences.getBoolean("reduced_motion", false)
     fun setReducedMotion(value: Boolean) = preferences.edit().putBoolean("reduced_motion", value).apply()
 

@@ -127,19 +127,27 @@ export class FluxConnect {
   if(body.confirm!==true)throw new EvolutionError(403,'Confirme explicitamente a ação antes de executá-la.');
   if(p.id==='smartthings'){
    const deviceId=String(body.deviceId||'');if(!/^[0-9a-f-]{36}$/i.test(deviceId))throw new EvolutionError(400,'Selecione um dispositivo válido retornado pelo SmartThings.');
-   const commands:Record<string,{capability:string;command:string}>={on:{capability:'switch',command:'on'},off:{capability:'switch',command:'off'},play:{capability:'mediaPlayback',command:'play'},pause:{capability:'mediaPlayback',command:'pause'}};
+   const commands:Record<string,{capability:string;command:string}>={on:{capability:'switch',command:'on'},off:{capability:'switch',command:'off'},play:{capability:'mediaPlayback',command:'play'},pause:{capability:'mediaPlayback',command:'pause'},setVolume:{capability:'audioVolume',command:'setVolume'}};
+   if(body.action==='setVolume'&&(!Number.isInteger(body.volume)||Number(body.volume)<0||Number(body.volume)>100))throw new EvolutionError(400,'Volume deve ser inteiro entre 0 e 100.');
    const selected=commands[String(body.action)];if(!selected)throw new EvolutionError(400,'Comando de dispositivo inválido.');
    const device=await this.get('https://api.smartthings.com/v1/devices/'+deviceId,token);
    if(!device.components?.some((c:{id:string;capabilities?:Array<{id:string}>})=>c.id==='main'&&c.capabilities?.some(cap=>cap.id===selected.capability)))throw new EvolutionError(409,'O dispositivo não anunciou esta capacidade; comando não enviado.');
-   const response=await this.network('https://api.smartthings.com/v1/devices/'+deviceId+'/commands',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({commands:[{component:'main',capability:selected.capability,command:selected.command,arguments:[]}]}),signal:AbortSignal.timeout(15000)});
+   const response=await this.network('https://api.smartthings.com/v1/devices/'+deviceId+'/commands',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({commands:[{component:'main',capability:selected.capability,command:selected.command,arguments:body.action==='setVolume'?[body.volume]:[]}]}),signal:AbortSignal.timeout(15000)});
    if(!response.ok)throw new EvolutionError(502,`Comando não confirmado pelo SmartThings (${response.status}).`);
-   return {accepted:true,providerHttpStatus:response.status,deviceId,verification:await this.get('https://api.smartthings.com/v1/devices/'+deviceId+'/status',token).catch(()=>null),message:'API aceitou o comando. O estado retornado deve confirmar o resultado; não comprova exibição física de vídeo.'};
+   const verification=await this.get('https://api.smartthings.com/v1/devices/'+deviceId+'/status',token).catch(()=>null);
+   const actual=verification?.components?.main;
+   const observed=selected.capability==='switch'?actual?.switch?.switch?.value:selected.capability==='audioVolume'?actual?.audioVolume?.volume?.value:actual?.mediaPlayback?.playbackStatus?.value;
+   const expected=body.action==='setVolume'?body.volume:body.action==='play'?'playing':body.action==='pause'?'paused':body.action;
+   const verified=observed!==undefined&&observed===expected;
+   return {accepted:true,verified,providerHttpStatus:response.status,deviceId,verification,actual:observed??null,message:verified?'Estado confirmado pela API; efeito físico ainda exige observação.':'API aceitou o comando; estado final ainda não confirmado.'};
   }
   if(p.id!=='spotify')throw new EvolutionError(400,'Ações externas deste serviço ainda não implementadas.');
   const op=String(body.action),allowed:Record<string,string>={pause:'pause',play:'play',next:'next',previous:'previous'};
   if(!allowed[op])throw new EvolutionError(400,'Comando de reprodução inválido.');
   const r=await this.network('https://api.spotify.com/v1/me/player/'+allowed[op],{method:op==='next'||op==='previous'?'POST':'PUT',headers:{authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
   if(!r.ok)throw new EvolutionError(502,`Reprodução não confirmada (${r.status}). Spotify pode exigir Premium e dispositivo ativo.`);
-  return {accepted:true,providerHttpStatus:r.status,verification:await this.get('https://api.spotify.com/v1/me/player',token).catch(()=>null),message:'Comando aceito; confira o estado de reprodução retornado.'};
+  const verification=await this.get('https://api.spotify.com/v1/me/player',token).catch(()=>null);
+  const verified=typeof verification?.is_playing==='boolean'&&(op==='pause'?verification.is_playing===false:op==='play'?verification.is_playing===true:false);
+  return {accepted:true,verified,providerHttpStatus:r.status,verification,message:verified?'Estado confirmado pela API.':'Comando aceito; estado não confirmado.'};
  }
 }

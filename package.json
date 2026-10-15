@@ -1,6 +1,6 @@
 {
   "name": "flux-core-edge",
-  "version": "2.0.1-project-a",
+  "version": "2.1.0-master-preview",
   "private": true,
   "type": "module",
   "scripts": {

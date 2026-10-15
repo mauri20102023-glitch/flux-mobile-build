@@ -159,6 +159,11 @@ class MainActivity : ComponentActivity() {
                     onWakeWordEnabled = ::setWakeWordEnabled,
                     onAccentChange = viewModel::setAccentKey,
                     onReducedMotion = viewModel::setReducedMotion,
+                    onAdvancedEnabled = viewModel::setAdvancedEnabled,
+                    onMicrophoneMuted = { muted ->
+                        viewModel.setMicrophoneMuted(muted)
+                        if(muted) { setWakeWordEnabled(false); stopListening() }
+                    },
                     onOpenVision = ::openVision,
                     onCoreUrlChange = viewModel::updateCoreUrl,
                     onCoreTest = { viewModel.reconnect(showFailure = true) },
@@ -227,6 +232,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestVoice() {
+        if(viewModel.state.value.microphoneMuted) { viewModel.reportError("Microfone silenciado. Reative em Ajustes."); return }
         val required = buildList {
             add(Manifest.permission.RECORD_AUDIO)
         }.filterNot(::hasPermission)
@@ -251,6 +257,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startListening() {
+        if(viewModel.state.value.microphoneMuted) return
         if (viewModel.state.value.isListening || viewModel.state.value.voiceConnecting) return
         runCatching {
             // The wake listener and the conversation cannot own the microphone together.
@@ -276,7 +283,7 @@ class MainActivity : ComponentActivity() {
     private fun onVoiceSessionChanged(connected: Boolean) {
         viewModel.setListening(connected)
         if (connected) FluxWakeWordService.pauseForConversation()
-        else FluxWakeWordService.resumeAfterConversation()
+        else { viewModel.setVoicePhase("idle"); if(!viewModel.state.value.microphoneMuted) FluxWakeWordService.resumeAfterConversation() }
     }
 
     private fun sendText(message: String) {
@@ -349,6 +356,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startWakeWordService() {
+        if(viewModel.state.value.microphoneMuted) return
         if (!viewModel.state.value.wakeWordEnabled) return
         if (!onDeviceWakeAvailable()) {
             viewModel.setWakeWordEnabled(false)
@@ -403,7 +411,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun voiceController(): FluxVoiceBridge = voice ?: createVoiceController().also { it.setAudioLevelListener(viewModel::setAudioLevel); voice = it }
+    private fun voiceController(): FluxVoiceBridge = voice ?: createVoiceController().also { it.setAudioLevelListener(viewModel::setAudioLevel); it.setPhaseListener(viewModel::setVoicePhase); voice = it }
 
     /**
      * O controlador de voz é carregado ao tocar no microfone, para que uma

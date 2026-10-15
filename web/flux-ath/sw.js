@@ -1,5 +1,5 @@
-const CACHE = "flux-shell-2.0.1-project-a";
-const SHELL = ["/", "/styles.css", "/app.js", "/icon.svg", "/manifest.webmanifest", "/command-center.css", "/command-center.js", "/study-board.js", "/study-model.js"];
+const CACHE = "flux-shell-2.1.0-master";
+const SHELL = ["/", "/styles.css", "/app.js", "/icon.svg", "/manifest.webmanifest", "/master-shell.css", "/master-shell.js", "/command-center.css", "/command-center.js", "/study-board.js", "/study-model.js"];
 self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", event => {
