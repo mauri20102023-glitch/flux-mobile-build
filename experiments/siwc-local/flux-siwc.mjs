@@ -77,34 +77,6 @@ async function validateIdToken(jwt, expectedClientId, nonce) {
   return claims;
 }
 
-async function callbackServer(state) {
-  return new Promise((resolve, reject) => {
-    const server = createServer((req, res) => {
-      const url = new URL(req.url || "/", "http://127.0.0.1");
-      if (url.pathname !== "/auth/callback") {
-        res.writeHead(404); res.end("Not found"); return;
-      }
-      const valid = url.searchParams.get("state") === state;
-      const code = url.searchParams.get("code");
-      const refused = url.searchParams.get("error");
-      res.writeHead(valid && code ? 200 : 400, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
-      res.end(valid && code ? "FLUX: autorização recebida. Volte ao terminal." : "FLUX: autorização não concluída.");
-      clearTimeout(timer);
-      server.close();
-      if (!valid) reject(new Error("OAuth state inválido."));
-      else if (refused) reject(new Error("O usuário recusou a autorização."));
-      else if (!code) reject(new Error("Código de autorização ausente."));
-      else resolve({ code, clientId: url.searchParams.get("client_id") });
-    });
-    server.on("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      resolve({ server, port: server.address().port });
-    });
-    const timer = setTimeout(() => { server.close(); reject(new Error("Autorização expirou em 3 minutos.")); }, 180000);
-    timer.unref();
-  });
-}
-
 async function login() {
   let previous = await readState();
   const hostId = previous?.host_id || "urn:uuid:" + randomUUID();
@@ -144,10 +116,11 @@ async function login() {
   console.log("\nAbra este link no navegador deste mesmo computador e autorize o FLUX:\n");
   console.log(ISSUER + "/api/accounts/authorize?" + params.toString());
   console.log("\nO link expira em 3 minutos. Nunca envie tokens a terceiros.\n");
+  let timeoutId;
   try {
     const result = await Promise.race([
       authorization,
-      new Promise((_, reject) => setTimeout(() => reject(new Error("Tempo de autorização esgotado.")), 180000)),
+      new Promise((_, reject) => { timeoutId = setTimeout(() => reject(new Error("Tempo de autorização esgotado.")), 180000); }),
     ]);
     const clientId = isNew ? result.issuedClientId : previous.client_id;
     if (!clientId || (isNew && clientId === "dynamic_agent_client") ||
@@ -177,6 +150,7 @@ async function login() {
     console.log("Autenticação confirmada. Conta: " + (claims.email || "conta validada"));
     console.log("Agora execute: node experiments/siwc-local/flux-siwc.mjs models");
   } finally {
+    clearTimeout(timeoutId);
     server.close();
   }
 }
