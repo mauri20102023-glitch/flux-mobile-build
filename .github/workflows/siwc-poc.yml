@@ -1,0 +1,23 @@
+name: SIWC local PoC syntax
+
+on:
+  pull_request:
+    paths:
+      - "experiments/siwc-local/**"
+      - ".github/workflows/siwc-poc.yml"
+  push:
+    branches:
+      - "experiments/chatgpt-plus-siwc-poc"
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check syntax without credentials or network
+        run: node --check experiments/siwc-local/flux-siwc.mjs
