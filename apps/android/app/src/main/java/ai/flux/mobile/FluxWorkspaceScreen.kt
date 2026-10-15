@@ -21,10 +21,10 @@ import kotlinx.coroutines.*
 import org.json.JSONObject
 
 @Composable
-fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, onSend: (String)->Unit) {
+fun FluxWorkspaceScreen(state: FluxUiState, onGenerate: (String)->Unit, initialSection: String = "Criar", onSend: (String)->Unit) {
     val app = LocalContext.current.applicationContext as FluxApplication
     val context = LocalContext.current
-    var section by remember { mutableStateOf("Criar") }
+    var section by remember(initialSection) { mutableStateOf(initialSection) }
     var result by remember { mutableStateOf<JSONObject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }

@@ -91,6 +91,8 @@ private val Amber = Color(0xFFFFBC52)
 
 private enum class FluxTab(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
+    CONNECTIONS("Conexões", Icons.Default.Link),
+    MEMORY("Memória", Icons.Default.Memory),
     VISION("Vision", Icons.Default.CenterFocusStrong),
     STUDY("Study", Icons.Default.School),
     SETTINGS("Ajustes", Icons.Default.Settings),
@@ -181,10 +183,10 @@ fun FluxMobileApp(
         if (drawerState.isOpen) drawerScope.launch { drawerState.close() } else selectedName = FluxTab.HOME.name
     }
     ModalNavigationDrawer(drawerState = drawerState, drawerContent = {
-        ModalDrawerSheet(drawerContainerColor = Panel) {
+        ModalDrawerSheet(modifier=Modifier.verticalScroll(rememberScrollState()), drawerContainerColor = Panel) {
             Spacer(Modifier.height(24.dp))
             Text("F L U X", Modifier.padding(24.dp), fontSize = 22.sp, letterSpacing = 6.sp)
-            listOf(FluxTab.HOME, FluxTab.CHAT, FluxTab.CONTROL, FluxTab.DEVICES, FluxTab.VISION, FluxTab.STUDY, FluxTab.AGENDA, FluxTab.LAB, FluxTab.SETTINGS).forEach { tab ->
+            listOf(FluxTab.HOME, FluxTab.CHAT, FluxTab.CONNECTIONS, FluxTab.MEMORY, FluxTab.CONTROL, FluxTab.DEVICES, FluxTab.VISION, FluxTab.STUDY, FluxTab.AGENDA, FluxTab.LAB, FluxTab.SETTINGS).forEach { tab ->
                 NavigationDrawerItem(label = { Text(tab.label) }, selected = selected == tab,
                     icon = { Icon(tab.icon, null) }, onClick = { selectedName = tab.name; drawerScope.launch { drawerState.close() } },
                     modifier = Modifier.padding(horizontal = 12.dp).testTag("drawer-" + tab.name))
@@ -240,6 +242,8 @@ fun FluxMobileApp(
                     onOpenInstagram, onOpenEmail, onOpenCalendar, onOpenCanva, onOpenDrive, onOpenYouTube,
                     onOpenSmartThings,
                 )
+                FluxTab.CONNECTIONS -> FluxWorkspaceScreen(state, onGenerateImage, initialSection="Conexões") { message -> onSend(message); selectedName = FluxTab.CHAT.name }
+                FluxTab.MEMORY -> FluxWorkspaceScreen(state, onGenerateImage, initialSection="Memória") { message -> onSend(message); selectedName = FluxTab.CHAT.name }
                 FluxTab.LAB -> FluxWorkspaceScreen(state, onGenerateImage) { message -> onSend(message); selectedName = FluxTab.CHAT.name }
                 FluxTab.SETTINGS -> ControlScreen(
                     state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,

@@ -49,7 +49,7 @@ export class FluxCapabilities {
     const [{providers},calendar]=await Promise.all([this.providers(),this.deps.calendar().then(async r=>await r.json() as {connected?:boolean;events?:unknown[]})]);
     return {schema:'flux-capability-registry-v1',checkedAt:new Date().toISOString(),capabilities:TOOLS.map(tool=>{
       const provider=providers.find(p=>p.id===tool.provider);
-      const ready=!tool.provider||provider?.connected||tool.id==='calendar.read'&&calendar.connected===true;
+      const ready=!tool.provider||(provider?.connected&&provider.missing.length===0)||tool.id==='calendar.read'&&calendar.connected===true;
       return {...tool,state:ready?'pronto':'conectar',serverExecutable:ready,detail:ready?tool.detail:'Autorize a conta e conclua a configuração no FLUX. '+tool.detail,connectionVerified:Boolean(provider?.evidence)};
     }),planned:[{id:'whatsapp.business.send',state:'planejado',detail:'Requer conta Business e adaptador de envio; WhatsApp pessoal usa compartilhamento assistido no Android.'},{id:'devices.remote.handoff',state:'planejado',detail:'A prévia do painel inferior não comprova transporte a um monitor.'},{id:'build.release',state:'planejado',detail:'O Build não tem executor de merge ou deploy de produção.'}]};
   }
