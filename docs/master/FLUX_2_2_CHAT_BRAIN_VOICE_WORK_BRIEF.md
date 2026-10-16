@@ -111,3 +111,18 @@ Mobile: home minimalista com esfera central, aba Chat na navegação, chat full-
 A frase "o FLUX agora tem chat igual ao ChatGPT" SÓ poderá ser usada quando: nova conversa, histórico navegável/persistido, busca, renomeação, exclusão, sincronização entre dispositivos reais, resposta de modelo real, streaming, e retenção para além da janela contextual estiverem demonstrados. Voz própria e login Plus devem ser reportados separadamente como disponíveis/testados/em desenvolvimento, nunca misturados a telas demonstrativas.
 
 **COMECE pela PRIORIDADE 1 agora; trabalhe com autonomia de implementação, não de custos/deploy, e finalize com links de PR, testes, screenshots, pendências e instruções de instalação para avaliação.**
+
+
+### 4A. DECISÃO POSTERIOR DO PROPRIETÁRIO (16/10/2026): voz mesmo com computador desligado, teto de R$ 50 em gasto único
+Este requisito **complementa e prevalece** sobre qualquer hipótese de motor de voz hospedado no notebook/PC. A voz do FLUX deve estar disponível no Android independente de computador ligado. O proprietário aceita no máximo R$ 50 em eventual gasto único, mas **não quer assinatura recorrente de TTS**.
+
+**Executar antes de construir serviço TTS novo:**
+1. Implementar PoC Android com motor ONNX local, sem servidor de voz: avaliar **Kokoro-82M multilingue** (voz masculina portuguesa `pm_alex`) via `sherpa-onnx`, com modelo/download sob demanda, cancelamento, mute e segurança de arquivos. Referência pública de bundle pt-BR: https://huggingface.co/cristianoaredes/kokoro-pt-br (~330 MB comprimido, modelo fp32 ~349 MB). Verificar integridade, licença e suporte Android antes de incorporar; não embutir no APK sem avaliar peso.
+2. Comparar desempenho e qualidade com **Piper pt_BR Jeff medium** e alternativas pt_BR em `sherpa-onnx`: https://k2-fsa.github.io/sherpa/onnx/tts/all/Portuguese/vits-piper-pt_BR-jeff-medium.html ; medir primeira fala, tempo total, RAM, temperatura/bateria, pronúncia e naturalidade em aparelho do usuário.
+3. Testar **no Android real** antes de declarar pronto; Android funcionando não implica qualidade ElevenLabs. Falhas de modelo/ausência de download exigem fallback explícito e possibilidade de usar FLUX em texto.
+4. Separar conceitos: **Kokoro/Piper local têm vozes predefinidas**, não podem simplesmente importar uma amostra Qwen3-TTS e manter identidade exata. A identidade realmente inédita exigirá outro modelo capaz de cloning/tuning, testes e hardware apropriado. Não prometer que sample Qwen será voz que roda no Android.
+5. Para segunda versão, pesquisar TTS local com clonagem e pt-BR comprovado, por exemplo comparar Qwen3-TTS e Chatterbox **somente se rodarem no celular a velocidade aceitável**. GPU alugada uma vez pode auxiliar a criação, mas não é hospedagem permanente.
+6. Não configurar serviço premium da Cloudflare/Deepgram/OpenAI nem fazer fallback automático pago para TTS; Workers AI tem franquias diárias e alguns modelos TTS cobram por caracteres. Vale só como teste posterior mediante consentimento. Reserva de até R$ 50 não precisa ser consumida.
+7. Distinguir voz local (pode funcionar sem internet) de inteligência pelo ChatGPT Plus (depende de internet e da autorização do modelo). O telefone deve responder por áudio mesmo com notebook desligado, **mas não afirmar que o cérebro ChatGPT funciona offline**.
+
+**Novos critérios de aceite:** modelo TTS carregado e gera em português brasileiro localmente no celular sem PC; qualidade da voz avaliada pelo usuário em dez frases; sem assinaturas de voz; memória e travamentos medidos; áudio interrompe ao apertar mute; nenhuma alegação de clonagem original sem prova real.
