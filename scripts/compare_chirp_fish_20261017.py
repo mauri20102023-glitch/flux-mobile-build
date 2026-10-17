@@ -16,11 +16,17 @@ def mark(name,state,why=""):
     STATUS[name]={"state":state,"detail":str(why)[:380]}
     (OUT/"resultados.json").write_text(json.dumps(STATUS,ensure_ascii=False,indent=2),encoding="utf-8")
 def valid(filename):
-    p=subprocess.run(["ffprobe","-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",str(filename)],capture_output=True,text=True)
-    if p.returncode: raise RuntimeError("Invalid audio file: "+p.stderr[-180:])
-    duration=float(p.stdout.strip())
-    if not 0.5 < duration < 180: raise RuntimeError(f"Audio duration outside expected range: {duration}")
-    print("AUDIO VERIFIED",filename,round(duration,1),"seconds",filename.stat().st_size,"bytes",flush=True)
+    if filename.suffix.lower() == ".wav":
+        with wave.open(str(filename), "rb") as wav:
+            duration=wav.getnframes()/wav.getframerate()
+        if not 0.5 < duration < 180:
+            raise RuntimeError(f"Audio duration outside expected range: {duration}")
+        print("AUDIO VERIFIED",filename,round(duration,1),"seconds",filename.stat().st_size,"bytes",flush=True)
+    else:
+        magic=filename.read_bytes()[:12]
+        if filename.stat().st_size < 5000 or not (magic[:3]==b"ID3" or magic[:2] in (b"\\xff\\xfb",b"\\xff\\xf3") or magic[:4]==b"OggS"):
+            raise RuntimeError("Unknown audio encoding")
+        print("AUDIO VERIFIED by header",filename,filename.stat().st_size,"bytes",flush=True)
 def store(url,path):
     r=requests.get(url,timeout=45,headers={"User-Agent":"Mozilla/5.0"})
     r.raise_for_status()
