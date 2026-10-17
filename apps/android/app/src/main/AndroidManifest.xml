@@ -19,6 +19,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <queries>
+        <!-- Discover the explicitly requested Sherpa-ONNX offline TTS engine. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <package android:name="com.k2fsa.sherpa.onnx.tts.engine" />
         <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
         <intent>
             <action android:name="android.speech.RecognitionService" />
