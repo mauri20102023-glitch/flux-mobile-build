@@ -59,9 +59,17 @@ def copy_audio(path, filename):
     if not src.is_file(): raise RuntimeError("Audio not downloaded locally: "+str(path)[:150])
     dst=OUT/filename
     shutil.copyfile(src,dst)
-    p=subprocess.run(["ffprobe","-v","error","-show_entries","format=duration","-of","default=nw=1:nk=1",str(dst)],capture_output=True,text=True)
-    if p.returncode != 0: raise RuntimeError("Not valid audio: "+p.stderr[:200])
-    print("AUDIO OK", dst, "duration", p.stdout.strip(), "size", dst.stat().st_size,flush=True)
+    import wave
+    try:
+        with wave.open(str(dst), "rb") as wav:
+            frames=wav.getnframes()
+            sample_rate=wav.getframerate()
+            seconds=frames/sample_rate
+            if seconds < 1 or seconds > 45:
+                raise ValueError("Unexpected audio duration")
+    except Exception as error:
+        raise RuntimeError("Generated WAV could not be validated") from error
+    print("AUDIO OK", dst, "duration", round(seconds,2), "size", dst.stat().st_size,flush=True)
     return dst
 
 def task(label, fn):
