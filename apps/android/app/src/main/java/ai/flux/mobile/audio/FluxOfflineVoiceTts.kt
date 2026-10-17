@@ -28,9 +28,9 @@ class FluxOfflineVoiceTts(context: Context) : Closeable {
         const val ENGINE_PACKAGE = "com.k2fsa.sherpa.onnx.tts.engine"
         private val BRAZILIAN_PORTUGUESE = Locale.forLanguageTag("pt-BR")
 
+        @Suppress("DEPRECATION")
         fun isInstalled(context: Context): Boolean {
             val query = Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE).setPackage(ENGINE_PACKAGE)
-            @Suppress("DEPRECATION")
             return context.packageManager.queryIntentServices(query, 0).isNotEmpty()
         }
     }
