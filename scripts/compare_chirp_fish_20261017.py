@@ -54,12 +54,20 @@ def google_samples():
                 print("GOOGLE HTML AUDIO ROW",str(row)[:1100],flush=True)
                 raise RuntimeError("No audio source in official pt-BR row")
             from urllib.parse import urljoin, urlparse
-            src=urljoin(u,urls[0])
+            src=urls[0]
             ext=Path(urlparse(src).path).suffix.lower()
             if ext not in (".mp3",".wav",".ogg",".flac"): ext=".mp3"
             target=OUT/("Google-Chirp3-HD-ptBR-"+name+ext)
-            store(src,target)
-            mark(name,"success","Official prerecorded pt-BR sample (not user TEXT)")
+            tried=[]
+            for origin in ("https://docs.cloud.google.com","https://cloud.google.com"):
+                candidate=urljoin(origin,src)
+                try:
+                    store(candidate,target)
+                    mark(name,"success","Official prerecorded pt-BR sample (not user TEXT) from "+candidate)
+                    break
+                except Exception as err:
+                    tried.append(str(err)[:150])
+            else: raise RuntimeError("; ".join(tried))
         except Exception as e:
             print("GOOGLE SAMPLE ERROR",name,str(e)[:450],flush=True)
             mark(name,"unavailable",e)
