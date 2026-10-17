@@ -1,0 +1,10 @@
+*.wav
+*.mp3
+*.safetensors
+*.pt
+local/
+.venv/
+__pycache__/
+voice-profile.json
+autorizacao*
+referencia*
