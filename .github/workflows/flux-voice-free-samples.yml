@@ -20,12 +20,12 @@ jobs:
       - name: Install client for public Hugging Face Gradio demos
         run: python -m pip install --quiet 'gradio_client>=1.8,<3'
       - name: Generate FLUX VOICE 01 previews via Qwen and Chatterbox
-        run: python scripts/generate_flux_voice_samples.py
+        run: python scripts/generate_flux_voice_ptbr_v2.py
       - name: Upload only successfully generated samples
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: FLUX-VOICE-01-Qwen-Chatterbox-Samples
-          path: flux-voice-preview-audios/
+          name: FLUX-VOICE-01-PTBR-V2-SEM-MENSALIDADE
+          path: flux-voice-ptbr-audios/
           if-no-files-found: warn
           retention-days: 14
