@@ -1,19 +1,31 @@
-name: FLUX Voice Open-Source Demo Probe
+name: FLUX Voice Free Model Samples
 on:
   push:
     branches: [experiments/flux-voice-free-samples-20261017]
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: flux-voice-free-samples-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  inspect:
+  generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install --quiet 'gradio_client>=1.8,<3'
-      - name: Discover public model demo API endpoints
-        run: python scripts/probe_hf_voice_spaces.py
+      - name: Install client for public Hugging Face Gradio demos
+        run: python -m pip install --quiet 'gradio_client>=1.8,<3'
+      - name: Generate FLUX VOICE 01 previews via Qwen and Chatterbox
+        run: python scripts/generate_flux_voice_samples.py
+      - name: Upload only successfully generated samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FLUX-VOICE-01-Qwen-Chatterbox-Samples
+          path: flux-voice-preview-audios/
+          if-no-files-found: warn
+          retention-days: 14
