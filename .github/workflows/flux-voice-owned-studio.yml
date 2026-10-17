@@ -1,0 +1,22 @@
+name: FLUX VOICE 01 Own Studio Tests
+on:
+  push:
+    branches: [feature/flux-voice-01-owned-offline-studio-20261017]
+  pull_request:
+    paths:
+      - 'tools/flux-voice-01/**'
+      - '.github/workflows/flux-voice-owned-studio.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test offline source (without model weights, voices or network)
+        run: |
+          python -m py_compile tools/flux-voice-01/studio.py
+          python -m unittest discover -s tools/flux-voice-01 -p 'test_*.py' -v
