@@ -1,0 +1,28 @@
+name: FLUX Premium TTS Comparison Samples
+on:
+  push:
+    branches: [experiments/flux-voice-free-samples-20261017]
+    paths:
+      - 'scripts/compare_chirp_fish_20261017.py'
+      - '.github/workflows/flux-voice-premium-compare.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q requests beautifulsoup4 'gradio_client>=1.8,<3'
+      - run: python scripts/compare_chirp_fish_20261017.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FLUX-VOICE-01-GOOGLE-FISH-PREMIUM-TESTS
+          path: voice-premium-evaluation/
+          retention-days: 14
+          if-no-files-found: warn
