@@ -46,8 +46,8 @@ class FluxOfflineVoiceTts(context: Context) : Closeable {
         check(initialized.await()) {
             "Não foi possível iniciar o motor neural local. Verifique a instalação do Sherpa-ONNX."
         }
-        check(tts.currentEngine == ENGINE_PACKAGE) {
-            "O Android não iniciou o motor neural escolhido. A voz do sistema não será usada."
+        check(tts.defaultEngine == ENGINE_PACKAGE) {
+            "Selecione Sherpa-ONNX como mecanismo padrão de conversão de texto em voz nas configurações do Android. Nenhuma outra voz será usada."
         }
         val availability = tts.isLanguageAvailable(BRAZILIAN_PORTUGUESE)
         check(availability >= TextToSpeech.LANG_AVAILABLE) {
