@@ -986,7 +986,7 @@ private fun ControlScreen(
         Spacer(Modifier.height(8.dp))
         Text(
             "Requer um motor Sherpa-ONNX TTS e voz portuguesa brasileira instalados separadamente. " +
-                "A integração não muda automaticamente para Google ou serviços de voz pagos.",
+                "Selecione Sherpa como mecanismo padrão de TTS no Android; o FLUX nunca muda automaticamente para Google ou serviços de voz pagos.",
             color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
         )
         Spacer(Modifier.height(12.dp))
