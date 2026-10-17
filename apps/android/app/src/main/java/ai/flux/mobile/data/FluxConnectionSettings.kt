@@ -44,6 +44,13 @@ class FluxConnectionSettings(context: Context) {
             octets[0] == 172 && octets[1] in 16..31
     }.getOrDefault(false)
 
+    /** Opt-in. Never route to a paid TTS service when local mode is enabled. */
+    fun offlineVoiceEnabled(): Boolean = preferences.getBoolean("flux_voice_01_local", false)
+
+    fun updateOfflineVoiceEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean("flux_voice_01_local", enabled).apply()
+    }
+
     fun authToken(): String = secureTokenStore.read()
 
     fun authTokenConfigured(): Boolean = authToken().isNotBlank()

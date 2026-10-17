@@ -36,6 +36,7 @@ class FluxConversationalVoice(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var recognizer: SpeechRecognizer? = null
     private var player: MediaPlayer? = null
+    private var offlineVoice: FluxOfflineVoiceTts? = null
     private var audioFile: File? = null
     private var job: Job? = null
     private var active = false
@@ -47,6 +48,10 @@ class FluxConversationalVoice(
         if (active) return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             onError("Autorize o microfone para conversar com o FLUX.")
+            return
+        }
+        if (app.connectionSettings.offlineVoiceEnabled() && !FluxOfflineVoiceTts.isInstalled(context)) {
+            onError("FLUX VOICE 01 requer o motor neural Sherpa-ONNX instalado neste celular. Nenhum TTS pago será usado.")
             return
         }
         if (!app.connectionSettings.authTokenConfigured()) {
@@ -110,6 +115,7 @@ class FluxConversationalVoice(
         recognizer = null
         player?.release()
         player = null
+        offlineVoice?.stop()
         busy = true
         onUserTranscript(phrase)
         job?.cancel()
@@ -122,9 +128,18 @@ class FluxConversationalVoice(
                 contextNote = ""
                 if (!active) return@launch
                 onAgentResponse(response.content)
-                val audio = app.api.synthesize(response.content.take(900))
-                if (!active) return@launch
-                play(audio)
+                if (app.connectionSettings.offlineVoiceEnabled()) {
+                    val speaker = offlineVoice ?: FluxOfflineVoiceTts(context).also { offlineVoice = it }
+                    speaker.speak(response.content.take(900))
+                    if (active) {
+                        busy = false
+                        retryListen()
+                    }
+                } else {
+                    val audio = app.api.synthesize(response.content.take(900))
+                    if (!active) return@launch
+                    play(audio)
+                }
             } catch (failure: Exception) {
                 if (active) {
                     onError(failure.message ?: "Não consegui responder por voz agora.")
@@ -177,6 +192,8 @@ class FluxConversationalVoice(
         recognizer = null
         player?.release()
         player = null
+        offlineVoice?.close()
+        offlineVoice = null
         audioFile?.delete()
         audioFile = null
         onSessionChanged(false)

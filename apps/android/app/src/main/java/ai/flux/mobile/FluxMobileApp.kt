@@ -144,6 +144,7 @@ fun FluxMobileApp(
     onNotificationSettings: () -> Unit,
     onScanDevices: () -> Unit,
     onTestVoice: () -> Unit,
+    onOfflineVoiceEnabled: (Boolean) -> Boolean,
     onOpenSpotify: () -> Unit,
     onOpenWhatsApp: () -> Unit,
     onOpenMercadoLivre: () -> Unit,
@@ -247,6 +248,7 @@ fun FluxMobileApp(
                 FluxTab.LAB -> FluxWorkspaceScreen(state, onGenerateImage) { message -> onSend(message); selectedName = FluxTab.CHAT.name }
                 FluxTab.SETTINGS -> ControlScreen(
                     state, onCoreUrlChange, onCoreTest, onPairCode, onTestVoice,
+                    onOfflineVoiceEnabled,
                     onAssistantSetup, onAppSettings, onNotificationSettings, onMemoryEnabled,
                     onClearConversation, onWakeWordEnabled, onAccentChange, onOpenVision,
                     onGeminiKeyChange, onGeminiKeyClear, onReducedMotion,
@@ -882,6 +884,7 @@ private fun ControlScreen(
     onReconnect: () -> Unit,
     onPairCode: (String) -> Unit,
     onTestVoice: () -> Unit,
+    onOfflineVoiceEnabled: (Boolean) -> Boolean,
     onAssistant: () -> Unit,
     onAppSettings: () -> Unit,
     onNotifications: () -> Unit,
@@ -896,6 +899,8 @@ private fun ControlScreen(
     onAdvancedEnabled: (Boolean) -> Unit,
     onMicrophoneMuted: (Boolean) -> Unit,
 ) {
+    val voiceSettings = (LocalContext.current.applicationContext as FluxApplication).connectionSettings
+    var localVoiceEnabled by remember { mutableStateOf(voiceSettings.offlineVoiceEnabled()) }
     var coreUrl by rememberSaveable(state.coreUrl) { mutableStateOf(state.coreUrl) }
     var pairCode by remember { mutableStateOf("") }
     LaunchedEffect(state.coreAuthConfigured, state.isConnecting, state.error) {
@@ -971,8 +976,22 @@ private fun ControlScreen(
 
         Spacer(Modifier.height(22.dp))
         SectionLabel("INTELIGÊNCIA E VOZ")
+        ToggleCard(
+            Icons.Default.RecordVoiceOver,
+            "FLUX VOICE 01 — voz neural local (experimental)",
+            "Motor Sherpa-ONNX instalado no celular e modelo pt-BR. Sem Google TTS, computador ligado ou API paga de voz.",
+            localVoiceEnabled,
+            { checked -> if (onOfflineVoiceEnabled(checked)) localVoiceEnabled = checked },
+        )
+        Spacer(Modifier.height(8.dp))
         Text(
-            "Esta avaliação usa Cloudflare Workers AI para texto e Vision e mantém a voz FLUX 4 na Inworld, que exige créditos. Esta versão de avaliação usa áudio WebRTC simultâneo. Interrupção por fala e cancelamento de eco precisam ser validados neste aparelho.",
+            "Requer um motor Sherpa-ONNX TTS e voz portuguesa brasileira instalados separadamente. " +
+                "Selecione Sherpa como mecanismo padrão de TTS no Android; o FLUX nunca muda automaticamente para Google ou serviços de voz pagos.",
+            color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            if (localVoiceEnabled) "Modo local: respostas textuais do Core são faladas pelo motor instalado no Android; sem fallback de TTS pago. O cérebro ainda precisa de rede." else "Modo original FLUX Live: áudio via WebRTC e provedor do Core, sujeito a custos. Para voz local, instale e habilite o motor neural.",
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp,
