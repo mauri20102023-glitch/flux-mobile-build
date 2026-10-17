@@ -14,7 +14,7 @@
 2. Verifique na **lista oficial de APKs de TTS engine do sherpa-onnx** a versão **Android arm64 / Português Brasileiro**, modelo masculino pré-configurado `pt_BR-jeff-medium`, `pt_BR-cadu-medium` ou `pt_BR-miro-high`:
    https://k2-fsa.github.io/sherpa/onnx/tts/apk-engine.html
    A página lista pacotes oficiais por versão, arquitetura, idioma e modelo. Os APKs do tipo **tts-engine**, diferentemente dos de demonstração tipo **tts**, expõem serviço TextToSpeech para apps como o FLUX. Cada APK deve fornecer um serviço com package `com.k2fsa.sherpa.onnx.tts.engine`; confirmar após instalar. Atenção: APK diferente pode ter assinatura/app ID diferente. Não reinstalar apps sem conferir integridade.
-3. Teste a voz fora do FLUX, nas configurações de **Saída de texto para fala** do Android. Confirme que fala português brasileiro offline.
+3. Nas configurações **Saída de texto para fala** do Android, selecione **Sherpa-ONNX** como **motor padrão** e teste a voz fora do FLUX. Isto é necessário para impedir fallback silencioso do Android a outro motor quando o serviço solicitado falhar. Confirme que fala português brasileiro offline.
 4. Instale a versão de **avaliação** do FLUX nesta branch e abra **Ajustes → Inteligência e Voz → FLUX VOICE 01**.
 5. Ative o toggle, toque em **Iniciar teste de voz**, fale uma frase. Motor externo deve falar a resposta em pt-BR, sem depender de computador ligado.
 6. Desative o modo e confirme que o FLUX Live anterior continua com o comportamento original.
