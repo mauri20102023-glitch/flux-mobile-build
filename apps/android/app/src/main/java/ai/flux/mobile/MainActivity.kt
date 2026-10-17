@@ -145,6 +145,7 @@ class MainActivity : ComponentActivity() {
                     onNotificationSettings = ::openNotificationSettings,
                     onScanDevices = ::requestDeviceScan,
                     onTestVoice = ::requestVoice,
+                    onOfflineVoiceEnabled = ::setOfflineVoiceEnabled,
                     onOpenSpotify = externalApps::openSpotify,
                     onOpenWhatsApp = externalApps::prepareWhatsApp,
                     onOpenMercadoLivre = externalApps::openMercadoLivre,
@@ -230,6 +231,19 @@ class MainActivity : ComponentActivity() {
         runCatching { text?.destroy() }
         runCatching { bluetooth.release() }
         super.onDestroy()
+    }
+
+    /** Switching voice providers destroys the previous voice session safely. */
+    private fun setOfflineVoiceEnabled(enabled: Boolean): Boolean {
+        if (enabled && !ai.flux.mobile.audio.FluxOfflineVoiceTts.isInstalled(this)) {
+            viewModel.reportError("Instale um motor Sherpa-ONNX offline com modelo pt-BR antes de ativar a FLUX VOICE 01.")
+            return false
+        }
+        stopListening()
+        runCatching { voice?.destroy() }
+        voice = null
+        (application as FluxApplication).connectionSettings.updateOfflineVoiceEnabled(enabled)
+        return true
     }
 
     private fun requestVoice() {
@@ -420,7 +434,12 @@ class MainActivity : ComponentActivity() {
      */
     @Suppress("UNCHECKED_CAST")
     private fun createVoiceController(): FluxVoiceBridge {
-        val implementation = Class.forName("ai.flux.mobile.audio.FluxRealtimeVoice")
+        val localMode = (application as FluxApplication).connectionSettings.offlineVoiceEnabled()
+        val implementation = Class.forName(if (localMode) {
+            "ai.flux.mobile.audio.FluxConversationalVoice"
+        } else {
+            "ai.flux.mobile.audio.FluxRealtimeVoice"
+        })
         val callback = kotlin.jvm.functions.Function1::class.java
         val constructor = implementation.getConstructor(
             Context::class.java,
