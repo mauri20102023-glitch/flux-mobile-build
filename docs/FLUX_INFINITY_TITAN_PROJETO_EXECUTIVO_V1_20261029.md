@@ -1,125 +1,113 @@
-# FLUX INFINITY TITAN — projeto executivo V1.0
+# FLUX INFINITY — ESCOPO FINAL DE PRODUTO V1.1
 
-**Data:** 29/10/2026  
-**Estado:** ESPECIFICAÇÃO, não implementação concluída.  
-**Limites autorizados para planejamento:** R$ 1.000 uma vez em despesas pontuais e R$ 300/mês na operação. **Nenhuma compra autorizada individualmente.**
+**Revisado:** 06/11/2026  
+**Status:** escopo definido para planejamento; implementação final NÃO concluída.  
+**Orçamento correto e vinculante:** **R$ 0 de investimento inicial + no máximo R$ 300 por mês**. Sem taxa de implantação, sem reserva inicial de R$ 1.000, sem mensalidade de R$ 500. Não há autorização para contratação ou cobrança.
 
-## Decisão de arquitetura
+> Este documento substitui os valores anteriores do projeto TITAN V1. Qualquer documento antigo que apresente R$ 1.000 iniciais ou R$ 500/mês está desatualizado.
 
-Partir do FLUX existente — Web/PWA, Android nativo em Kotlin/Compose e Core Cloudflare Workers — preservando os protótipos FLUX INFINITY Visual System V1.0 / Morph V8. Evitar reescrever a interface. Aplicar UX responsiva, com home minimalista, esfera e cards contextuais. O Motorola Edge 50 Neo é o dispositivo móvel principal.
+## 1. Visão
 
-Arquitetura em camadas:
+FLUX INFINITY: assistente pessoal multimodal em Android (Motorola Edge 50 Neo) e Desktop/Web, com interface premium preto/grafite/branco metálico, esfera central e **cards adaptativos**. A interação deve parecer um sistema único, mesmo quando usar várias IAs especializadas.
 
+Preservar o repositório [flux-mobile-build](https://github.com/mauri20102023-glitch/flux-mobile-build), seus módulos Android/Cloudflare/PWA e as interfaces já aprovadas (FLUX Visual System V1 / Morph V8). Não reescrever código funcional por estética.
+
+## 2. Arquitetura principal
+
+```text
+Android / Desktop PWA — chat, voz, anexos e workspaces
+      ↓ autenticação e sessão
+FLUX Core — Cloudflare Workers
+      ├─ Session Manager + Auth + Spending Guard
+      ├─ FLUX Intelligence Router / Capability Registry
+      │    ├─ ElevenLabs FLUX ATH (agente conversacional / voz)
+      │    ├─ LLM multimodal, quando conectado e disponível
+      │    ├─ IA de programação, quando conectada e disponível
+      │    ├─ geração de imagens, quando conectada e disponível
+      │    └─ funções locais determinísticas e módulos 3D
+      ├─ File Dock + Jobs + armazenamento privado
+      ├─ Memory Graph + histórico + dados de projetos
+      ├─ Actions/Verifier (consentimento e estado real)
+      └─ Morph Renderer (componentes e layouts JSON validados)
 ```
-Android / Desktop (PWA)
-   ↓ sessão autenticada
-FLUX Core (Cloudflare Worker)
-   ├── FLUX Session / Auth / Spending Guard
-   ├── FLUX Conversation Router (ElevenLabs FLUX ATH para voz)
-   ├── FLUX Text/Vision Adapter (modelo substituível)
-   ├── FLUX Memory Graph (D1 + cache local)
-   ├── FLUX Tools / Capability Registry / Audit
-   └── FLUX Morph JSON Renderer → biblioteca de cards / Genesis Three.js
-```
 
-O agente ElevenLabs existente **FLUX ATH** deve ser lido antes de qualquer mudança (agent_id `agent_5701m38je3dweertjnjsk2fegsbk`). A IA não recebe acesso irrestrito a sistemas, credenciais ou JavaScript executável. A geração de cards se dá por **esquemas JSON validados e componentes permitidos**.
+**Agente ElevenLabs existente:** FLUX ATH, ID `agent_5701m38je3dweertjnjsk2fegsbk`; voice ID `0UODmc3E7WJdP8dVJWTB`. Última leitura confirmou LLM `gpt-5.4-mini`, TTS `eleven_flash_v2_5`, ASR `scribe_realtime`. **Não possui ferramentas conectadas na configuração lida**; conectar e testar antes de afirmar execução de ações.
 
-## Escopo V1 — prioridade alta
+A ElevenLabs não substitui automaticamente Claude Code/Codex, OpenAI Image, ferramentas visuais ou infraestrutura para programar e compilar o FLUX. Cada serviço externo exige integração, condições de acesso, custo e autenticação próprios. ChatGPT Plus não fornece créditos de API.
 
-| Módulo | Recurso / definição de pronto |
+## 3. Funções planejadas
+
+| Componente | Escopo |
 |---|---|
-| Home + Morph | Cards responsivos, reorganização dinâmica, fixar/restaurar, transições; dados verdadeiros ou sinalizados como demonstração |
-| Chat | Histórico persistente, títulos, pesquisa, reabrir conversas, mensagens de voz transcritas, exportar |
-| Live | Sessão real via ElevenLabs FLUX ATH, mute, interrupção, desconectar, estado real, tempo de sessão e limite |
-| Memory | Memórias por projeto, consultar/editar/apagar, apenas contexto autorizado e rastreamento de origem |
-| Planner + Chronos | Tarefas, prioridades, lembretes locais, linha do tempo e persistência |
-| Business | Simulador de margens, veículos e estoque; importação CSV, gráficos baseados em dados reais |
-| Study | Revisões, simulados/flashcards e explicações visuais com exercícios |
-| Genesis 3D | V8 demonstrativo e biblioteca pequena de cenas navegáveis, com controles reais |
-| Forge | Ferramentas construídas por templates seguros: calculadora, tabela, checklist, comparador |
-| System | Configurações, perfil, permissões, orçamento, diagnóstico e backups |
-| Mobile | Usar a interface já aprovada e o app Android existente; preservar a experiência no Motorola |
-| Desktop | Reutilizar PWA / Command Center com workspaces persistentes |
+| **Home + FLUX Morph** | Esfera, cards dinâmicos, organização adaptativa, fixação de cards, layouts responsivos |
+| **Chat + Live** | Conversas persistentes, busca, voz e texto, transcrições, mute/interrupção, controle de sessões e orçamento |
+| **FLUX File Dock** | Anexar PDFs, apresentações, fotos, documentos, arquivos e planilhas; validação de formato/tamanho; armazenamento e consentimento |
+| **FLUX Study Generator** | Gerar aulas interativas a partir de materiais: imagens, diagramas, capítulos, áudio, questões, flashcards, revisão e acompanhamento; referência: aula de Equinodermos já criada |
+| **Memory Graph** | Memória editável e pesquisável por projeto; contexto e fonte dos dados; exportação/exclusão |
+| **Genesis 3D / HoloDesk** | Biblioteca de modelos interativos, cenas técnicas ilustrativas, controles de câmera, manipulação e integração com explicações |
+| **Planner + Chronos** | Tarefas, prazos, cronologia e lembretes persistentes |
+| **Business** | Mauright e Automobili: análise de CSVs, margem, estoque, veículos, relatórios e simulações com dados reais |
+| **Vision** | Captura de tela/câmera autorizada, compreensão visual via modelo compatível e apresentação de resultados |
+| **Forge** | Miniaplicativos baseados em componentes seguros: calculadora, checklist, simulador, tabela |
+| **FLUX Build** | Solicitação de alterações, branches e PRs; compilação/testes e instalação mediante revisão e aprovação |
+| **Link + Devices** | Integração gradual com contas e dispositivos por APIs oficiais, sincronização e Handoff |
+| **System Lab** | Configurações, segurança, status, permissões, recuperação, backup e métricas de custo |
 
-## Expansões condicionadas à estabilidade e verba
+**Não prometer:** geração ilimitada de imagens/vídeos/3D, qualquer modelo premium sem cobrança, acesso irrestrito a outras contas, operação de hardware não conectado, ou clonagem premium em tempo real no celular sem teste.
 
-- **Vision/Snap:** imagens e captura de tela explícitas; OCR e respostas de modelo de visão quando autorizado.
-- **FLUX Link:** OAuth e APIs oficiais de Google Calendar/Gmail ou outros conectores realmente disponíveis.
-- **Handoff:** continuar chat e workspace entre Android e computador.
-- **Mission Control:** missões em etapas e aprovação de operações.
-- **HoloDesk / X-Ray:** mesa espacial e visualização de camadas de modelos conhecidos.
-- **FLUX Build:** prepara branch, PR, CI e mudanças testáveis; instalação sempre depende de aprovação.
-- **Device Fabric:** conexão e comando em dispositivos com API disponível e autenticada.
-- **Voice Offline:** motor local para comandos/avisos; qualidade e velocidade devem ser medidas no aparelho.
+## 4. FLUX Intelligence Router — seleção da ferramenta
 
-Não declarar concluídas geração 3D ilimitada, clonagem premium com funcionamento offline, autonomia irrestrita no Android, criação ilimitada de vídeos, controles sobre apps sem APIs ou 60 min/dia de ElevenAgents.
+O FLUX escolhe por tarefa, custo, disponibilidade e qualidade observada:
+- conversa ao vivo → ElevenLabs, com orçamento controlado;
+- PDFs/aulas → parsing/OCR e modelo multimodal habilitado;
+- imagem → modelo de imagem conectado; armazenar e reutilizar resultados;
+- programação → agente de código com GitHub, testes e aprovação;
+- 3D → modelos de biblioteca e motor gráfico; geração pesada externa somente quando aprovada;
+- operações precisas → funções determinísticas e calculadoras locais.
 
-## Orçamento — investimento único (reservas máximas)
+O usuário controla as preferências e pode revisar qual serviço foi utilizado, a operação realizada e o custo estimado.
 
-| Grupo | Valor |
+Nunca executar código gerado pelo modelo diretamente no navegador/servidor sem validação e sandbox.
+
+## 5. Regra financeira — zero de entrada, limite de R$ 300/mês
+
+**R$ 0 inicialmente:** reutilizar código, modelos e bibliotecas livres, GitHub e franquias gratuitas já disponíveis. Não comprar domínio, hardware, assets, créditos de API ou licenças para começar.
+
+**R$ 300 mensais:** teto global para os serviços, não uma obrigação de gasto. Proposta inicial de envelopes flexíveis, sujeita à conferência de preços reais:
+
+| Recurso | Reserva mensal máxima planejada |
 |---|---:|
-| Ensaios de voz, visão e modelos | R$ 150 |
-| Processamento pontual para testes e compilações | R$ 200 |
-| Assets 3D/ícones licenciados (se necessários) | R$ 100 |
-| Backup/testes/distribuição pontuais | R$ 150 |
-| Reserva ainda não comprometida | R$ 400 |
-| **Máximo** | **R$ 1.000** |
+| ElevenLabs (voz e agente) | R$ 130 |
+| Modelos de texto / documentos / análise | R$ 70 |
+| Imagens, código e tarefas especializadas | R$ 50 |
+| Infraestrutura / armazenamento | R$ 20 |
+| Reserva para variação cambial e tributos | R$ 30 |
+| **Total** | **R$ 300** |
 
-Nenhuma categoria implica compra automática, e não se trata de preço de contratação de desenvolvedores.
+Os valores acima **não são assinaturas contratadas nem preços confirmados**. Se o plano mínimo de um serviço não couber em sua reserva, usar alternativa mais barata, modo local ou deixar o recurso indisponível. O limite em BRL deve cobrir impostos e variação cambial; nenhuma recarga automática ou pagamento por uso sem trava rígida. Cobranças de terceiros não devem ser assumidas como automaticamente bloqueadas pelo backend: configurar também limites nas plataformas.
 
-## Orçamento — operação mensal (teto rígido)
+Não contratar ElevenLabs Pro (ou qualquer plano) sem verificar o preço final; o Pro pode ultrapassar todo o teto sozinho.
 
-| Grupo | Teto mensal |
-|---|---:|
-| ElevenLabs — assinatura, se aprovada após auditoria | R$ 140 |
-| Minutos extras de voz pré-pagos manualmente | R$ 40 |
-| Modelo de texto e Vision | R$ 55 |
-| Infraestrutura e backups | R$ 15 |
-| Contingência | R$ 50 |
-| **Máximo** | **R$ 300** |
+## 6. Etapas de implementação e aceite
 
-Tarifas publicadas na ElevenLabs em outubro/2026: Creator US$ 22/mês, com 275 minutos de chamada incluídos; US$ 0,08/min adicional; modelo de linguagem cobrado à parte. 275 minutos equivalem a aproximadamente 9 minutos/dia em 30 dias. Para 1 hora/dia, seriam 1.800 minutos no mês, além do teto financeiro proposto. Conferir câmbio, IOF, tributos e tela de checkout antes de qualquer assinatura.
+**Fase A — Base visual e local:** auditar branches/PRs; preservar home aprovada, Morph V8, chat local, Planner, backup e mobile/desktop. Aceite: telas reais e dados persistentes; nada de demonstração rotulada como produção.
 
-**Política financeira:** gasto em reais por mês não pode exceder R$ 300; alerta preventivo e bloqueio técnico por serviço; PAYG somente manual, sem auto-top-up; encerrar chamadas inativas; texto como alternativa. Se o plano atual ou o câmbio não couberem no limite, não ativar.
+**Fase B — Arquivos e Study:** File Dock seguro; produzir a partir de PDF uma aula no formato de Equinodermos, com imagens, questões e narração opcional; revisão por desempenho. Aceite: material novo criado automaticamente e salvo com identificação das fontes e progresso.
 
-Fontes:
-- https://elevenlabs.io/pricing/agents
-- https://elevenlabs.io/docs/overview/administration/pay-as-you-go
-- https://developers.cloudflare.com/workers/platform/limits/
-- https://developers.cloudflare.com/d1/platform/pricing/
-- https://developers.cloudflare.com/workers-ai/platform/pricing/
-- https://ai.google.dev/gemini-api/docs/pricing
+**Fase C — Inteligência e custos:** conectar FLUX ATH e pelo menos um provedor alternativo por integração legítima; sessão, voz, logs sanitizados, orçamento e erros reais. Aceite: sessões reais e custo medido sem exceder teto.
 
-## Fases e aceitação
+**Fase D — Morph dinâmico / Genesis / Forge:** usar schemas e componentes permitidos para transformar cards e experiências; cenas 3D conhecidas com persistência. Aceite: cenários demonstráveis sem programação fictícia.
 
-**F0 — Auditoria:** mapear main, PRs 16–23, assets e funcionalidades, com backup e relatório verificável.
+**Fase E — Business, Vision, Link e Build:** desenvolver progressivamente, medindo custos e segurança. Aceite: ferramenta realiza ação real ou indica claramente indisponibilidade; nenhum deploy sem revisão.
 
-**F1 — Base persistente:** chat, memória, contas, planner, D1/cache. **Aceitar** quando fecha/reabre sem perda, restaura dados e trata falhas.
+## 7. Segurança e honestidade técnica
 
-**F2 — Inteligência:** FLUX ATH, credenciais efêmeras, transcrição, LLM de texto, custo. **Aceitar** após sessão real de voz, interrupção, logs sanitizados e medição de gastos.
+- Segredos e tokens somente em armazenamento protegido e servidor autenticado.
+- Permissões visíveis para áudio, vídeo, captura de tela e serviços externos.
+- Memórias e arquivos privados, com controle de eliminação/exportação.
+- Ferramentas distinguem pedido, execução, confirmação e erro.
+- Não enviar dados financeiros, pessoais ou escolares a serviços não autorizados.
+- Nenhuma alteração de produção ou contratação sem autorização específica.
+- Não confundir “projeto fechado” com “aplicativo pronto”.
 
-**F3 — Morph + Genesis:** layouts por JSON validado e cenas reutilizáveis. **Aceitar** quando cards/cenas mudam, salvam e restauram sem executar código gerado arbitrariamente.
-
-**F4 — Ferramentas:** Study, Business e Forge seguros, com dados e contas verificáveis.
-
-**F5 — Expansão:** Vision, integrações, Handoff, automações, apenas após estabilidade e avaliação financeira.
-
-**F6 — Avançado:** FLUX Build, Device Fabric e HoloDesk conforme infraestrutura e limites.
-
-Não informar prazos fictícios. Não afirmar entrega sem testes.
-
-## Segurança e limites
-
-- Nunca incluir chaves em GitHub/cliente; backend faz proxy autenticado.
-- Sessões por dispositivo, proteção dos dados, backup e exclusão.
-- Microfone/câmera sempre com permissão explícita.
-- Toda integração exige capability registry com permissões e confirmação.
-- Registro de ações separa "pedido", "em execução", "confirmado" e "falhou".
-- Sem deploy nem merge em produção sem revisão e aprovação.
-- Distinguir dados reais de demos; cenas técnicas 3D ilustrativas não equivalem a simulações físicas certificadas.
-
-## Próxima entrega de engenharia
-
-Auditar o código e os PRs; elaborar migração de chats/memória e o roteador de sessões; criar branch de implementação a partir de base estável, executar testes no Android e desktop e medir custos antes de comprar qualquer serviço.
-
-**Repositório:** https://github.com/mauri20102023-glitch/flux-mobile-build
+**Próximo trabalho de engenharia:** auditoria da base atual, backlog de tarefas e implementação da Fase A preservando a UI aprovada.
