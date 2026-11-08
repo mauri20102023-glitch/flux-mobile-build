@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR" data-theme="ion">
+<html lang="pt-BR" data-theme="eclipse">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -11,6 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/morph-f1.css">
   <title>FLUX</title>
 </head>
 <body>
@@ -61,6 +62,7 @@
               <div class="quick-row">
                 <button class="briefing-trigger" data-action="briefing"><span>✦</span> ME ATUALIZE AGORA <span aria-hidden="true">↗</span></button>
                 <button class="chip" data-action="toggle-voice"><span class="chip-pulse">●</span> Conversar por voz</button>
+                <button class="morph-f1-trigger" data-morph-launch type="button">VER MODO GP ↗</button>
               </div>
               <div class="deck-foot"><span id="deckDate">HOJE</span><span class="deck-divider"></span><span>INTELIGÊNCIA PESSOAL</span></div>
             </div>
@@ -69,7 +71,7 @@
               <button class="energy-core" id="voiceCore" aria-label="Iniciar conversa por voz" data-state="idle">
                 <span class="orbit orbit-a"></span><span class="orbit orbit-b"></span>
                 <span class="orbit orbit-c"></span><span class="orbit orbit-d"></span><span class="orbit orbit-e"></span><span class="orb-lines"></span>
-                <span class="core-light"></span><span class="core-f">✦</span>
+                <span class="core-light"></span><span class="core-f">F</span>
               </button>
               <span class="core-label" id="voiceStatus">TOQUE PARA FALAR</span>
               <button class="stop-voice" id="stopVoice" hidden>ENCERRAR</button>
@@ -83,6 +85,47 @@
               <div class="telemetry-foot">FLUX 1.8 <span>●</span> INTERFACE ATIVA</div>
             </div>
           </div>
+
+
+          <section class="morph-f1-stage" id="fluxMorphF1" hidden aria-label="FLUX Morph — Grande Prêmio de Fórmula 1">
+            <div class="morph-f1-top">
+              <span class="morph-f1-overline">FLUX INFINITY / MORPH ENGINE / MOTORSPORT</span>
+              <button class="morph-f1-back" type="button" data-morph-reset>✕ VOLTAR À HOME</button>
+            </div>
+            <div class="morph-f1-heading">
+              <div>
+                <p class="morph-f1-overline">AMBIENTE ADAPTATIVO · CENA DEMONSTRATIVA</p>
+                <h2>GP da Fórmula 1<span aria-hidden="true">.</span></h2>
+                <p>O Command Center se transformou para explorar o universo das corridas.</p>
+              </div>
+              <span class="morph-f1-status"><i aria-hidden="true"></i> MORPH ATIVO</span>
+            </div>
+            <div class="morph-f1-content">
+              <section class="morph-f1-circuit" aria-label="Esquema ilustrativo de circuito">
+                <div class="morph-f1-asset-label">CIRCUITO / VISUALIZAÇÃO INTERATIVA</div>
+                <svg class="morph-f1-track-svg" viewBox="0 0 600 290" role="img" aria-label="Circuito abstrato e ilustrativo; não corresponde a nenhum circuito real">
+                  <path class="circuit-glow" d="M82 131 C85 90 140 66 183 87 L229 117 C257 137 278 133 311 112 L367 68 C394 45 436 53 448 81 C457 101 439 119 412 137 L451 159 C505 185 504 237 455 241 L382 235 C351 234 342 209 304 205 L236 216 C196 233 158 218 143 189 L110 184 C78 180 69 158 82 131 Z"/>
+                  <path class="circuit-base" d="M82 131 C85 90 140 66 183 87 L229 117 C257 137 278 133 311 112 L367 68 C394 45 436 53 448 81 C457 101 439 119 412 137 L451 159 C505 185 504 237 455 241 L382 235 C351 234 342 209 304 205 L236 216 C196 233 158 218 143 189 L110 184 C78 180 69 158 82 131 Z"/>
+                  <path class="circuit-line" d="M82 131 C85 90 140 66 183 87 L229 117 C257 137 278 133 311 112 L367 68 C394 45 436 53 448 81 C457 101 439 119 412 137 L451 159 C505 185 504 237 455 241 L382 235 C351 234 342 209 304 205 L236 216 C196 233 158 218 143 189 L110 184 C78 180 69 158 82 131 Z"/>
+                  <circle cx="85" cy="120" r="10" fill="#e5e5e5" stroke="#111" stroke-width="5"/>
+                  <path d="M57 113 L72 113 M57 124 L72 124" stroke="#e5e5e5" stroke-width="3" />
+                </svg>
+                <div class="morph-f1-watermark"><span>FLUX GENESIS / ESQUEMA VISUAL</span><span class="morph-f1-mark" aria-label="Símbolo F do FLUX">F</span></div>
+              </section>
+              <article class="morph-f1-detail" id="morphF1Detail" aria-live="polite">
+                <small data-morph-eyebrow>01 / CIRCUITO</small>
+                <h3 data-morph-heading>Visão do traçado</h3>
+                <p data-morph-description>Um esquema interativo de pista. O desenho é ilustrativo: não representa o traçado oficial de um GP.</p>
+                <p class="morph-f1-note" data-morph-note>A próxima evolução poderá carregar mapas de circuitos verificados.</p>
+              </article>
+            </div>
+            <div class="morph-f1-tabs" role="group" aria-label="Explorar modos do GP">
+              <button class="morph-f1-chip is-active" type="button" data-morph-tab="circuito" aria-pressed="true"><small>01 / VISUALIZAÇÃO</small><strong>Circuito</strong></button>
+              <button class="morph-f1-chip" type="button" data-morph-tab="estrategia" aria-pressed="false"><small>02 / DECISÕES</small><strong>Estratégia</strong></button>
+              <button class="morph-f1-chip" type="button" data-morph-tab="analise" aria-pressed="false"><small>03 / CONTEXTO</small><strong>Análise</strong></button>
+            </div>
+            <p class="morph-f1-footer">DEMONSTRAÇÃO LOCAL · SEM DADOS DE CORRIDA AO VIVO · SEM CONSUMO DE API PAGA</p>
+          </section>
 
           <div class="briefing-heading" id="briefingHeading">
             <div><p class="eyebrow">INTELIGÊNCIA DO DIA <span class="heading-line"></span> 01 / 04</p><h3>Seu panorama de hoje<span class="heading-period">.</span></h3><p>Informações reais do seu FLUX, atualizadas quando você pedir.</p></div>
@@ -186,7 +229,7 @@
         <section class="view" data-view="settings">
           <div class="section-intro"><div><p class="eyebrow">CONFIGURAÇÕES</p><h2>Seu FLUX, do seu jeito</h2><p>Aparência, conexão, privacidade e diagnóstico.</p></div></div>
           <div class="settings-grid">
-            <article class="panel setting-card"><h3>Aparência</h3><p>Escolha a assinatura de energia.</p><div class="theme-picker"><button data-theme-pick="ember" class="ember selected" aria-label="Vermelho e ciano"></button><button data-theme-pick="ion" class="ion" aria-label="Azul e violeta"></button><button data-theme-pick="aurora" class="aurora" aria-label="Verde e azul"></button><button data-theme-pick="gold" class="gold" aria-label="Dourado e vermelho"></button></div></article>
+            <article class="panel setting-card"><h3>Aparência</h3><p>Escolha a assinatura de energia.</p><div class="theme-picker"><button data-theme-pick="eclipse" class="eclipse" aria-label="Eclipse Monochrome preto e prata"></button><button data-theme-pick="ember" class="ember selected" aria-label="Vermelho e ciano"></button><button data-theme-pick="ion" class="ion" aria-label="Azul e violeta"></button><button data-theme-pick="aurora" class="aurora" aria-label="Verde e azul"></button><button data-theme-pick="gold" class="gold" aria-label="Dourado e vermelho"></button></div></article>
             <article class="panel setting-card"><h3>FLUX Core</h3><p id="pairStatus" role="status">Verificando conexão…</p><label>CÓDIGO DE PAREAMENTO<input id="pairCode" type="text" inputmode="text" maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Cole o código de uso único"></label><button class="primary-button wide" id="saveConnection">CONECTAR AO CORE</button><p class="helper">Use um código exclusivo para este navegador. Ele expira em 15 minutos e funciona uma vez.</p></article>
             <article class="panel setting-card"><h3>Privacidade</h3><label>PIN ATUAL (SE JÁ EXISTIR)<input id="oldPrivatePin" type="password" inputmode="numeric" maxlength="12" autocomplete="off"></label><label>NOVO PIN<input id="privatePin" type="password" inputmode="numeric" maxlength="12" placeholder="6 a 12 números" autocomplete="off"></label><p class="helper">O PIN cifra as notas privadas neste navegador. Para trocar, informe o atual.</p><button class="secondary-button wide" id="savePin">SALVAR PIN</button></article>
             <article class="panel setting-card"><h3>Voz e contexto</h3><label class="toggle-row"><span><b>Resposta falada</b><small>Voz FLUX 4 pela Inworld após parear o Core</small></span><input type="checkbox" id="voiceEnabled" checked></label><label class="toggle-row"><span><b>Palavra “Flux”</b><small>Ativação contínua disponível apenas no app Android compatível</small></span><input type="checkbox" id="wakeEnabled" disabled></label><p class="helper">A agenda do Android compartilha os próximos eventos com seu Core somente após você autorizar a permissão no aplicativo.</p><button class="secondary-button wide" data-action="audio-test">TESTAR ÁUDIO</button></article>
@@ -208,6 +251,7 @@
   <div class="toast-region" id="toasts" aria-live="assertive"></div>
   <dialog id="modal"><form method="dialog"><div class="modal-head"><div><p class="eyebrow" id="modalEyebrow">FLUX</p><h2 id="modalTitle">Título</h2></div><button value="cancel" aria-label="Fechar">×</button></div><div id="modalBody"></div><div class="modal-actions" id="modalActions"></div></form></dialog>
 
+  <script src="/morph-f1.js" defer></script>
   <script src="/app.js" type="module"></script>
 </body>
 </html>
