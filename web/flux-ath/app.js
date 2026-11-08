@@ -153,7 +153,7 @@ async function sendChat(message, { spoken = false } = {}) {
     state.messages.push({ id:crypto.randomUUID(), role:"user", text:clean });
     state.messages.push({ id:crypto.randomUUID(), role:"flux", text:morph.text, mode:"MORPH LOCAL" });
     save(); renderMessages(); go("home", true, false);
-    if (spoken && state.token) await speakFlux(morph.text);
+    // A demonstração é visual e não dispara TTS pago automaticamente.
     return;
   }
   if (isBriefingRequest(clean)) {
