@@ -95,3 +95,6 @@ body[data-flux-scene="f1"] .view[data-view="home"] > :not(.morph-f1-stage) { dis
 @media(prefers-reduced-motion:reduce) {
  .morph-f1-stage,.morph-f1-track-svg .circuit-line,.morph-f1-chip { animation:none !important; transition:none !important; }
 }
+
+/* Miniatura do tema Eclipse no seletor existente */
+.theme-picker .eclipse { background:linear-gradient(135deg,#000 30%,#232323 49%,#828282 70%,#e5e5e5 100%); border-color:#bdbdbd; }
