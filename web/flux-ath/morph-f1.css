@@ -1,0 +1,97 @@
+/* FLUX INFINITY / Eclipse Monochrome / cena contextual de GP. */
+/* O novo cenário não usa dados externos nem altera os outros módulos. */
+html[data-theme="eclipse"] {
+  --bg:#000000; --bg-2:#111111; --surface:rgba(35,35,35,.82);
+  --surface-solid:#232323; --line:rgba(229,229,229,.2);
+  --text:#e5e5e5; --muted:#a3a3a3; --accent:#e5e5e5;
+  --accent-2:#c4c4c4; --accent-soft:rgba(229,229,229,.08);
+  --shadow:0 25px 100px rgba(0,0,0,.55);
+}
+html[data-theme="eclipse"] body,
+html[data-theme="eclipse"] { background:#000; }
+html[data-theme="eclipse"] .command-deck {
+  background:radial-gradient(circle at 52% 50%,rgba(165,165,165,.12),transparent 35%),linear-gradient(135deg,#1c1c1c,#050505 65%,#111);
+  border-color:rgba(229,229,229,.24);
+}
+html[data-theme="eclipse"] .energy-core,
+html[data-theme="eclipse"] .orbit,
+html[data-theme="eclipse"] .orb-lines { filter:grayscale(1); }
+html[data-theme="eclipse"] .core-f { color:#f8f8f8; text-shadow:0 0 15px #fff,0 0 35px #999; font-size:42px; }
+html[data-theme="eclipse"] .brief-card,
+html[data-theme="eclipse"] .telemetry-card,
+html[data-theme="eclipse"] .home-grid > .panel { background:linear-gradient(135deg,rgba(35,35,35,.87),rgba(8,8,8,.94)); border-color:rgba(229,229,229,.2); }
+html[data-theme="eclipse"] .telemetry-head,
+html[data-theme="eclipse"] .telemetry-foot,
+html[data-theme="eclipse"] .core-label { color:#e5e5e5; }
+
+.morph-f1-stage[hidden] { display:none !important; }
+body[data-flux-scene="f1"] .view[data-view="home"] > :not(.morph-f1-stage) { display:none !important; }
+.morph-f1-stage {
+  position:relative; isolation:isolate; overflow:hidden;
+  padding:clamp(18px,2.5vw,34px); min-height:540px; color:#f1f1f1;
+  background:radial-gradient(ellipse at 48% 38%,rgba(186,186,186,.16),transparent 34%),
+    radial-gradient(ellipse at 100% 100%,rgba(94,94,94,.09),transparent 39%),#050505;
+  border:1px solid rgba(229,229,229,.3);
+  border-radius:26px; box-shadow:0 32px 100px rgba(0,0,0,.55),inset 0 0 70px rgba(210,210,210,.035);
+  animation:morph-f1-enter .55s cubic-bezier(.15,.72,.28,1) both;
+}
+.morph-f1-stage:before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+ background:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+ background-size:47px 47px; mask-image:linear-gradient(90deg,transparent,#000 50%,transparent); }
+.morph-f1-top { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:25px; }
+.morph-f1-overline { font-size:10px; letter-spacing:.22em; font-weight:800; color:#a4a4a4; }
+.morph-f1-back { background:#181818; border:1px solid #626262; border-radius:11px; padding:10px 14px; font-size:10px; font-weight:800; letter-spacing:.08em; }
+.morph-f1-back:hover,.morph-f1-back:focus-visible { background:#343434; }
+.morph-f1-heading { display:flex; align-items:center; justify-content:space-between; gap:26px; margin-bottom:22px; }
+.morph-f1-heading h2 { margin:5px 0; font-size:clamp(28px,4.6vw,59px); line-height:1.05; letter-spacing:-.06em; font-weight:780; }
+.morph-f1-heading p { margin:0; color:#aaa; font-size:13px; }
+.morph-f1-status { display:flex; align-items:center; gap:8px; font-size:10px; color:#cacaca; border:1px solid #5c5c5c; padding:9px 12px; border-radius:999px; white-space:nowrap; }
+.morph-f1-status i { width:7px; height:7px; border-radius:50%; background:#e5e5e5; box-shadow:0 0 9px #e5e5e5; }
+.morph-f1-content { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(260px,.85fr); gap:16px; }
+.morph-f1-circuit,.morph-f1-detail,.morph-f1-chip { background:linear-gradient(135deg,rgba(47,47,47,.55),rgba(15,15,15,.85)); border:1px solid #494949; }
+.morph-f1-circuit,.morph-f1-detail { border-radius:19px; min-height:320px; position:relative; overflow:hidden; }
+.morph-f1-circuit { padding:18px; display:flex; flex-direction:column; }
+.morph-f1-asset-label { font-size:9px; letter-spacing:.18em; color:#bcbcbc; font-weight:750; }
+.morph-f1-track-svg { width:100%; height:238px; display:block; overflow:visible; margin:auto; }
+.morph-f1-track-svg .circuit-glow { fill:none; stroke:rgba(255,255,255,.17); stroke-width:22; stroke-linecap:round; stroke-linejoin:round; filter:blur(9px); }
+.morph-f1-track-svg .circuit-base { fill:none; stroke:#666; stroke-width:15; stroke-linecap:round; stroke-linejoin:round; }
+.morph-f1-track-svg .circuit-line { fill:none; stroke:#e5e5e5; stroke-width:5; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:12 9; animation:morph-dash 18s linear infinite; }
+.morph-f1-watermark { display:flex; justify-content:space-between; gap:15px; align-items:center; font-size:9px; letter-spacing:.12em; color:#a7a7a7; }
+.morph-f1-mark { border:1px solid #aaa; width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font:italic 850 24px/1 Arial,sans-serif; box-shadow:0 0 25px #fff2; color:#fff; }
+.morph-f1-detail { padding:25px; display:flex; flex-direction:column; gap:13px; }
+.morph-f1-detail small { font-size:10px; color:#a8a8a8; letter-spacing:.15em; font-weight:800; }
+.morph-f1-detail h3 { font-size:clamp(21px,2vw,32px); line-height:1.18; letter-spacing:-.035em; margin:8px 0 0; }
+.morph-f1-detail p { margin:0; color:#cecece; line-height:1.7; font-size:14px; }
+.morph-f1-detail .morph-f1-note { margin-top:auto; border-top:1px solid #515151; padding-top:17px; font-size:11px; line-height:1.6; color:#929292; }
+.morph-f1-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:16px; }
+.morph-f1-chip { text-align:left; border-radius:13px; min-height:76px; padding:12px 14px; transition:transform .25s,border-color .25s,background .25s; }
+.morph-f1-chip small { display:block; color:#9f9f9f; font-size:9px; letter-spacing:.14em; margin-bottom:8px; }
+.morph-f1-chip strong { font-size:14px; color:#e5e5e5; }
+.morph-f1-chip:hover,.morph-f1-chip.is-active { border-color:#e5e5e5; background:rgba(110,110,110,.18); transform:translateY(-2px); }
+.morph-f1-footer { padding-top:16px; color:#8f8f8f; font-size:10px; letter-spacing:.08em; }
+.morph-f1-trigger { border:1px solid rgba(229,229,229,.42); background:rgba(229,229,229,.09); border-radius:11px; padding:12px 16px; font-size:11px; font-weight:780; letter-spacing:.09em; }
+.morph-f1-trigger:hover { background:#353535; }
+@keyframes morph-f1-enter { from { opacity:0; transform:scale(.975) translateY(14px); filter:blur(8px); } to { opacity:1; transform:none; filter:none; } }
+@keyframes morph-dash { to { stroke-dashoffset:-210; } }
+@media(max-width:850px) {
+ .morph-f1-content { grid-template-columns:1fr; }
+ .morph-f1-circuit,.morph-f1-detail { min-height:0; }
+ .morph-f1-detail { padding:20px; }
+ .morph-f1-track-svg { height:200px; }
+ .morph-f1-stage { padding:20px; }
+ .morph-f1-heading { align-items:flex-start; flex-direction:column; gap:12px; }
+ .morph-f1-top { align-items:flex-start; }
+}
+@media(max-width:420px) {
+ .morph-f1-stage { padding:16px; border-radius:19px; }
+ .morph-f1-heading h2 { font-size:31px; }
+ .morph-f1-overline { font-size:8px; letter-spacing:.13em; }
+ .morph-f1-back { padding:9px 10px; font-size:9px; white-space:nowrap; }
+ .morph-f1-chip { padding:10px 8px; min-height:72px; }
+ .morph-f1-chip small { font-size:7px; }
+ .morph-f1-chip strong { font-size:11px; }
+ .morph-f1-track-svg { height:160px; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .morph-f1-stage,.morph-f1-track-svg .circuit-line,.morph-f1-chip { animation:none !important; transition:none !important; }
+}
