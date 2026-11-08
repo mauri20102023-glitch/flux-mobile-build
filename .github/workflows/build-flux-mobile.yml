@@ -24,7 +24,10 @@ jobs:
       - name: Check site and Core bundle
         run: |
           node --check web/flux-ath/app.js
+          node --check web/flux-ath/morph-f1.js
           node --check web/flux-ath/sw.js
+          node --test test/morph-f1.test.mjs
+          npm run embed:web
           npm run check
 
   signing-tools:

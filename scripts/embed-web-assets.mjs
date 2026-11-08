@@ -7,6 +7,8 @@ const web = join(root, "web", "flux-ath");
 const mime = {
   "index.html": "text/html; charset=utf-8",
   "app.js": "text/javascript; charset=utf-8",
+  "morph-f1.js": "text/javascript; charset=utf-8",
+  "morph-f1.css": "text/css; charset=utf-8",
   "styles.css": "text/css; charset=utf-8",
   "sw.js": "text/javascript; charset=utf-8",
   "icon.svg": "image/svg+xml",

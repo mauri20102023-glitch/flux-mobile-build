@@ -1,12 +1,12 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const VERSION = "1.8.1";
+const VERSION = "1.8.2-morph-preview";
 const STORE = "flux-workspace-v1";
 const DEVICE_ID = localStorage.getItem("flux-device-id") || `web-${crypto.randomUUID()}`;
 localStorage.setItem("flux-device-id", DEVICE_ID);
 
 const initial = {
-  theme: "ion",
+  theme: "eclipse",
   coreUrl: location.origin,
   token: "",
   pinHash: "",
@@ -37,6 +37,12 @@ let state = loadState();
 if (!localStorage.getItem("flux-blue-upgrade-1.8")) {
   if (state.theme === "ember") state.theme = "ion";
   localStorage.setItem("flux-blue-upgrade-1.8", "1");
+}
+// Eclipse é o tema escolhido para o FLUX INFINITY; upgrade apenas uma vez,
+// preservando futuras alterações feitas nas Configurações.
+if (!localStorage.getItem("flux-eclipse-ui-v1")) {
+  state.theme = "eclipse";
+  localStorage.setItem("flux-eclipse-ui-v1", "1");
 }
 const revealedMemories = new Map();
 let sessionPin = "";
@@ -141,6 +147,15 @@ function weatherPlaceFromQuery(query) {
 
 async function sendChat(message, { spoken = false } = {}) {
   const clean = message.trim(); if (!clean) return;
+  // Comandos para cenas locais não precisam de pareamento, API ou gasto premium.
+  const morph = window.FluxMorph?.handleCommand(clean);
+  if (morph) {
+    state.messages.push({ id:crypto.randomUUID(), role:"user", text:clean });
+    state.messages.push({ id:crypto.randomUUID(), role:"flux", text:morph.text, mode:"MORPH LOCAL" });
+    save(); renderMessages(); go("home", true, false);
+    // A demonstração é visual e não dispara TTS pago automaticamente.
+    return;
+  }
   if (isBriefingRequest(clean)) {
     state.messages.push({ id:crypto.randomUUID(), role:"user", text:clean });
     await runBriefing({ speak:spoken || state.voiceEnabled, log:true }); go("chat",true,!spoken); return;
